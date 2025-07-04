@@ -14,9 +14,13 @@ import '../controllers/reading_coach_store.dart';
 import '../controllers/word_doctor_store.dart';
 import '../controllers/adaptive_story_store.dart';
 import '../controllers/phonics_game_store.dart';
+import '../controllers/learner_profile_store.dart';
+import '../controllers/session_log_store.dart';
 import '../services/story_service.dart';
 import '../services/phonics_sounds_service.dart';
 import '../services/model_download_service.dart';
+import '../services/session_logging_service.dart';
+import '../services/gemma_profile_update_service.dart';
 import 'dart:developer' as developer;
 
 final getIt = GetIt.instance;
@@ -40,8 +44,18 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<PhonicsSoundsService>(() => PhonicsSoundsService());
   getIt.registerLazySingleton<ModelDownloadService>(() => ModelDownloadService());
   
+  // Register new learner profiler services
+  getIt.registerLazySingleton<SessionLogStore>(() => SessionLogStore());
+  getIt.registerLazySingleton<LearnerProfileStore>(() => LearnerProfileStore());
+  getIt.registerLazySingleton<SessionLoggingService>(() => SessionLoggingService());
+  getIt.registerLazySingleton<GemmaProfileUpdateService>(() => GemmaProfileUpdateService());
+  
   // Initialize font preference service
   await getIt<FontPreferenceService>().init();
+  
+  // Initialize learner profiler stores
+  await getIt<SessionLogStore>().initialize();
+  await getIt<LearnerProfileStore>().initialize();
   
   getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore(
     speechService: getIt<SpeechRecognitionService>(),

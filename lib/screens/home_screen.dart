@@ -1,7 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import '../controllers/learner_profile_store.dart';
+import '../controllers/session_log_store.dart';
+import '../services/gemma_profile_update_service.dart';
+import '../models/session_log.dart';
+import '../utils/service_locator.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final LearnerProfileStore _profileStore;
+  late final SessionLogStore _sessionLogStore;
+  late final GemmaProfileUpdateService _profileUpdateService;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileStore = getIt<LearnerProfileStore>();
+    _sessionLogStore = getIt<SessionLogStore>();
+    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -9,22 +32,24 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(context),
-              const SizedBox(height: 16),
-              _buildFocusMode(),
-              const SizedBox(height: 16),
-              _buildTodaysProgress(context),
-              const SizedBox(height: 16),
-              _buildQuickTools(context),
-              const SizedBox(height: 16),
-              _buildRecentActivity(),
-              const SizedBox(height: 16),
-              _buildSuggestedPractice(),
-              const SizedBox(height: 16), // Extra bottom padding
-            ],
+          child: Observer(
+            builder: (context) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(context),
+                const SizedBox(height: 16),
+                _buildLearnerProfile(context),
+                const SizedBox(height: 16),
+                _buildTodaysProgress(context),
+                const SizedBox(height: 16),
+                _buildQuickTools(context),
+                const SizedBox(height: 16),
+                _buildRecentActivity(),
+                const SizedBox(height: 16),
+                _buildPersonalizedSuggestions(context),
+                const SizedBox(height: 16), // Extra bottom padding
+              ],
+            ),
           ),
         ),
       ),
@@ -69,26 +94,171 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFocusMode() {
+  Widget _buildLearnerProfile(BuildContext context) {
+    if (_profileStore.isLoading) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 12),
+              Text('Loading your learning profile...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_profileStore.hasProfile) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.psychology_outlined, size: 24),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Learning Profile',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Complete a few sessions to get personalized recommendations!',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.visibility_outlined, size: 24),
-            const SizedBox(width: 12),
-            const Text(
-              'Focus Mode',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            Row(
+              children: [
+                const Icon(Icons.psychology_outlined, size: 24),
+                const SizedBox(width: 12),
+                const Text(
+                  'Learning Profile',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const Spacer(),
+                if (_profileStore.needsUpdate)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Update Available',
+                      style: TextStyle(
+                        color: Colors.orange[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            const Spacer(),
-            Switch(
-              value: false,
-              onChanged: (value) {},
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildProfileStat(
+                    'Confidence',
+                    _profileStore.confidenceLevel,
+                    context,
+                  ),
+                ),
+                Expanded(
+                  child: _buildProfileStat(
+                    'Accuracy',
+                    _profileStore.accuracyLevel,
+                    context,
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
+            if (_profileStore.currentFocus.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.center_focus_strong,
+                      color: Theme.of(context).primaryColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Current Focus: ${_profileStore.currentFocus}',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (_profileStore.needsUpdate && _profileStore.canUpdateManually)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _profileStore.isUpdating ? null : _updateProfile,
+                    child: _profileStore.isUpdating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Update Profile'),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildProfileStat(String label, String value, BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -169,9 +339,21 @@ class HomeScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildProgressStat('Words', '28', context),
-                _buildProgressStat('Exercises', '5', context),
-                _buildProgressStat('Mastered', '12', context),
+                _buildProgressStat(
+                  'Sessions', 
+                  '${_sessionLogStore.sessionLogs.length}', 
+                  context
+                ),
+                _buildProgressStat(
+                  'Accuracy', 
+                  '${(_sessionLogStore.averageAccuracy * 100).round()}%', 
+                  context
+                ),
+                _buildProgressStat(
+                  'Study Time', 
+                  '${_sessionLogStore.totalStudyTime.inMinutes}min', 
+                  context
+                ),
               ],
             ),
           ],
@@ -313,6 +495,8 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildRecentActivity() {
+    final recentSessions = _sessionLogStore.recentLogs.take(3).toList();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -321,23 +505,66 @@ class HomeScreen extends StatelessWidget {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
-        _buildActivityItem(
-          Icons.library_books,
-          'Completed "The Lion\'s Den"',
-          'Today, 10:45 AM',
-        ),
-        _buildActivityItem(
-          Icons.abc,
-          'Mastered 5 new words',
-          'Yesterday, 3:20 PM',
-        ),
-        _buildActivityItem(
-          Icons.emoji_events,
-          'Earned "Reading Streak" badge',
-          'Yesterday, 2:15 PM',
-        ),
+        if (recentSessions.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.grey),
+                SizedBox(width: 12),
+                Text(
+                  'No recent activity. Start a session to begin learning!',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          )
+        else
+          ...recentSessions.map((session) => _buildActivityItem(
+            _getSessionIcon(session.sessionType),
+            session.sessionDescription,
+            _formatSessionTime(session.timestamp),
+          )),
       ],
     );
+  }
+
+  IconData _getSessionIcon(SessionType sessionType) {
+    switch (sessionType) {
+      case SessionType.readingCoach:
+        return Icons.mic_outlined;
+      case SessionType.wordDoctor:
+        return Icons.search_outlined;
+      case SessionType.adaptiveStory:
+        return Icons.menu_book_outlined;
+      case SessionType.phonicsGame:
+        return Icons.games_outlined;
+      case SessionType.textSimplifier:
+        return Icons.text_fields;
+      case SessionType.soundItOut:
+        return Icons.volume_up;
+      default:
+        return Icons.school;
+    }
+  }
+
+  String _formatSessionTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+    
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} minutes ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else if (difference.inDays == 1) {
+      return 'Yesterday';
+    } else {
+      return '${difference.inDays} days ago';
+    }
   }
   
   Widget _buildActivityItem(IconData icon, String title, String time) {
@@ -375,50 +602,222 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSuggestedPractice() {
+  Widget _buildPersonalizedSuggestions(BuildContext context) {
+    if (!_profileStore.hasProfile) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Suggested Practice',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.school, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Start with some sessions to get personalized suggestions!",
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          "Try Reading Coach or Word Doctor",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Suggested Practice',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Colors.orange,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.lightbulb, color: Colors.white, size: 20),
+                const Text(
+                  'Personalized for You',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        "You seem to mix up 'b' and 'd'.",
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Icon(
+                        Icons.psychology,
+                        color: Colors.green[700],
+                        size: 12,
                       ),
+                      const SizedBox(width: 4),
                       Text(
-                        "Let's practice!",
-                        style: TextStyle(color: Colors.grey),
+                        'AI Powered',
+                        style: TextStyle(
+                          color: Colors.green[700],
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.star, color: Colors.white, size: 16),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recommended: ${_profileStore.recommendedTool}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _profileStore.learningAdvice,
+                          style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_profileStore.phonemeConfusions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.psychology, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Practice These Sounds',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.phonemeConfusions.take(3).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_profileStore.strengthAreas.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.thumb_up, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Strengths',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.strengthAreas.take(2).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _updateProfile() async {
+    await _profileUpdateService.updateProfileFromRecentSessions();
   }
 } 

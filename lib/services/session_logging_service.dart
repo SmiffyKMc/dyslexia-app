@@ -1,0 +1,277 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import '../models/session_log.dart';
+import '../controllers/session_log_store.dart';
+import '../controllers/learner_profile_store.dart';
+import '../utils/service_locator.dart';
+
+class SessionLoggingService {
+  late final SessionLogStore _sessionLogStore;
+  late final LearnerProfileStore _profileStore;
+  Timer? _sessionTimer;
+  DateTime? _sessionStartTime;
+
+  SessionLoggingService() {
+    _sessionLogStore = getIt<SessionLogStore>();
+    _profileStore = getIt<LearnerProfileStore>();
+  }
+
+  Future<void> startSession({
+    required SessionType sessionType,
+    required String featureName,
+    Map<String, dynamic>? initialData,
+  }) async {
+    developer.log('📝 Starting session logging for $featureName ($sessionType)', name: 'dyslexic_ai.session_logging');
+    
+    _sessionStartTime = DateTime.now();
+    
+    final data = <String, dynamic>{
+      'session_start': _sessionStartTime!.toIso8601String(),
+      'feature_name': featureName,
+      'user_agent': 'dyslexic_ai_flutter',
+      'session_version': '1.0',
+      ...?initialData,
+    };
+
+    _sessionLogStore.startSession(sessionType, featureName, data);
+    
+    _sessionTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _updateSessionHeartbeat();
+    });
+  }
+
+  void updateSessionData(Map<String, dynamic> data) {
+    developer.log('📝 Updating session data: ${data.keys}', name: 'dyslexic_ai.session_logging');
+    
+    _sessionLogStore.updateCurrentSession({
+      'last_update': DateTime.now().toIso8601String(),
+      ...data,
+    });
+  }
+
+  void logUserAction({
+    required String action,
+    Map<String, dynamic>? metadata,
+  }) {
+    developer.log('📝 Logging user action: $action', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      'last_action': action,
+      'last_action_time': DateTime.now().toIso8601String(),
+      'action_metadata': metadata ?? {},
+    });
+  }
+
+  void logPhonemeError(String phoneme, {String? context}) {
+    developer.log('📝 Logging phoneme error: $phoneme', name: 'dyslexic_ai.session_logging');
+    
+    final currentData = _sessionLogStore.currentSession?.data ?? {};
+    final existingErrors = List<String>.from(currentData['mispronounced_phonemes'] ?? []);
+    
+    if (!existingErrors.contains(phoneme)) {
+      existingErrors.add(phoneme);
+    }
+    
+    updateSessionData({
+      'mispronounced_phonemes': existingErrors,
+      'phoneme_error_contexts': {
+        ...Map<String, String>.from(currentData['phoneme_error_contexts'] ?? {}),
+        phoneme: context ?? 'unknown',
+      },
+    });
+  }
+
+  void logWordAnalysis({
+    required String word,
+    required List<String> syllables,
+    required List<String> phonemes,
+    bool? wasCorrect,
+  }) {
+    developer.log('📝 Logging word analysis: $word', name: 'dyslexic_ai.session_logging');
+    
+    final currentData = _sessionLogStore.currentSession?.data ?? {};
+    final existingWords = List<Map<String, dynamic>>.from(currentData['analyzed_words'] ?? []);
+    
+    existingWords.add({
+      'word': word,
+      'syllables': syllables,
+      'phonemes': phonemes,
+      'was_correct': wasCorrect,
+      'analyzed_at': DateTime.now().toIso8601String(),
+    });
+    
+    updateSessionData({
+      'analyzed_words': existingWords,
+      'words_analyzed': existingWords.length,
+    });
+  }
+
+  void logReadingMetrics({
+    int? wordsRead,
+    double? wordsPerMinute,
+    double? accuracy,
+    List<String>? difficultWords,
+  }) {
+    developer.log('📝 Logging reading metrics: WPM=$wordsPerMinute, Accuracy=$accuracy', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      if (wordsRead != null) 'words_read': wordsRead,
+      if (wordsPerMinute != null) 'words_per_minute': wordsPerMinute,
+      if (accuracy != null) 'reading_accuracy': accuracy,
+      if (difficultWords != null) 'difficult_words': difficultWords,
+      'reading_metrics_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  void logComprehensionResults({
+    required int questionsTotal,
+    required int questionsCorrect,
+    double? comprehensionScore,
+    List<String>? incorrectAnswers,
+  }) {
+    developer.log('📝 Logging comprehension: $questionsCorrect/$questionsTotal', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      'questions_total': questionsTotal,
+      'questions_correct': questionsCorrect,
+      'questions_answered': questionsTotal,
+      'comprehension_score': comprehensionScore ?? (questionsCorrect / questionsTotal),
+      if (incorrectAnswers != null) 'incorrect_answers': incorrectAnswers,
+      'comprehension_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  void logGameResults({
+    required int score,
+    int? maxScore,
+    int? roundsCompleted,
+    int? totalRounds,
+    List<String>? difficultSounds,
+  }) {
+    developer.log('📝 Logging game results: Score=$score, Rounds=$roundsCompleted', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      'game_score': score,
+      if (maxScore != null) 'max_score': maxScore,
+      if (roundsCompleted != null) 'rounds_completed': roundsCompleted,
+      if (totalRounds != null) 'total_rounds': totalRounds,
+      if (difficultSounds != null) 'difficult_sounds': difficultSounds,
+      'game_results_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  void logConfidenceIndicator(String level, {String? reason}) {
+    developer.log('📝 Logging confidence: $level', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      'confidence_level': level,
+      'confidence_reason': reason ?? 'automatic',
+      'confidence_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  void logLearningStyleUsage({
+    bool? usedVisualAids,
+    bool? usedAudioSupport,
+    bool? usedKinestheticElements,
+    String? preferredMode,
+  }) {
+    developer.log('📝 Logging learning style usage', name: 'dyslexic_ai.session_logging');
+    
+    updateSessionData({
+      if (usedVisualAids != null) 'used_visual_aids': usedVisualAids,
+      if (usedAudioSupport != null) 'used_audio_support': usedAudioSupport,
+      if (usedKinestheticElements != null) 'used_kinesthetic': usedKinestheticElements,
+      if (preferredMode != null) 'preferred_learning_mode': preferredMode,
+      'learning_style_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<void> completeSession({
+    double? finalAccuracy,
+    int? finalScore,
+    String? completionStatus,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    developer.log('📝 Completing session...', name: 'dyslexic_ai.session_logging');
+    
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
+    
+    final duration = _sessionStartTime != null 
+        ? DateTime.now().difference(_sessionStartTime!)
+        : const Duration(minutes: 1);
+    
+    final finalData = <String, dynamic>{
+      'session_end': DateTime.now().toIso8601String(),
+      'completion_status': completionStatus ?? 'completed',
+      'session_duration_minutes': duration.inMinutes,
+      'session_duration_seconds': duration.inSeconds,
+      ...?additionalData,
+    };
+
+    await _sessionLogStore.completeCurrentSession(
+      duration: duration,
+      accuracy: finalAccuracy,
+      score: finalScore,
+      finalData: finalData,
+    );
+    
+    _profileStore.incrementSessionCount();
+    
+    _sessionStartTime = null;
+    
+    developer.log('📝 Session completed and profile updated', name: 'dyslexic_ai.session_logging');
+  }
+
+  void cancelSession({String? reason}) {
+    developer.log('📝 Cancelling session: ${reason ?? "user cancelled"}', name: 'dyslexic_ai.session_logging');
+    
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
+    _sessionStartTime = null;
+    
+    _sessionLogStore.cancelCurrentSession();
+  }
+
+  void _updateSessionHeartbeat() {
+    if (_sessionStartTime != null) {
+      final elapsed = DateTime.now().difference(_sessionStartTime!);
+      updateSessionData({
+        'session_heartbeat': DateTime.now().toIso8601String(),
+        'elapsed_minutes': elapsed.inMinutes,
+        'elapsed_seconds': elapsed.inSeconds,
+      });
+    }
+  }
+
+  Map<String, dynamic> getCurrentSessionData() {
+    return _sessionLogStore.currentSession?.data ?? {};
+  }
+
+  bool get hasActiveSession => _sessionLogStore.currentSession != null;
+
+  SessionType? get currentSessionType => _sessionLogStore.currentSession?.sessionType;
+
+  String? get currentFeatureName => _sessionLogStore.currentSession?.feature;
+
+  Duration? get currentSessionDuration {
+    return _sessionStartTime != null 
+        ? DateTime.now().difference(_sessionStartTime!)
+        : null;
+  }
+
+  static SessionLoggingService? _instance;
+  
+  static SessionLoggingService getInstance() {
+    _instance ??= SessionLoggingService();
+    return _instance!;
+  }
+
+  void dispose() {
+    developer.log('📝 Disposing SessionLoggingService', name: 'dyslexic_ai.session_logging');
+    _sessionTimer?.cancel();
+    _sessionTimer = null;
+    _sessionStartTime = null;
+  }
+} 
