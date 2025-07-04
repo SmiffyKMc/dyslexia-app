@@ -1,7 +1,10 @@
 import 'package:mobx/mobx.dart';
 import '../models/story.dart';
+import '../models/session_log.dart';
 import '../services/story_service.dart';
 import '../services/text_to_speech_service.dart';
+import '../services/session_logging_service.dart';
+import '../utils/service_locator.dart';
 
 part 'adaptive_story_store.g.dart';
 
@@ -10,12 +13,16 @@ class AdaptiveStoryStore = _AdaptiveStoryStore with _$AdaptiveStoryStore;
 abstract class _AdaptiveStoryStore with Store {
   final StoryService _storyService;
   final TextToSpeechService _ttsService;
+  late final SessionLoggingService _sessionLogging;
+  DateTime? _sessionStartTime;
 
   _AdaptiveStoryStore({
     required StoryService storyService,
     required TextToSpeechService ttsService,
   })  : _storyService = storyService,
-        _ttsService = ttsService;
+        _ttsService = ttsService {
+    _sessionLogging = getIt<SessionLoggingService>();
+  }
 
   @observable
   Story? currentStory;
@@ -135,10 +142,36 @@ abstract class _AdaptiveStoryStore with Store {
         startedAt: DateTime.now(),
       );
 
+      // Start session logging
+      _sessionStartTime = DateTime.now();
+      await _sessionLogging.startSession(
+        sessionType: SessionType.adaptiveStory,
+        featureName: 'Adaptive Story',
+        initialData: {
+          'story_id': storyId,
+          'story_title': story.title,
+          'story_difficulty': story.difficulty.toString(),
+          'total_parts': story.totalParts,
+          'total_questions': story.parts.fold(0, (sum, part) => sum + part.questions.length),
+          'story_started': _sessionStartTime!.toIso8601String(),
+        },
+      );
+
       print('📖 Story started: ${story.title}');
     } catch (e) {
       print('❌ Failed to start story: $e');
       errorMessage = 'Failed to start story: $e';
+      
+      // Complete session with error if logging was started
+      if (_sessionLogging.hasActiveSession) {
+        await _sessionLogging.completeSession(
+          finalAccuracy: 0.0,
+          additionalData: {
+            'error_message': e.toString(),
+            'story_status': 'failed_to_start',
+          },
+        );
+      }
     } finally {
       isLoading = false;
     }
@@ -189,6 +222,46 @@ abstract class _AdaptiveStoryStore with Store {
         practicedWords: updatedPracticedWords,
         patternPracticeCount: updatedPatternCount,
       );
+    }
+
+    // Session logging
+    if (_sessionLogging.hasActiveSession) {
+      // Log individual question data
+      _sessionLogging.updateSessionData({
+        'last_question_id': question.id,
+        'last_question_pattern': question.pattern,
+        'last_question_correct': isCorrect,
+        'part_number': currentPartIndex + 1,
+        'question_number': currentQuestionIndex + 1,
+        'last_question_time': DateTime.now().toIso8601String(),
+      });
+
+      // Update confidence based on accuracy
+      final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
+      if (currentAccuracy >= 80) {
+        _sessionLogging.logConfidenceIndicator(
+          'high',
+          reason: 'High accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
+        );
+      } else if (currentAccuracy >= 60) {
+        _sessionLogging.logConfidenceIndicator(
+          'medium',
+          reason: 'Moderate accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
+        );
+      } else {
+        _sessionLogging.logConfidenceIndicator(
+          'low',
+          reason: 'Lower accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
+        );
+      }
+
+      // Track learning patterns
+      if (question.pattern.isNotEmpty) {
+        _sessionLogging.logLearningStyleUsage(
+          usedVisualAids: true,
+          preferredMode: 'visual',
+        );
+      }
     }
 
     print('💭 Answer recorded: ${isCorrect ? "✓ Correct" : "✗ Incorrect"}');
@@ -255,6 +328,42 @@ abstract class _AdaptiveStoryStore with Store {
     if (progress != null) {
       progress = progress!.copyWith(completedAt: DateTime.now());
       print('🎉 Story completed! Accuracy: ${progress!.accuracyPercentage.toStringAsFixed(1)}%');
+      
+      // Complete session logging
+      if (_sessionLogging.hasActiveSession) {
+        final completionData = {
+          'story_completed': true,
+          'completion_time': DateTime.now().toIso8601String(),
+          'total_questions': progress!.totalAnswersCount,
+          'correct_answers': progress!.correctAnswersCount,
+          'final_accuracy': progress!.accuracyPercentage,
+          'unique_words_practiced': progress!.uniquePracticedWords.length,
+          'patterns_practiced': progress!.practicedPatterns.length,
+          'parts_completed': currentPartIndex + 1,
+          'story_title': currentStory?.title ?? 'Unknown',
+          'story_difficulty': currentStory?.difficulty.toString() ?? 'unknown',
+          'session_duration': _sessionStartTime != null 
+            ? DateTime.now().difference(_sessionStartTime!).inSeconds 
+            : 0,
+        };
+
+        // Log final comprehension results
+        _sessionLogging.logComprehensionResults(
+          questionsTotal: progress!.totalAnswersCount,
+          questionsCorrect: progress!.correctAnswersCount,
+          comprehensionScore: progress!.accuracyPercentage / 100,
+          incorrectAnswers: progress!.answers
+            .where((answer) => !answer.isCorrect)
+            .map((answer) => answer.userAnswer)
+            .toList(),
+        );
+
+        await _sessionLogging.completeSession(
+          finalAccuracy: progress!.accuracyPercentage,
+          completionStatus: 'completed',
+          additionalData: completionData,
+        );
+      }
     }
   }
 
@@ -335,6 +444,21 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   void clearCurrentStory() {
+    // Complete session with cancellation if active
+    if (_sessionLogging.hasActiveSession) {
+      final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
+      _sessionLogging.completeSession(
+        finalAccuracy: currentAccuracy,
+        completionStatus: 'cancelled',
+        additionalData: {
+          'story_cancelled': true,
+          'parts_completed': currentPartIndex,
+          'questions_answered': progress?.totalAnswersCount ?? 0,
+          'cancellation_time': DateTime.now().toIso8601String(),
+        },
+      );
+    }
+    
     currentStory = null;
     progress = null;
     currentPartIndex = 0;
@@ -345,6 +469,7 @@ abstract class _AdaptiveStoryStore with Store {
     patternPracticeCount.clear();
     discoveredPatterns.clear();
     errorMessage = null;
+    _sessionStartTime = null;
   }
 
   List<Story> getStoriesByDifficulty(StoryDifficulty difficulty) {

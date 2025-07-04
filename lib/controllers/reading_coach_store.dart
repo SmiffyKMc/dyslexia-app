@@ -3,11 +3,14 @@ import 'dart:io';
 import 'package:mobx/mobx.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/reading_session.dart';
+import '../models/session_log.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/text_to_speech_service.dart';
 import '../services/ocr_service.dart';
 import '../services/preset_stories_service.dart';
 import '../services/reading_analysis_service.dart';
+import '../services/session_logging_service.dart';
+import '../utils/service_locator.dart';
 
 part 'reading_coach_store.g.dart';
 
@@ -19,6 +22,7 @@ abstract class _ReadingCoachStore with Store {
   final OcrService _ocrService;
   final ReadingAnalysisService _analysisService;
   final ImagePicker _imagePicker = ImagePicker();
+  late final SessionLoggingService _sessionLogging;
 
   StreamSubscription<String>? _speechSubscription;
   StreamSubscription<bool>? _listeningSubscription;
@@ -31,7 +35,9 @@ abstract class _ReadingCoachStore with Store {
   })  : _speechService = speechService,
         _ttsService = ttsService,
         _ocrService = ocrService,
-        _analysisService = analysisService;
+        _analysisService = analysisService {
+    _sessionLogging = getIt<SessionLoggingService>();
+  }
 
   @observable
   ReadingSession? currentSession;
@@ -166,6 +172,20 @@ abstract class _ReadingCoachStore with Store {
     recognizedSpeech = '';
     _hasFinalResult = false;
 
+    // Start session logging
+    await _sessionLogging.startSession(
+      sessionType: SessionType.readingCoach,
+      featureName: 'Reading Coach',
+      initialData: {
+        'text_length': currentText.length,
+        'word_count': currentText.split(RegExp(r'\s+')).length,
+        'text_preview': currentText.length > 100 
+            ? '${currentText.substring(0, 100)}...' 
+            : currentText,
+        'session_id': currentSession!.id,
+      },
+    );
+
     print('🎯 Session created, starting speech recognition...');
     await _speechService.startListening();
     print('🎯 Speech recognition started');
@@ -218,6 +238,11 @@ abstract class _ReadingCoachStore with Store {
 
   @action
   Future<void> restartSession() async {
+    // Cancel current session logging before restarting
+    if (_sessionLogging.hasActiveSession) {
+      _sessionLogging.cancelSession(reason: 'session_restarted');
+    }
+    
     await stopReading();
     await startReading();
   }
@@ -234,6 +259,11 @@ abstract class _ReadingCoachStore with Store {
 
   @action
   void clearSession() {
+    // Cancel active session logging if there's an incomplete session
+    if (_sessionLogging.hasActiveSession) {
+      _sessionLogging.cancelSession(reason: 'user_cleared_session');
+    }
+    
     currentSession = null;
     currentText = '';
     recognizedSpeech = '';
@@ -324,6 +354,29 @@ abstract class _ReadingCoachStore with Store {
 
       print('🧠 Session updated with accuracy: ${currentSession!.calculateAccuracy()}');
 
+      // Log reading metrics
+      final accuracy = currentSession!.calculateAccuracy();
+      final wordsPerMinute = _calculateWordsPerMinute();
+      final mispronuncedPhonemes = _extractPhonemeErrors(results);
+      
+      _sessionLogging.logReadingMetrics(
+        wordsRead: results.length,
+        wordsPerMinute: wordsPerMinute,
+        accuracy: accuracy,
+        difficultWords: currentSession!.mispronuncedWords,
+      );
+      
+      // Log phoneme errors
+      for (final phoneme in mispronuncedPhonemes) {
+        _sessionLogging.logPhonemeError(phoneme);
+      }
+      
+      // Log confidence based on accuracy
+      final confidenceLevel = accuracy > 0.8 ? 'high' : 
+                            accuracy > 0.6 ? 'medium' : 
+                            accuracy > 0.4 ? 'building' : 'low';
+      _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'reading_accuracy');
+
       await _generateFeedback(results);
       practiceWords = await _analysisService.suggestPracticeWords(results);
       
@@ -355,9 +408,78 @@ abstract class _ReadingCoachStore with Store {
       status: ReadingSessionStatus.completed,
       endTime: DateTime.now(),
     );
+
+    // Complete session logging
+    final accuracy = currentSession!.calculateAccuracy();
+    final duration = currentSession!.duration ?? const Duration(minutes: 1);
+    
+    _sessionLogging.completeSession(
+      finalAccuracy: accuracy,
+      additionalData: {
+        'final_status': 'completed',
+        'total_words': currentSession!.wordResults.length,
+        'correct_words': currentSession!.correctWordsCount,
+        'mispronounced_words_count': currentSession!.mispronuncedWords.length,
+        'practice_words_suggested': practiceWords.length,
+        'feedback_messages_count': liveFeedback.length,
+      },
+    );
+  }
+
+  double _calculateWordsPerMinute() {
+    if (currentSession == null) return 0.0;
+    
+    final duration = DateTime.now().difference(currentSession!.startTime);
+    final minutes = duration.inMilliseconds / 60000.0;
+    
+    if (minutes <= 0) return 0.0;
+    
+    final wordsRead = currentSession!.wordResults.length;
+    return wordsRead / minutes;
+  }
+
+  List<String> _extractPhonemeErrors(List<WordResult> results) {
+    final phonemeErrors = <String>[];
+    
+    for (final result in results) {
+      if (!result.isCorrect && result.expectedWord.isNotEmpty) {
+        // Simple phoneme extraction - in a real app this would be more sophisticated
+        final word = result.expectedWord.toLowerCase();
+        
+        // Common phoneme patterns that cause difficulty
+        if (word.contains('th')) phonemeErrors.add('th');
+        if (word.contains('ch')) phonemeErrors.add('ch');
+        if (word.contains('sh')) phonemeErrors.add('sh');
+        if (word.contains('ph')) phonemeErrors.add('ph');
+        if (word.contains('ough')) phonemeErrors.add('ough');
+        if (word.contains('augh')) phonemeErrors.add('augh');
+        if (word.contains('tion')) phonemeErrors.add('tion');
+        if (word.contains('sion')) phonemeErrors.add('sion');
+        
+        // Vowel sounds
+        if (word.contains('ea')) phonemeErrors.add('ea');
+        if (word.contains('oo')) phonemeErrors.add('oo');
+        if (word.contains('ou')) phonemeErrors.add('ou');
+        if (word.contains('ow')) phonemeErrors.add('ow');
+        
+        // Common single letter confusions
+        if (word.contains('b')) phonemeErrors.add('b');
+        if (word.contains('d')) phonemeErrors.add('d');
+        if (word.contains('p')) phonemeErrors.add('p');
+        if (word.contains('q')) phonemeErrors.add('q');
+      }
+    }
+    
+    // Remove duplicates and return
+    return phonemeErrors.toSet().toList();
   }
 
   void dispose() {
+    // Cancel any active session logging
+    if (_sessionLogging.hasActiveSession) {
+      _sessionLogging.cancelSession(reason: 'app_disposed');
+    }
+    
     _speechSubscription?.cancel();
     _listeningSubscription?.cancel();
     _speechService.dispose();

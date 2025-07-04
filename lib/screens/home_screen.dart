@@ -82,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+        _buildAIActivityIndicator(),
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),
@@ -238,6 +239,81 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAIActivityIndicator() {
+    final isAIActive = _profileStore.isUpdating || _profileStore.isLoading;
+    
+    if (!isAIActive) {
+      return const SizedBox(width: 8); // Placeholder space when not active
+    }
+    
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Tooltip(
+        message: 'AI is analyzing your learning patterns...',
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.blue.withOpacity(0.1),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.blue.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Pulsing background animation
+              TweenAnimationBuilder<double>(
+                duration: const Duration(seconds: 2),
+                tween: Tween<double>(begin: 0.5, end: 1.0),
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: value,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1 * value),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  );
+                },
+                onEnd: () {
+                  // This will restart the animation
+                  if (mounted && isAIActive) {
+                    setState(() {});
+                  }
+                },
+              ),
+              // Robot icon with rotation
+              TweenAnimationBuilder<double>(
+                duration: const Duration(seconds: 3),
+                tween: Tween<double>(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  return Transform.rotate(
+                    angle: value * 2 * 3.14159, // Full rotation
+                    child: Icon(
+                      Icons.smart_toy,
+                      size: 16,
+                      color: Colors.blue[600],
+                    ),
+                  );
+                },
+                onEnd: () {
+                  // Restart rotation if still active
+                  if (mounted && isAIActive) {
+                    setState(() {});
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

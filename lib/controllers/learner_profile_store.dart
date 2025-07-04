@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import '../models/learner_profile.dart';
-import '../models/session_log.dart';
 import '../utils/service_locator.dart';
 
 part 'learner_profile_store.g.dart';

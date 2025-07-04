@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/phonics_game.dart';
+import '../models/session_log.dart';
 import '../services/phonics_sounds_service.dart';
+import '../services/session_logging_service.dart';
+import '../utils/service_locator.dart';
 
 class PhonicsGameStore with ChangeNotifier {
   final PhonicsSoundsService _soundsService = PhonicsSoundsService();
+  late final SessionLoggingService _sessionLogging;
 
   PhonicsGameSession? _currentSession;
   bool _isLoading = false;
@@ -46,6 +50,9 @@ class PhonicsGameStore with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
+      // Initialize session logging if not already done
+      _sessionLogging = getIt<SessionLoggingService>();
+
       await _soundsService.initialize();
 
       List<SoundSet> soundSets = _soundsService.generateRandomSoundSets(rounds, difficulty: difficulty);
@@ -79,6 +86,19 @@ class PhonicsGameStore with ChangeNotifier {
       );
 
       _sessionDuration = rounds;
+      
+      // Start session logging
+      await _sessionLogging.startSession(
+        sessionType: SessionType.phonicsGame,
+        featureName: 'Phonics Game',
+        initialData: {
+          'session_id': _currentSession!.id,
+          'difficulty': difficulty,
+          'total_rounds': rounds,
+          'game_started': DateTime.now().toIso8601String(),
+        },
+      );
+      
       _startRoundTimer();
       await _playCurrentSound();
       
@@ -122,6 +142,27 @@ class PhonicsGameStore with ChangeNotifier {
     
     _showFeedback = true;
     _stopRoundTimer();
+    
+    // Log game results
+    _sessionLogging.logGameResults(
+      score: newScore,
+      roundsCompleted: _currentSession!.currentRoundIndex + 1,
+      totalRounds: _currentSession!.totalRounds,
+      difficultSounds: !isCorrect ? [currentRound!.soundSet.phoneme] : null,
+    );
+    
+    // Log phoneme if incorrect
+    if (!isCorrect) {
+      _sessionLogging.logPhonemeError(currentRound!.soundSet.phoneme);
+    }
+    
+    // Log confidence based on recent performance
+    final recentAccuracy = _currentSession!.accuracyPercentage;
+    final confidenceLevel = recentAccuracy > 0.8 ? 'high' : 
+                          recentAccuracy > 0.6 ? 'medium' : 
+                          recentAccuracy > 0.4 ? 'building' : 'low';
+    _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'phonics_game_performance');
+    
     notifyListeners();
   }
 
@@ -237,6 +278,22 @@ class PhonicsGameStore with ChangeNotifier {
     );
 
     _stopRoundTimer();
+    
+    // Complete session logging
+    await _sessionLogging.completeSession(
+      finalAccuracy: _currentSession!.accuracyPercentage / 100,
+      finalScore: _currentSession!.score,
+      additionalData: {
+        'final_status': 'completed',
+        'total_rounds': _currentSession!.totalRounds,
+        'rounds_completed': _currentSession!.totalRounds,
+        'correct_answers': _currentSession!.correctAnswers,
+        'accuracy_percentage': _currentSession!.accuracyPercentage,
+        'time_spent_seconds': _currentSession!.totalTimeSpent,
+        'difficulty_level': _currentSession!.difficulty,
+      },
+    );
+    
     notifyListeners();
   }
 
@@ -261,6 +318,11 @@ class PhonicsGameStore with ChangeNotifier {
 
   @override
   void dispose() {
+    // Cancel any active session logging
+    if (_sessionLogging.hasActiveSession) {
+      _sessionLogging.cancelSession(reason: 'phonics_game_disposed');
+    }
+    
     _gameTimer?.cancel();
     _soundsService.dispose();
     super.dispose();

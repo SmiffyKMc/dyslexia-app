@@ -1,8 +1,11 @@
 import 'package:mobx/mobx.dart';
 import '../models/word_analysis.dart';
+import '../models/session_log.dart';
 import '../services/word_analysis_service.dart';
 import '../services/personal_dictionary_service.dart';
 import '../services/text_to_speech_service.dart';
+import '../services/session_logging_service.dart';
+import '../utils/service_locator.dart';
 
 part 'word_doctor_store.g.dart';
 
@@ -12,6 +15,7 @@ abstract class _WordDoctorStore with Store {
   final WordAnalysisService _analysisService;
   final PersonalDictionaryService _dictionaryService;
   final TextToSpeechService _ttsService;
+  late final SessionLoggingService _sessionLogging;
 
   _WordDoctorStore({
     required WordAnalysisService analysisService,
@@ -20,6 +24,7 @@ abstract class _WordDoctorStore with Store {
   })  : _analysisService = analysisService,
         _dictionaryService = dictionaryService,
         _ttsService = ttsService {
+    _sessionLogging = getIt<SessionLoggingService>();
     _initialize();
   }
 
@@ -80,19 +85,70 @@ abstract class _WordDoctorStore with Store {
     isAnalyzing = true;
     errorMessage = null;
 
+    // Start session logging
+    await _sessionLogging.startSession(
+      sessionType: SessionType.wordDoctor,
+      featureName: 'Word Doctor',
+      initialData: {
+        'word': wordToAnalyze,
+        'word_length': wordToAnalyze.length,
+        'analysis_started': DateTime.now().toIso8601String(),
+      },
+    );
+
     try {
       final analysis = await _analysisService.analyzeWord(wordToAnalyze);
       
       final isSaved = await _dictionaryService.isWordSaved(wordToAnalyze);
       currentAnalysis = analysis.copyWith(isSaved: isSaved);
       
+      // Log word analysis results
+      _sessionLogging.logWordAnalysis(
+        word: analysis.word,
+        syllables: analysis.syllables,
+        phonemes: analysis.phonemes,
+        wasCorrect: true, // Word was successfully analyzed
+      );
+
+      // Log learning style usage (visual aids used for breakdown)
+      _sessionLogging.logLearningStyleUsage(
+        usedVisualAids: true,
+        usedAudioSupport: false,
+        preferredMode: 'visual',
+      );
+
+      // Determine confidence based on word complexity
+      final confidenceLevel = _getConfidenceLevel(analysis);
+      _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'word_complexity');
+      
       await _dictionaryService.addToRecentWords(currentAnalysis!);
       await _loadRecentWords();
+      
+             // Complete session successfully
+       await _sessionLogging.completeSession(
+         finalAccuracy: 1.0, // Successfully analyzed
+         additionalData: {
+           'syllable_count': analysis.syllables.length,
+           'phoneme_count': analysis.phonemes.length,
+           'word_saved': isSaved,
+           'difficulty_level': _calculateDifficultyLevel(analysis),
+           'analysis_status': 'completed',
+         },
+       );
       
       print('🔍 Analysis completed successfully');
     } catch (e) {
       print('❌ Analysis failed: $e');
       errorMessage = 'Failed to analyze word: $e';
+      
+      // Complete session with error
+      await _sessionLogging.completeSession(
+        finalAccuracy: 0.0,
+        additionalData: {
+          'error_message': e.toString(),
+          'analysis_status': 'failed',
+        },
+      );
     } finally {
       isAnalyzing = false;
     }
@@ -115,6 +171,13 @@ abstract class _WordDoctorStore with Store {
     print('🔊 Speaking syllable: "$syllable"');
     try {
       await _ttsService.speakWord(syllable);
+      
+      // Log audio support usage
+      _sessionLogging.logLearningStyleUsage(
+        usedVisualAids: false,
+        usedAudioSupport: true,
+        preferredMode: 'audio',
+      );
     } catch (e) {
       print('❌ Failed to speak syllable: $e');
       errorMessage = 'Failed to speak syllable';
@@ -126,6 +189,13 @@ abstract class _WordDoctorStore with Store {
     print('🔊 Speaking word: "$word"');
     try {
       await _ttsService.speakWord(word);
+      
+      // Log audio support usage
+      _sessionLogging.logLearningStyleUsage(
+        usedVisualAids: false,
+        usedAudioSupport: true,
+        preferredMode: 'audio',
+      );
     } catch (e) {
       print('❌ Failed to speak word: $e');
       errorMessage = 'Failed to speak word';
@@ -257,7 +327,46 @@ abstract class _WordDoctorStore with Store {
     }
   }
 
+  String _getConfidenceLevel(WordAnalysis analysis) {
+    final wordLength = analysis.word.length;
+    final syllableCount = analysis.syllables.length;
+    final phonemeCount = analysis.phonemes.length;
+    
+    // Simple confidence scoring based on word complexity
+    if (wordLength <= 4 && syllableCount <= 2) {
+      return 'high';
+    } else if (wordLength <= 8 && syllableCount <= 3) {
+      return 'medium';
+    } else if (phonemeCount > 8 || syllableCount > 4) {
+      return 'low';
+    } else {
+      return 'building';
+    }
+  }
+  
+  String _calculateDifficultyLevel(WordAnalysis analysis) {
+    final wordLength = analysis.word.length;
+    final syllableCount = analysis.syllables.length;
+    final phonemeCount = analysis.phonemes.length;
+    
+    // Calculate difficulty based on word structure
+    if (wordLength <= 4 && syllableCount <= 2) {
+      return 'easy';
+    } else if (wordLength <= 8 && syllableCount <= 3) {
+      return 'medium';
+    } else if (phonemeCount > 8 || syllableCount > 4) {
+      return 'hard';
+    } else {
+      return 'medium';
+    }
+  }
+
   void dispose() {
+    // Cancel any active session logging
+    if (_sessionLogging.hasActiveSession) {
+      _sessionLogging.cancelSession(reason: 'word_doctor_disposed');
+    }
+    
     _ttsService.dispose();
   }
 } 
