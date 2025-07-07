@@ -68,6 +68,7 @@ Future<void> setupLocator() async {
     analysisService: getIt<WordAnalysisService>(),
     dictionaryService: getIt<PersonalDictionaryService>(),
     ttsService: getIt<TextToSpeechService>(),
+    ocrService: getIt<OcrService>(),
   ));
 
   getIt.registerFactory<AdaptiveStoryStore>(() => AdaptiveStoryStore(

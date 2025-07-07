@@ -187,6 +187,35 @@ class SessionLoggingService {
     });
   }
 
+  void logOCRUsage({
+    required int extractedTextLength,
+    required double confidence,
+    required bool wasSuccessful,
+    String? imageSource,
+  }) {
+    developer.log('📝 Logging OCR usage: Success=$wasSuccessful, Confidence=$confidence', name: 'dyslexic_ai.session_logging');
+    
+    final currentData = _sessionLogStore.currentSession?.data ?? {};
+    final existingOCRUsage = List<Map<String, dynamic>>.from(currentData['ocr_usage_history'] ?? []);
+    
+    existingOCRUsage.add({
+      'timestamp': DateTime.now().toIso8601String(),
+      'extracted_text_length': extractedTextLength,
+      'confidence': confidence,
+      'was_successful': wasSuccessful,
+      'image_source': imageSource ?? 'unknown',
+    });
+    
+    updateSessionData({
+      'ocr_usage_history': existingOCRUsage,
+      'ocr_attempts': existingOCRUsage.length,
+      'ocr_successful_attempts': existingOCRUsage.where((usage) => usage['was_successful'] == true).length,
+      'last_ocr_confidence': confidence,
+      'used_ocr_feature': true,
+      'ocr_updated': DateTime.now().toIso8601String(),
+    });
+  }
+
   Future<void> completeSession({
     double? finalAccuracy,
     int? finalScore,

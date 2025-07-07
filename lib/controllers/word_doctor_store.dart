@@ -1,10 +1,13 @@
 import 'package:mobx/mobx.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../models/word_analysis.dart';
 import '../models/session_log.dart';
 import '../services/word_analysis_service.dart';
 import '../services/personal_dictionary_service.dart';
 import '../services/text_to_speech_service.dart';
 import '../services/session_logging_service.dart';
+import '../services/ocr_service.dart';
 import '../utils/service_locator.dart';
 
 part 'word_doctor_store.g.dart';
@@ -15,15 +18,19 @@ abstract class _WordDoctorStore with Store {
   final WordAnalysisService _analysisService;
   final PersonalDictionaryService _dictionaryService;
   final TextToSpeechService _ttsService;
+  final OcrService _ocrService;
+  final ImagePicker _imagePicker = ImagePicker();
   late final SessionLoggingService _sessionLogging;
 
   _WordDoctorStore({
     required WordAnalysisService analysisService,
     required PersonalDictionaryService dictionaryService,
     required TextToSpeechService ttsService,
+    required OcrService ocrService,
   })  : _analysisService = analysisService,
         _dictionaryService = dictionaryService,
-        _ttsService = ttsService {
+        _ttsService = ttsService,
+        _ocrService = ocrService {
     _sessionLogging = getIt<SessionLoggingService>();
     _initialize();
   }
@@ -49,8 +56,14 @@ abstract class _WordDoctorStore with Store {
   @observable
   String inputWord = '';
 
+  @observable
+  bool isScanning = false;
+
   @computed
-  bool get canAnalyze => inputWord.trim().isNotEmpty && !isAnalyzing;
+  bool get canAnalyze => inputWord.trim().isNotEmpty && !isAnalyzing && !isScanning;
+
+  @computed
+  bool get canScanImage => !isAnalyzing && !isScanning;
 
   @computed
   bool get hasCurrentAnalysis => currentAnalysis != null;
@@ -358,6 +371,118 @@ abstract class _WordDoctorStore with Store {
       return 'hard';
     } else {
       return 'medium';
+    }
+  }
+
+  @action
+  Future<void> scanWordFromCamera() async {
+    if (!canScanImage) return;
+    
+    print('📷 Starting word scan from camera');
+    isScanning = true;
+    errorMessage = null;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      
+      if (image != null) {
+        await _processScannedImage(File(image.path));
+      }
+    } catch (e) {
+      print('❌ Camera scan failed: $e');
+      errorMessage = 'Failed to capture image: $e';
+    } finally {
+      isScanning = false;
+    }
+  }
+
+  @action
+  Future<void> scanWordFromGallery() async {
+    if (!canScanImage) return;
+    
+    print('🖼️ Starting word scan from gallery');
+    isScanning = true;
+    errorMessage = null;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        await _processScannedImage(File(image.path));
+      }
+    } catch (e) {
+      print('❌ Gallery scan failed: $e');
+      errorMessage = 'Failed to select image: $e';
+    } finally {
+      isScanning = false;
+    }
+  }
+
+  Future<void> _processScannedImage(File imageFile) async {
+    print('🔍 Processing scanned image for OCR');
+    
+    try {
+      final result = await _ocrService.scanImage(imageFile);
+      
+      if (result.isSuccess && result.hasText) {
+        // Extract the first meaningful word from the OCR result
+        final words = result.text
+            .split(RegExp(r'\s+'))
+            .where((word) => word.trim().isNotEmpty)
+            .map((word) => word.replaceAll(RegExp(r'[^\w]'), ''))
+            .where((word) => word.length > 1)
+            .toList();
+        
+        if (words.isNotEmpty) {
+          final extractedWord = words.first;
+          print('✅ OCR extracted word: "$extractedWord"');
+          
+          // Set the input word and trigger analysis
+          setInputWord(extractedWord);
+          
+          // Log OCR usage
+          _sessionLogging.logOCRUsage(
+            extractedTextLength: result.text.length,
+            confidence: result.confidence ?? 0.0,
+            wasSuccessful: true,
+          );
+          
+          // Auto-analyze the scanned word
+          await analyzeCurrentWord();
+        } else {
+          errorMessage = 'No readable words found in the image. Please try again with clearer text.';
+          print('⚠️ No valid words extracted from OCR result');
+        }
+      } else {
+        errorMessage = result.error ?? 'Unable to read text from image. Please ensure the text is clear and well-lit.';
+        print('❌ OCR failed: ${result.error}');
+        
+        // Log failed OCR usage
+        _sessionLogging.logOCRUsage(
+          extractedTextLength: 0,
+          confidence: 0.0,
+          wasSuccessful: false,
+        );
+      }
+    } catch (e) {
+      print('❌ OCR processing failed: $e');
+      errorMessage = 'Failed to process image: $e';
+    }
+  }
+
+  @action
+  Future<String> getOCRStatus() async {
+    try {
+      return await _ocrService.getOCRStatus();
+    } catch (e) {
+      return 'OCR Status Unknown';
     }
   }
 
