@@ -177,7 +177,9 @@ class ModelDownloadService {
         final inferenceModel = await _gemmaPlugin.createModel(
           modelType: ModelType.gemmaIt,
           preferredBackend: PreferredBackend.gpu,
-          maxTokens: 1024,
+          maxTokens: 4096,          // Increased for multimodal support
+          supportImage: true,       // Enable vision capabilities
+          maxNumImages: 1,          // Allow one image per message
         );
         if (inferenceModel != null) {
           developer.log('✅ Model initialized successfully for inference', name: 'dyslexic_ai.model_download');
