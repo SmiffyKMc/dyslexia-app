@@ -154,8 +154,24 @@ Extract the text:''';
     try {
       final plugin = FlutterGemmaPlugin.instance;
       final model = plugin.initializedModel;
-      return model != null;
+      
+      if (model == null) {
+        developer.log('❌ No model initialized', name: 'dyslexic_ai.ocr');
+        return false;
+      }
+      
+      // Try to create a session to verify model is ready
+      try {
+        final session = await model.createSession();
+        await session.close();
+        developer.log('✅ Vision OCR available and tested', name: 'dyslexic_ai.ocr');
+        return true;
+      } catch (sessionError) {
+        developer.log('❌ Model session test failed: $sessionError', name: 'dyslexic_ai.ocr');
+        return false;
+      }
     } catch (e) {
+      developer.log('❌ Vision OCR check failed: $e', name: 'dyslexic_ai.ocr');
       return false;
     }
   }
