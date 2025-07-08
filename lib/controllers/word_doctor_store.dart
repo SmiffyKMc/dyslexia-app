@@ -1,6 +1,7 @@
 import 'package:mobx/mobx.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/word_analysis.dart';
 import '../models/session_log.dart';
 import '../services/word_analysis_service.dart';
@@ -383,18 +384,58 @@ abstract class _WordDoctorStore with Store {
     errorMessage = null;
 
     try {
+      print('📷 Checking camera permissions...');
+      
+      // Check camera permission first
+      final cameraPermission = await Permission.camera.status;
+      if (!cameraPermission.isGranted) {
+        print('📷 Camera permission not granted, requesting...');
+        final permissionResult = await Permission.camera.request();
+        if (!permissionResult.isGranted) {
+          errorMessage = 'Camera permission is required to scan words. Please enable camera access in settings.';
+          return;
+        }
+      }
+      
+      print('📷 Camera permission granted, preparing for photo capture...');
+      
+      // Add memory preparation before camera launch
+      await _prepareForCameraLaunch();
+      
+      print('📷 Launching camera...');
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        imageQuality: 80,  // Slightly reduced quality for memory efficiency
         preferredCameraDevice: CameraDevice.rear,
+        maxWidth: 1024,    // Limit resolution to reduce memory usage
+        maxHeight: 1024,
       );
       
+      // Handle return from camera
+      await _handleCameraReturn();
+      
       if (image != null) {
-        await _processScannedImage(File(image.path));
+        print('📷 Photo taken successfully for word scan: ${image.path}');
+        
+        // Process with additional memory management
+        await _processScannedImageWithMemoryManagement(image);
+      } else {
+        print('📷 No image selected for word scan');
+        errorMessage = 'No photo was taken';
       }
     } catch (e) {
       print('❌ Camera scan failed: $e');
-      errorMessage = 'Failed to capture image: $e';
+      await _handleCameraReturn(); // Ensure cleanup on error
+      
+      if (e.toString().contains('permission')) {
+        errorMessage = 'Camera permission denied. Please enable camera access in settings.';
+      } else if (e.toString().contains('unavailable')) {
+        errorMessage = 'Camera is not available on this device.';
+      } else if (e.toString().contains('memory') || e.toString().contains('OutOfMemory')) {
+        errorMessage = 'Not enough memory available. Please close other apps and try again.';
+      } else {
+        errorMessage = 'Failed to capture image: $e';
+      }
     } finally {
       isScanning = false;
     }
@@ -483,6 +524,64 @@ abstract class _WordDoctorStore with Store {
       return await _ocrService.getOCRStatus();
     } catch (e) {
       return 'OCR Status Unknown';
+    }
+  }
+
+  /// Prepare system for camera launch by managing memory
+  Future<void> _prepareForCameraLaunch() async {
+    try {
+      print('📷 Preparing for camera launch - managing memory...');
+      
+      // Give the system a moment to prepare
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Explicitly trigger garbage collection
+      print('📷 Requesting garbage collection...');
+      // Note: In Dart, we can't force GC, but we can give the system time
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      print('📷 Memory preparation complete');
+    } catch (e) {
+      print('⚠️ Memory preparation failed: $e');
+    }
+  }
+  
+  /// Handle return from camera app
+  Future<void> _handleCameraReturn() async {
+    try {
+      print('📷 Handling camera return - reinitializing...');
+      
+      // Give the system time to stabilize after camera app
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      print('📷 Camera return handled successfully');
+    } catch (e) {
+      print('⚠️ Camera return handling failed: $e');
+    }
+  }
+  
+  /// Process scanned image with memory management
+  Future<void> _processScannedImageWithMemoryManagement(XFile image) async {
+    try {
+      print('📷 Processing scanned image with memory management...');
+      
+      // Add a small delay to allow memory to stabilize
+      await Future.delayed(const Duration(milliseconds: 150));
+      
+      // Process the image
+      await _processScannedImage(File(image.path));
+      
+      // Clean up the temporary image file if possible
+      try {
+        await File(image.path).delete();
+        print('📷 Temporary image file cleaned up');
+      } catch (e) {
+        print('⚠️ Could not clean up temporary image: $e');
+      }
+      
+    } catch (e) {
+      print('❌ Photo processing failed: $e');
+      rethrow;
     }
   }
 

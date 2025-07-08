@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:mobx/mobx.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/reading_session.dart';
 import '../models/session_log.dart';
 import '../services/speech_recognition_service.dart';
@@ -122,13 +123,60 @@ abstract class _ReadingCoachStore with Store {
     errorMessage = null;
 
     try {
-      final XFile? image = await _imagePicker.pickImage(source: ImageSource.camera);
+      print('📷 Checking camera permissions...');
+      
+      // Check camera permission first
+      final cameraPermission = await Permission.camera.status;
+      if (!cameraPermission.isGranted) {
+        print('📷 Camera permission not granted, requesting...');
+        final permissionResult = await Permission.camera.request();
+        if (!permissionResult.isGranted) {
+          errorMessage = 'Camera permission is required to take photos. Please enable camera access in settings.';
+          return;
+        }
+      }
+      
+      print('📷 Camera permission granted, preparing for photo capture...');
+      
+      // Add memory preparation before camera launch
+      await _prepareForCameraLaunch();
+      
+      print('📷 Launching camera...');
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,  // Slightly reduced quality for memory efficiency
+        preferredCameraDevice: CameraDevice.rear,
+        maxWidth: 1024,    // Limit resolution to reduce memory usage
+        maxHeight: 1024,
+      );
+      
+      // Handle return from camera
+      await _handleCameraReturn();
+      
       if (image != null) {
-        final extractedText = await _ocrService.processImageForReading(File(image.path));
-        setCurrentText(extractedText);
+        print('📷 Photo taken successfully: ${image.path}');
+        
+        // Process with additional memory management
+        await _processPhotoWithMemoryManagement(image);
+        
+        print('📷 OCR completed successfully');
+      } else {
+        print('📷 No image selected');
+        errorMessage = 'No photo was taken';
       }
     } catch (e) {
-      errorMessage = 'Failed to process image: $e';
+      print('❌ Camera error: $e');
+      await _handleCameraReturn(); // Ensure cleanup on error
+      
+      if (e.toString().contains('permission')) {
+        errorMessage = 'Camera permission denied. Please enable camera access in settings.';
+      } else if (e.toString().contains('unavailable')) {
+        errorMessage = 'Camera is not available on this device.';
+      } else if (e.toString().contains('memory') || e.toString().contains('OutOfMemory')) {
+        errorMessage = 'Not enough memory available. Please close other apps and try again.';
+      } else {
+        errorMessage = 'Failed to take photo: $e';
+      }
     } finally {
       isLoading = false;
     }
@@ -160,7 +208,7 @@ abstract class _ReadingCoachStore with Store {
     }
 
     print('🎯 Starting reading session...');
-    print('🎯 Text to read: "${currentText}"');
+    print('🎯 Text to read: "$currentText"');
 
     currentSession = ReadingSession(
       text: currentText,
@@ -412,12 +460,14 @@ abstract class _ReadingCoachStore with Store {
     // Complete session logging
     final accuracy = currentSession!.calculateAccuracy();
     final duration = currentSession!.duration ?? const Duration(minutes: 1);
+    final wordsRead = currentSession!.wordResults.length;
     
     _sessionLogging.completeSession(
       finalAccuracy: accuracy,
       additionalData: {
         'final_status': 'completed',
-        'total_words': currentSession!.wordResults.length,
+        'words_read': wordsRead,  // Ensure words_read is preserved
+        'total_words': wordsRead,
         'correct_words': currentSession!.correctWordsCount,
         'mispronounced_words_count': currentSession!.mispronuncedWords.length,
         'practice_words_suggested': practiceWords.length,
@@ -472,6 +522,71 @@ abstract class _ReadingCoachStore with Store {
     
     // Remove duplicates and return
     return phonemeErrors.toSet().toList();
+  }
+
+  /// Prepare system for camera launch by managing memory
+  Future<void> _prepareForCameraLaunch() async {
+    try {
+      print('📷 Preparing for camera launch - managing memory...');
+      
+      // Give the system a moment to prepare
+      await Future.delayed(const Duration(milliseconds: 200));
+      
+      // Explicitly trigger garbage collection
+      print('📷 Requesting garbage collection...');
+      // Note: In Dart, we can't force GC, but we can give the system time
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      print('📷 Memory preparation complete');
+    } catch (e) {
+      print('⚠️ Memory preparation failed: $e');
+    }
+  }
+  
+  /// Handle return from camera app
+  Future<void> _handleCameraReturn() async {
+    try {
+      print('📷 Handling camera return - reinitializing...');
+      
+      // Give the system time to stabilize after camera app
+      await Future.delayed(const Duration(milliseconds: 300));
+      
+      // Ensure services are still initialized
+      if (!_speechService.isInitialized) {
+        print('📷 Reinitializing speech service...');
+        await _speechService.initialize();
+      }
+      
+      print('📷 Camera return handled successfully');
+    } catch (e) {
+      print('⚠️ Camera return handling failed: $e');
+    }
+  }
+  
+  /// Process photo with memory management
+  Future<void> _processPhotoWithMemoryManagement(XFile image) async {
+    try {
+      print('📷 Processing photo with memory management...');
+      
+      // Add a small delay to allow memory to stabilize
+      await Future.delayed(const Duration(milliseconds: 150));
+      
+      // Process the image
+      final extractedText = await _ocrService.processImageForReading(File(image.path));
+      setCurrentText(extractedText);
+      
+      // Clean up the temporary image file if possible
+      try {
+        await File(image.path).delete();
+        print('📷 Temporary image file cleaned up');
+      } catch (e) {
+        print('⚠️ Could not clean up temporary image: $e');
+      }
+      
+    } catch (e) {
+      print('❌ Photo processing failed: $e');
+      rethrow;
+    }
   }
 
   void dispose() {

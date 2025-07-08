@@ -5,6 +5,7 @@ import '../controllers/session_log_store.dart';
 import '../services/gemma_profile_update_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
+import '../utils/session_debug_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,23 +34,30 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Observer(
-            builder: (context) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 16),
-                _buildLearnerProfile(context),
-                const SizedBox(height: 16),
-                _buildTodaysProgress(context),
-                const SizedBox(height: 16),
-                _buildQuickTools(context),
-                const SizedBox(height: 16),
-                _buildRecentActivity(),
-                const SizedBox(height: 16),
-                _buildPersonalizedSuggestions(context),
-                const SizedBox(height: 16), // Extra bottom padding
-              ],
-            ),
+            builder: (context) {
+              // Debug today's progress when UI rebuilds
+              if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
+                SessionDebugHelper.debugTodaysProgress();
+              }
+              
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(context),
+                  const SizedBox(height: 16),
+                  _buildLearnerProfile(context),
+                  const SizedBox(height: 16),
+                  _buildTodaysProgress(context),
+                  const SizedBox(height: 16),
+                  _buildQuickTools(context),
+                  const SizedBox(height: 16),
+                  _buildRecentActivity(),
+                  const SizedBox(height: 16),
+                  _buildPersonalizedSuggestions(context),
+                  const SizedBox(height: 16), // Extra bottom padding
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -87,9 +95,50 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),
         ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.settings, size: 20),
+        Stack(
+          children: [
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.settings, size: 20),
+            ),
+            if (_profileStore.isUpdating)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.3),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 800),
+                    tween: Tween<double>(begin: 0.3, end: 1.0),
+                    builder: (context, value, child) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(value),
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    },
+                    onEnd: () {
+                      if (mounted && _profileStore.isUpdating) {
+                        setState(() {});
+                      }
+                    },
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
@@ -417,17 +466,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildProgressStat(
                   'Sessions', 
-                  '${_sessionLogStore.sessionLogs.length}', 
+                  '${_sessionLogStore.todaysSessionCount}', 
                   context
                 ),
                 _buildProgressStat(
                   'Accuracy', 
-                  '${(_sessionLogStore.averageAccuracy * 100).round()}%', 
+                  '${(_sessionLogStore.todaysAverageAccuracy * 100).round()}%', 
                   context
                 ),
                 _buildProgressStat(
                   'Study Time', 
-                  '${_sessionLogStore.totalStudyTime.inMinutes}min', 
+                  '${_sessionLogStore.todaysStudyTime.inMinutes}min', 
                   context
                 ),
               ],
@@ -478,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 'Reading Coach',
                 Icons.mic_outlined,
-                '/reading-coach',
+                '/reading_coach',
               ),
             ),
             const SizedBox(width: 8),
@@ -487,7 +536,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 'Word Doctor',
                 Icons.search_outlined,
-                '/word-doctor',
+                '/word_doctor',
               ),
             ),
           ],
@@ -500,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 'Story Mode',
                 Icons.menu_book_outlined,
-                '/adaptive-story',
+                '/adaptive_story',
               ),
             ),
             const SizedBox(width: 8),
@@ -509,7 +558,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 'Phonics Game',
                 Icons.games_outlined,
-                '/phonics-game',
+                '/phonics_game',
               ),
             ),
           ],
@@ -572,6 +621,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildRecentActivity() {
     final recentSessions = _sessionLogStore.recentLogs.take(3).toList();
+    
+    // Debug recent sessions if they show incorrect data
+    for (final session in recentSessions) {
+      if (session.sessionType == SessionType.readingCoach && 
+          (session.data['words_read'] == 0 || session.accuracy == 0)) {
+        SessionDebugHelper.debugSessionData(session);
+        SessionDebugHelper.validateSessionData(session);
+      }
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

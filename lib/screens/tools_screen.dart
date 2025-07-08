@@ -26,7 +26,7 @@ class ToolsScreen extends StatelessWidget {
               'Reading Coach',
               'Practice reading with real-time feedback',
               Icons.mic_outlined,
-              '/reading-coach',
+              '/reading_coach',
               Colors.blue,
             ),
             _buildToolCard(
@@ -34,7 +34,7 @@ class ToolsScreen extends StatelessWidget {
               'Word Doctor',
               'Break down tricky words',
               Icons.search_outlined,
-              '/word-doctor',
+              '/word_doctor',
               Colors.green,
             ),
             _buildToolCard(
@@ -42,7 +42,7 @@ class ToolsScreen extends StatelessWidget {
               'Story Mode',
               'Interactive reading stories',
               Icons.menu_book_outlined,
-              '/adaptive-story',
+              '/adaptive_story',
               Colors.purple,
             ),
             _buildToolCard(
@@ -50,7 +50,7 @@ class ToolsScreen extends StatelessWidget {
               'Phonics Game',
               'Fun sound-based games',
               Icons.games_outlined,
-              '/phonics-game',
+              '/phonics_game',
               Colors.orange,
             ),
             _buildToolCard(
@@ -58,7 +58,7 @@ class ToolsScreen extends StatelessWidget {
               'Text Simplifier',
               'Make text easier to read',
               Icons.text_fields_outlined,
-              '/text-simplifier',
+              '/text_simplifier',
               Colors.teal,
             ),
             _buildToolCard(
@@ -66,7 +66,7 @@ class ToolsScreen extends StatelessWidget {
               'Text Simplifier AI Example',
               'Make text easier to read',
               Icons.text_fields_outlined,
-              '/text-simplifier-example',
+              '/text_simplifier_example',
               Colors.teal,
             ),
             _buildToolCard(
@@ -74,7 +74,7 @@ class ToolsScreen extends StatelessWidget {
               'Sound It Out',
               'Phonetic sound practice',
               Icons.volume_up_outlined,
-              '/sound-it-out',
+              '/sound_it_out',
               Colors.red,
             ),
             _buildToolCard(
@@ -82,7 +82,7 @@ class ToolsScreen extends StatelessWidget {
               'Build Sentence',
               'Sentence construction help',
               Icons.construction_outlined,
-              '/build-sentence',
+              '/build_sentence',
               Colors.indigo,
             ),
             _buildToolCard(
@@ -90,7 +90,7 @@ class ToolsScreen extends StatelessWidget {
               'Read Aloud',
               'Text-to-speech with highlighting',
               Icons.record_voice_over_outlined,
-              '/read-aloud',
+              '/read_aloud',
               Colors.pink,
             ),
             _buildToolCard(
@@ -98,7 +98,7 @@ class ToolsScreen extends StatelessWidget {
               'Thought to Word',
               'Express your thoughts clearly',
               Icons.psychology_outlined,
-              '/thought-to-word',
+              '/thought_to_word',
               Colors.cyan,
             ),
             _buildToolCard(
@@ -106,7 +106,7 @@ class ToolsScreen extends StatelessWidget {
               'Sound & Focus',
               'Concentration and memory games',
               Icons.headphones_outlined,
-              '/sound-focus-game',
+              '/sound_focus_game',
               Colors.brown,
             ),
             _buildToolCard(
@@ -114,7 +114,7 @@ class ToolsScreen extends StatelessWidget {
               'Visual Dictionary',
               'Build your personal word collection',
               Icons.library_books_outlined,
-              '/visual-dictionary',
+              '/visual_dictionary',
               Colors.deepOrange,
             ),
             _buildToolCard(
@@ -122,7 +122,7 @@ class ToolsScreen extends StatelessWidget {
               'Word Confusion',
               'Track challenging words',
               Icons.psychology_alt_outlined,
-              '/word-confusion',
+              '/word_confusion',
               Colors.amber,
             ),
           ],

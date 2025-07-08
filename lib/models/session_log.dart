@@ -188,7 +188,14 @@ class SessionLog {
     switch (sessionType) {
       case SessionType.readingCoach:
         final wordsRead = data['words_read'] as int? ?? 0;
-        return 'Read $wordsRead words with ${(accuracy ?? 0.0 * 100).round()}% accuracy';
+        final accuracyPercent = ((accuracy ?? 0.0) * 100).round();
+        
+        // Debug logging for session description
+        if (wordsRead == 0 || accuracyPercent == 0) {
+          print('🐛 SessionDescription Debug: words_read=$wordsRead, accuracy=$accuracy, data keys=${data.keys}');
+        }
+        
+        return 'Read $wordsRead words with $accuracyPercent% accuracy';
       case SessionType.wordDoctor:
         final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
         return 'Analyzed $wordsAnalyzed words';

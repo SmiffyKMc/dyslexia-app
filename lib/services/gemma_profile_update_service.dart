@@ -140,6 +140,16 @@ Generate the updated profile now:''';
     summary.writeln('Confidence Level: ${session.confidenceIndicator}');
     summary.writeln('Learning Style: ${session.preferredStyleIndicator}');
     
+    // Validate session data quality for profile analysis
+    if (session.sessionType == SessionType.readingCoach) {
+      if (data['words_read'] == null || data['words_read'] == 0) {
+        developer.log('⚠️ Profile Update: Session missing words_read data', name: 'dyslexic_ai.profile_update');
+      }
+      if (session.accuracy == null || session.accuracy == 0) {
+        developer.log('⚠️ Profile Update: Session missing accuracy data', name: 'dyslexic_ai.profile_update');
+      }
+    }
+    
     switch (session.sessionType) {
       case SessionType.readingCoach:
         if (data['words_per_minute'] != null) {

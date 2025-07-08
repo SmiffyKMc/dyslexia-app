@@ -346,12 +346,41 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              _store.currentPart?.content ?? '',
+              _store.currentPartContentWithMasking,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 height: 1.6,
                 fontSize: 18,
               ),
             ),
+            if (_store.currentQuestion != null && 
+                _store.currentPart != null && 
+                _store.currentQuestion!.getWordsToMask(_store.currentPart!).isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.yellow.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.yellow.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.orange.shade700),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Some words are hidden (**** ) to help you focus on the question below.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange.shade700,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

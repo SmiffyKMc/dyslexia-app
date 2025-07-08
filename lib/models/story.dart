@@ -48,6 +48,26 @@ class StoryPart {
 
   bool get hasQuestions => questions.isNotEmpty;
   int get questionCount => questions.length;
+  
+  String getContentWithMaskedWords(Set<String> wordsToMask) {
+    String maskedContent = content;
+    
+    for (final word in wordsToMask) {
+      final wordPattern = RegExp(r'\b' + RegExp.escape(word) + r'\b', caseSensitive: false);
+      maskedContent = maskedContent.replaceAll(wordPattern, '****');
+    }
+    
+    return maskedContent;
+  }
+  
+  List<String> getAllWordsInContent() {
+    return content
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word.toLowerCase())
+        .toList();
+  }
 }
 
 class Question {
@@ -83,6 +103,91 @@ class Question {
 
   bool isCorrect(String answer) {
     return answer.toLowerCase().trim() == correctAnswer.toLowerCase().trim();
+  }
+  
+  bool hasContextBleeding(StoryPart storyPart) {
+    final contentWords = storyPart.getAllWordsInContent();
+    
+    for (final option in options) {
+      if (option.toLowerCase() != correctAnswer.toLowerCase() && 
+          contentWords.contains(option.toLowerCase())) {
+        return true;
+      }
+    }
+    
+    return contentWords.contains(correctAnswer.toLowerCase());
+  }
+  
+  Set<String> getWordsToMask(StoryPart storyPart) {
+    final wordsToMask = <String>{};
+    final contentWords = storyPart.getAllWordsInContent();
+    
+    if (contentWords.contains(correctAnswer.toLowerCase())) {
+      wordsToMask.add(correctAnswer);
+    }
+    
+    for (final option in options) {
+      if (contentWords.contains(option.toLowerCase())) {
+        wordsToMask.add(option);
+      }
+    }
+    
+    return wordsToMask;
+  }
+  
+  QuestionQuality validateQuality(StoryPart storyPart) {
+    final issues = <String>[];
+    
+    if (hasContextBleeding(storyPart)) {
+      issues.add('Answer visible in story content');
+    }
+    
+    if (options.length < 3) {
+      issues.add('Too few answer options');
+    }
+    
+    if (options.toSet().length != options.length) {
+      issues.add('Duplicate answer options');
+    }
+    
+    final similarOptions = <String>[];
+    for (int i = 0; i < options.length; i++) {
+      for (int j = i + 1; j < options.length; j++) {
+        if (_areWordsSimilar(options[i], options[j])) {
+          similarOptions.add('${options[i]} vs ${options[j]}');
+        }
+      }
+    }
+    
+    if (similarOptions.isNotEmpty) {
+      issues.add('Similar options: ${similarOptions.join(', ')}');
+    }
+    
+    final difficulty = _assessDifficulty();
+    
+    return QuestionQuality(
+      hasIssues: issues.isNotEmpty,
+      issues: issues,
+      difficulty: difficulty,
+      educationalValue: issues.isEmpty ? 'Good' : 'Poor',
+    );
+  }
+  
+  bool _areWordsSimilar(String word1, String word2) {
+    if (word1.length != word2.length) return false;
+    
+    int differences = 0;
+    for (int i = 0; i < word1.length; i++) {
+      if (word1[i] != word2[i]) differences++;
+    }
+    
+    return differences <= 1;
+  }
+  
+  String _assessDifficulty() {
+    if (options.length >= 4 && pattern.isNotEmpty) return 'Challenging';
+    if (options.length >= 3) return 'Moderate';
+    return 'Easy';
   }
 }
 
@@ -179,6 +284,25 @@ class StoryProgress {
   List<String> get uniquePracticedWords => practicedWords.toSet().toList();
   
   List<String> get practicedPatterns => patternPracticeCount.keys.toList();
+}
+
+class QuestionQuality {
+  final bool hasIssues;
+  final List<String> issues;
+  final String difficulty;
+  final String educationalValue;
+
+  const QuestionQuality({
+    required this.hasIssues,
+    required this.issues,
+    required this.difficulty,
+    required this.educationalValue,
+  });
+
+  @override
+  String toString() {
+    return 'QuestionQuality(hasIssues: $hasIssues, difficulty: $difficulty, issues: ${issues.join(", ")})';
+  }
 }
 
 class LearningPattern {

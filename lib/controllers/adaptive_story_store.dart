@@ -71,6 +71,16 @@ abstract class _AdaptiveStoryStore with Store {
   }
 
   @computed
+  String get currentPartContentWithMasking {
+    if (currentPart == null || currentQuestion == null) {
+      return currentPart?.content ?? '';
+    }
+    
+    final wordsToMask = currentQuestion!.getWordsToMask(currentPart!);
+    return currentPart!.getContentWithMaskedWords(wordsToMask);
+  }
+
+  @computed
   bool get hasCurrentStory => currentStory != null;
 
   @computed

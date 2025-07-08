@@ -1,19 +1,23 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart';
 import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
+import '../services/gemma_profile_update_service.dart';
 import '../utils/service_locator.dart';
 
 class SessionLoggingService {
   late final SessionLogStore _sessionLogStore;
   late final LearnerProfileStore _profileStore;
+  late final GemmaProfileUpdateService _profileUpdateService;
   Timer? _sessionTimer;
   DateTime? _sessionStartTime;
 
   SessionLoggingService() {
     _sessionLogStore = getIt<SessionLogStore>();
     _profileStore = getIt<LearnerProfileStore>();
+    _profileUpdateService = getIt<GemmaProfileUpdateService>();
   }
 
   Future<void> startSession({
@@ -239,6 +243,13 @@ class SessionLoggingService {
       ...?additionalData,
     };
 
+    // Enhanced logging for debugging
+    developer.log('📝 Session completion data: accuracy=$finalAccuracy, score=$finalScore, duration=${duration.inMinutes}min', name: 'dyslexic_ai.session_logging');
+    developer.log('📝 Final data keys: ${finalData.keys.toList()}', name: 'dyslexic_ai.session_logging');
+    if (finalData.containsKey('words_read')) {
+      developer.log('📝 words_read in final data: ${finalData['words_read']}', name: 'dyslexic_ai.session_logging');
+    }
+
     await _sessionLogStore.completeCurrentSession(
       duration: duration,
       accuracy: finalAccuracy,
@@ -247,6 +258,12 @@ class SessionLoggingService {
     );
     
     _profileStore.incrementSessionCount();
+    
+    // Trigger automatic profile update in background (fire-and-forget)
+    if (_profileStore.needsUpdate && _profileUpdateService.canUpdateProfile) {
+      developer.log('📝 Triggering automatic profile update after session completion', name: 'dyslexic_ai.session_logging');
+      unawaited(_profileUpdateService.updateProfileFromRecentSessions());
+    }
     
     _sessionStartTime = null;
     

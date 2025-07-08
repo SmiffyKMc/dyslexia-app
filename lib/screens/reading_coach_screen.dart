@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/reading_coach_store.dart';
+import '../controllers/learner_profile_store.dart';
 import '../models/reading_session.dart';
 import '../utils/service_locator.dart';
 import '../widgets/story_selector_modal.dart';
@@ -15,11 +16,13 @@ class ReadingCoachScreen extends StatefulWidget {
 
 class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   late ReadingCoachStore _store;
+  late LearnerProfileStore _profileStore;
 
   @override
   void initState() {
     super.initState();
     _store = getIt<ReadingCoachStore>();
+    _profileStore = getIt<LearnerProfileStore>();
     _store.initialize();
   }
 
@@ -37,6 +40,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
       builder: (context) => StorySelectorModal(
         stories: _store.presetStories,
         onStorySelected: _store.selectPresetStory,
+        learnerProfile: _profileStore.currentProfile,
       ),
     );
   }
