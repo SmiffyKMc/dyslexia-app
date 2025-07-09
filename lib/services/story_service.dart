@@ -1,6 +1,5 @@
 import '../models/story.dart';
 import '../models/learner_profile.dart';
-import '../services/ai_inference_service.dart';
 import '../utils/service_locator.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
@@ -10,11 +9,16 @@ class StoryService {
   factory StoryService() => _instance;
   StoryService._internal();
 
-  late final AIInferenceService _aiService = getIt<AIInferenceService>();
-
   Future<Story?> generateStoryWithAI(LearnerProfile profile) async {
     try {
       developer.log('🤖 Generating AI story for profile', name: 'dyslexic_ai.story_ai');
+      
+      // Get AI service using helper function
+      final aiService = getAIInferenceService();
+      if (aiService == null) {
+        developer.log('❌ AI service not available', name: 'dyslexic_ai.story_ai');
+        return null;
+      }
       
       // Extract profile data for story generation
       final targetPhonemes = _extractTargetPhonemes(profile);
@@ -25,7 +29,7 @@ class StoryService {
       
       // Generate story with Gemma 3n
       final prompt = _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
-      final response = await _aiService.generateResponse(prompt);
+      final response = await aiService.generateResponse(prompt);
       
       // Parse response into Story object
       final story = _parseStoryResponse(response, targetPhonemes, difficulty);
@@ -243,7 +247,7 @@ Generate the story now:''';
         StoryPart(
           id: 'fox_1',
           partNumber: 1,
-          content: 'Once upon a time, there lived a clever fox in a magical forest. The fox had bright orange fur and a quick mind.',
+          content: 'Once upon a time, there lived a clever fox in a magical forest. The fox found an old wooden box hidden under a rock. Inside the box was a treasure map!',
           questions: [
             Question(
               id: 'fox_1_q1',
@@ -263,8 +267,8 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'fox_2_q1',
-              sentence: 'The fox heard a quick sound at the door.',
-              blankPosition: 3,
+              sentence: 'The fox heard a ____ knock at his door.',
+              blankPosition: 4,
               correctAnswer: 'quick',
               options: ['slow', 'quick', 'loud'],
               pattern: 'qu-',
@@ -272,7 +276,7 @@ Generate the story now:''';
             ),
             Question(
               id: 'fox_2_q2',
-              sentence: 'There was a knock at the door.',
+              sentence: 'There was a ____ at the door.',
               blankPosition: 3,
               correctAnswer: 'knock',
               options: ['knock', 'rock', 'clock'],
@@ -288,7 +292,7 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'fox_3_q1',
-              sentence: 'The rabbit was very quiet and polite.',
+              sentence: 'Outside stood a ____ rabbit holding a thick book.',
               blankPosition: 3,
               correctAnswer: 'quiet',
               options: ['quick', 'quiet', 'quite'],
@@ -297,8 +301,8 @@ Generate the story now:''';
             ),
             Question(
               id: 'fox_3_q2',
-              sentence: 'The rabbit lost his lucky sock.',
-              blankPosition: 5,
+              sentence: 'I lost my lucky ____!',
+              blankPosition: 4,
               correctAnswer: 'sock',
               options: ['sock', 'rock', 'dock'],
               pattern: '-ck',
@@ -323,8 +327,8 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'dragon_1_q1',
-              sentence: 'The dragon loved taking photographs of nature.',
-              blankPosition: 4,
+              sentence: 'He loved taking ____ of nature.',
+              blankPosition: 3,
               correctAnswer: 'photographs',
               options: ['photos', 'photographs', 'pictures'],
               pattern: 'ph',
@@ -339,8 +343,8 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'dragon_2_q1',
-              sentence: 'The sun was very ____ in the morning sky.',
-              blankPosition: 4,
+              sentence: 'Ralph would fly through the ____ moonlight.',
+              blankPosition: 5,
               correctAnswer: 'bright',
               options: ['light', 'bright', 'tight'],
               pattern: '-ght',
@@ -348,8 +352,8 @@ Generate the story now:''';
             ),
             Question(
               id: 'dragon_2_q2',
-              sentence: 'What a wonderful ____ to see from above!',
-              blankPosition: 3,
+              sentence: 'The ____ of stars always made him dream.',
+              blankPosition: 1,
               correctAnswer: 'sight',
               options: ['light', 'sight', 'right'],
               pattern: '-ght',
@@ -364,7 +368,7 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'dragon_3_q1',
-              sentence: 'Ralph decided to draw a beautiful map.',
+              sentence: 'Ralph decided to ____ a map of all the places.',
               blankPosition: 3,
               correctAnswer: 'draw',
               options: ['draw', 'fly', 'see'],
@@ -373,7 +377,7 @@ Generate the story now:''';
             ),
             Question(
               id: 'dragon_3_q2',
-              sentence: 'He drew many wonderful places on the map.',
+              sentence: 'He ____ mountains, rivers, and castles.',
               blankPosition: 1,
               correctAnswer: 'drew',
               options: ['drew', 'flew', 'knew'],
@@ -399,8 +403,8 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'space_1_q1',
-              sentence: 'Captain Luna had a strong telescope.',
-              blankPosition: 4,
+              sentence: 'Looking at the stars through her ____ telescope.',
+              blankPosition: 6,
               correctAnswer: 'strong',
               options: ['long', 'strong', 'wrong'],
               pattern: 'str-',
@@ -408,7 +412,7 @@ Generate the story now:''';
             ),
             Question(
               id: 'space_1_q2',
-              sentence: 'The train arrived at the ____.',
+              sentence: 'Captain Luna stood on the space ____.',
               blankPosition: 5,
               correctAnswer: 'station',
               options: ['station', 'nation', 'creation'],
@@ -424,7 +428,7 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'space_2_q1',
-              sentence: 'Luna was excited about the space exploration.',
+              sentence: 'Luna felt excited about the ____ exploration.',
               blankPosition: 5,
               correctAnswer: 'space',
               options: ['space', 'place', 'race'],
@@ -433,12 +437,12 @@ Generate the story now:''';
             ),
             Question(
               id: 'space_2_q2',
-              sentence: 'The mission was about exploration of new worlds.',
-              blankPosition: 4,
+              sentence: 'The spaceship had special equipment for ____.',
+              blankPosition: 6,
               correctAnswer: 'exploration',
               options: ['exploration', 'creation', 'education'],
               pattern: '-tion',
-              hint: 'Discovering new places',
+              hint: 'The act of discovering new places',
             ),
           ],
         ),
@@ -449,8 +453,8 @@ Generate the story now:''';
           questions: [
             Question(
               id: 'space_3_q1',
-              sentence: 'Luna found creatures that looked strange.',
-              blankPosition: 4,
+              sentence: 'She found a planet with ____, colorful creatures.',
+              blankPosition: 5,
               correctAnswer: 'strange',
               options: ['strange', 'orange', 'change'],
               pattern: 'str-',
@@ -458,8 +462,8 @@ Generate the story now:''';
             ),
             Question(
               id: 'space_3_q2',
-              sentence: 'The spaceship continued its space journey.',
-              blankPosition: 1,
+              sentence: 'As the ____ traveled through space...',
+              blankPosition: 2,
               correctAnswer: 'spaceship',
               options: ['spaceship', 'friendship', 'ownership'],
               pattern: 'sp-',

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:developer' as developer;
 import 'package:mobx/mobx.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -123,12 +124,12 @@ abstract class _ReadingCoachStore with Store {
     errorMessage = null;
 
     try {
-      print('📷 Checking camera permissions...');
+      developer.log('📷 Checking camera permissions...', name: 'dyslexic_ai.reading_coach');
       
       // Check camera permission first
       final cameraPermission = await Permission.camera.status;
       if (!cameraPermission.isGranted) {
-        print('📷 Camera permission not granted, requesting...');
+        developer.log('📷 Camera permission not granted, requesting...', name: 'dyslexic_ai.reading_coach');
         final permissionResult = await Permission.camera.request();
         if (!permissionResult.isGranted) {
           errorMessage = 'Camera permission is required to take photos. Please enable camera access in settings.';
@@ -136,12 +137,12 @@ abstract class _ReadingCoachStore with Store {
         }
       }
       
-      print('📷 Camera permission granted, preparing for photo capture...');
+      developer.log('📷 Camera permission granted, preparing for photo capture...', name: 'dyslexic_ai.reading_coach');
       
       // Add memory preparation before camera launch
       await _prepareForCameraLaunch();
       
-      print('📷 Launching camera...');
+      developer.log('📷 Launching camera...', name: 'dyslexic_ai.reading_coach');
       final XFile? image = await _imagePicker.pickImage(
         source: ImageSource.camera,
         imageQuality: 80,  // Slightly reduced quality for memory efficiency
@@ -154,18 +155,18 @@ abstract class _ReadingCoachStore with Store {
       await _handleCameraReturn();
       
       if (image != null) {
-        print('📷 Photo taken successfully: ${image.path}');
+        developer.log('📷 Photo taken successfully: ${image.path}', name: 'dyslexic_ai.reading_coach');
         
         // Process with additional memory management
         await _processPhotoWithMemoryManagement(image);
         
-        print('📷 OCR completed successfully');
+        developer.log('📷 OCR completed successfully', name: 'dyslexic_ai.reading_coach');
       } else {
-        print('📷 No image selected');
+        developer.log('📷 No image selected', name: 'dyslexic_ai.reading_coach');
         errorMessage = 'No photo was taken';
       }
     } catch (e) {
-      print('❌ Camera error: $e');
+      developer.log('❌ Camera error: $e', name: 'dyslexic_ai.reading_coach', error: e);
       await _handleCameraReturn(); // Ensure cleanup on error
       
       if (e.toString().contains('permission')) {
@@ -203,12 +204,11 @@ abstract class _ReadingCoachStore with Store {
   @action
   Future<void> startReading() async {
     if (!canStartReading) {
-      print('❌ Cannot start reading: canStartReading=false');
+      developer.log('Cannot start reading: canStartReading=false', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    print('🎯 Starting reading session...');
-    print('🎯 Text to read: "$currentText"');
+    developer.log('Starting reading session', name: 'dyslexic_ai.reading_coach');
 
     currentSession = ReadingSession(
       text: currentText,
@@ -234,34 +234,27 @@ abstract class _ReadingCoachStore with Store {
       },
     );
 
-    print('🎯 Session created, starting speech recognition...');
     await _speechService.startListening();
-    print('🎯 Speech recognition started');
+    developer.log('Reading session started successfully', name: 'dyslexic_ai.reading_coach');
   }
 
   @action
   Future<void> stopReading() async {
     if (!isListening) {
-      print('❌ Cannot stop reading: not currently listening');
+      developer.log('Cannot stop reading: not currently listening', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    print('🛑 Stopping reading session...');
+    developer.log('Stopping reading session', name: 'dyslexic_ai.reading_coach');
     await _speechService.stopListening();
-    print('🛑 Speech recognition stopped');
     
     // Wait a bit for any final speech results to come through
-    print('🛑 Waiting for final speech results...');
     await Future.delayed(const Duration(milliseconds: 1000));
-    print('🛑 Final recognized speech: "$recognizedSpeech"');
     
     if (currentSession != null && recognizedSpeech.isNotEmpty) {
-      print('🛑 Have session and speech data, starting analysis...');
       await _analyzeReading();
       _completeSession();
-      print('🛑 Session completed');
-    } else {
-      print('🛑 No analysis needed: session=${currentSession != null}, speech="${recognizedSpeech}"');
+      developer.log('Reading session completed', name: 'dyslexic_ai.reading_coach');
     }
   }
 
@@ -327,25 +320,19 @@ abstract class _ReadingCoachStore with Store {
 
   @action
   void _onSpeechRecognized(String speech) {
-    print('🗣️ Speech Recognized: "$speech"');
     recognizedSpeech = speech;
   }
 
   @action
   void _onListeningChanged(bool listening) {
-    print('🎧 Listening state changed: $listening');
     isListening = listening;
     
     // If listening stopped during a reading session
     if (!listening && currentSession?.status == ReadingSessionStatus.reading) {
-      print('⚠️ Listening stopped during session');
-      
       if (recognizedSpeech.isEmpty) {
-        print('⚠️ No speech recognized yet, showing help message');
         errorMessage = 'Having trouble hearing you. Try speaking louder or moving closer to the microphone.';
       } else {
         // We have speech data, automatically trigger analysis
-        print('🎯 Speech recognition completed, auto-triggering analysis...');
         _autoCompleteSession();
       }
     }
@@ -362,30 +349,25 @@ abstract class _ReadingCoachStore with Store {
   @action
   Future<void> _autoCompleteSession() async {
     if (currentSession == null || recognizedSpeech.isEmpty) {
-      print('⚠️ Cannot auto-complete: currentSession=${currentSession != null}, recognizedSpeech.isEmpty=${recognizedSpeech.isEmpty}');
+      developer.log('Cannot auto-complete session: missing data', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    print('🎯 Auto-completing session with recognized speech: "$recognizedSpeech"');
-    
     // Wait a bit for any final speech results to settle
     await Future.delayed(const Duration(milliseconds: 500));
     
-    print('🎯 Starting automatic analysis...');
     await _analyzeReading();
     _completeSession();
-    print('🎯 Session auto-completed successfully');
+    developer.log('Session auto-completed', name: 'dyslexic_ai.reading_coach');
   }
 
   Future<void> _analyzeReading() async {
     if (currentSession == null || recognizedSpeech.isEmpty) {
-      print('⚠️ Cannot analyze: currentSession=${currentSession != null}, recognizedSpeech.isEmpty=${recognizedSpeech.isEmpty}');
+      developer.log('Cannot analyze reading: missing session or speech data', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    print('🧠 Starting reading analysis...');
-    print('🧠 Current session text: "${currentSession!.text}"');
-    print('🧠 Recognized speech: "$recognizedSpeech"');
+    developer.log('Starting reading analysis', name: 'dyslexic_ai.reading_coach');
 
     try {
       final results = await _analysisService.analyzeReading(
@@ -393,14 +375,10 @@ abstract class _ReadingCoachStore with Store {
         spokenText: recognizedSpeech,
       );
 
-      print('🧠 Analysis complete, ${results.length} word results received');
-
       currentSession = currentSession!.copyWith(
         wordResults: results,
         accuracyScore: currentSession!.calculateAccuracy(),
       );
-
-      print('🧠 Session updated with accuracy: ${currentSession!.calculateAccuracy()}');
 
       // Log reading metrics
       final accuracy = currentSession!.calculateAccuracy();
@@ -428,25 +406,20 @@ abstract class _ReadingCoachStore with Store {
       await _generateFeedback(results);
       practiceWords = await _analysisService.suggestPracticeWords(results);
       
-      print('🧠 Generated ${liveFeedback.length} feedback messages');
-      print('🧠 Suggested ${practiceWords.length} practice words: $practiceWords');
+      developer.log('Reading analysis completed successfully', name: 'dyslexic_ai.reading_coach');
     } catch (e) {
-      print('❌ Analysis failed: $e');
+      developer.log('Reading analysis failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
       errorMessage = 'Failed to analyze reading: $e';
     }
   }
 
   Future<void> _generateFeedback(List<WordResult> results) async {
-    print('💬 Generating feedback for ${results.length} word results');
     liveFeedback.clear();
     
     for (final result in results.take(5)) {
       final message = await _analysisService.generateFeedbackMessage(result);
-      print('💬 Feedback: "${result.expectedWord}" → "$message"');
       liveFeedback.add(message);
     }
-    
-    print('💬 Total feedback messages: ${liveFeedback.length}');
   }
 
   void _completeSession() {
@@ -527,46 +500,45 @@ abstract class _ReadingCoachStore with Store {
   /// Prepare system for camera launch by managing memory
   Future<void> _prepareForCameraLaunch() async {
     try {
-      print('📷 Preparing for camera launch - managing memory...');
+      developer.log('Preparing for camera launch', name: 'dyslexic_ai.reading_coach');
       
       // Give the system a moment to prepare
       await Future.delayed(const Duration(milliseconds: 200));
       
       // Explicitly trigger garbage collection
-      print('📷 Requesting garbage collection...');
       // Note: In Dart, we can't force GC, but we can give the system time
       await Future.delayed(const Duration(milliseconds: 100));
       
-      print('📷 Memory preparation complete');
+      developer.log('Camera preparation complete', name: 'dyslexic_ai.reading_coach');
     } catch (e) {
-      print('⚠️ Memory preparation failed: $e');
+      developer.log('Camera preparation failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
     }
   }
   
   /// Handle return from camera app
   Future<void> _handleCameraReturn() async {
     try {
-      print('📷 Handling camera return - reinitializing...');
+      developer.log('Handling camera return', name: 'dyslexic_ai.reading_coach');
       
       // Give the system time to stabilize after camera app
       await Future.delayed(const Duration(milliseconds: 300));
       
       // Ensure services are still initialized
       if (!_speechService.isInitialized) {
-        print('📷 Reinitializing speech service...');
+        developer.log('Reinitializing speech service after camera', name: 'dyslexic_ai.reading_coach');
         await _speechService.initialize();
       }
       
-      print('📷 Camera return handled successfully');
+      developer.log('Camera return handled successfully', name: 'dyslexic_ai.reading_coach');
     } catch (e) {
-      print('⚠️ Camera return handling failed: $e');
+      developer.log('Camera return handling failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
     }
   }
   
   /// Process photo with memory management
   Future<void> _processPhotoWithMemoryManagement(XFile image) async {
     try {
-      print('📷 Processing photo with memory management...');
+      developer.log('Processing photo with memory management', name: 'dyslexic_ai.reading_coach');
       
       // Add a small delay to allow memory to stabilize
       await Future.delayed(const Duration(milliseconds: 150));
@@ -578,13 +550,13 @@ abstract class _ReadingCoachStore with Store {
       // Clean up the temporary image file if possible
       try {
         await File(image.path).delete();
-        print('📷 Temporary image file cleaned up');
+        developer.log('Temporary image file cleaned up', name: 'dyslexic_ai.reading_coach');
       } catch (e) {
-        print('⚠️ Could not clean up temporary image: $e');
+        developer.log('Could not clean up temporary image: $e', name: 'dyslexic_ai.reading_coach');
       }
       
     } catch (e) {
-      print('❌ Photo processing failed: $e');
+      developer.log('Photo processing failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
       rethrow;
     }
   }

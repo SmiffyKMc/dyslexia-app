@@ -190,10 +190,15 @@ abstract class _SessionLogStore with Store {
     developer.log('📊 Completing session: ${currentSession!.feature}', name: 'dyslexic_ai.sessions');
     
     final completedData = Map<String, dynamic>.from(currentSession!.data);
+    developer.log('📊 Current session data before merging: questions_answered=${completedData['questions_answered']}, questions_total=${completedData['questions_total']}', name: 'dyslexic_ai.sessions');
+    
     if (finalData != null) {
+      developer.log('📊 Final data to merge: $finalData', name: 'dyslexic_ai.sessions');
       completedData.addAll(finalData);
     }
     completedData['status'] = 'completed';
+    
+    developer.log('📊 Completed session data after merging: questions_answered=${completedData['questions_answered']}, questions_total=${completedData['questions_total']}', name: 'dyslexic_ai.sessions');
     
     final completedSession = currentSession!.copyWith(
       data: completedData,
@@ -202,6 +207,8 @@ abstract class _SessionLogStore with Store {
       score: score,
       timestamp: DateTime.now(),
     );
+    
+    developer.log('📊 Final session log data: questions_answered=${completedSession.data['questions_answered']}, questions_total=${completedSession.data['questions_total']}', name: 'dyslexic_ai.sessions');
     
     await logSession(completedSession);
     currentSession = null;

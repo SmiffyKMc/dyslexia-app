@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:developer' as developer;
 
 class SpeechRecognitionService {
   final SpeechToText _speechToText = SpeechToText();
@@ -10,6 +11,7 @@ class SpeechRecognitionService {
   bool _isInitialized = false;
   bool _isListening = false;
   bool _isDisposed = false;
+  bool _permissionGranted = false;
 
   Stream<String> get recognizedWordsStream {
     _ensureRecognizedWordsController();
@@ -37,54 +39,99 @@ class SpeechRecognitionService {
   Future<bool> initialize() async {
     if (_isInitialized || _isDisposed) return _isInitialized;
 
-    final hasPermission = await _requestMicrophonePermission();
-    if (!hasPermission) return false;
+    try {
+      developer.log('🎤 Initializing speech recognition...', name: 'dyslexic_ai.speech');
+      
+      // Check and request permission first
+      final hasPermission = await _requestMicrophonePermission();
+      if (!hasPermission) {
+        developer.log('🎤 Microphone permission denied', name: 'dyslexic_ai.speech');
+        return false;
+      }
 
-    _isInitialized = await _speechToText.initialize(
-      onError: _onError,
-      onStatus: _onStatus,
-    );
+      _permissionGranted = true;
+      
+      // Initialize speech recognition with simplified error handling
+      _isInitialized = await _speechToText.initialize(
+        onError: _onError,
+        onStatus: _onStatus,
+        debugLogging: false, // Disable debug logging for performance
+      );
 
-    return _isInitialized;
+      developer.log('🎤 Speech recognition initialized: $_isInitialized', name: 'dyslexic_ai.speech');
+      return _isInitialized;
+    } catch (e) {
+      developer.log('🎤 Speech recognition initialization failed: $e', name: 'dyslexic_ai.speech');
+      return false;
+    }
   }
 
   Future<bool> _requestMicrophonePermission() async {
-    final status = await Permission.microphone.request();
-    return status == PermissionStatus.granted;
+    if (_permissionGranted) return true;
+    
+    try {
+      final status = await Permission.microphone.request();
+      _permissionGranted = status == PermissionStatus.granted;
+      return _permissionGranted;
+    } catch (e) {
+      developer.log('🎤 Permission request failed: $e', name: 'dyslexic_ai.speech');
+      return false;
+    }
   }
 
   Future<void> startListening() async {
     if (!_isInitialized || _isListening || _isDisposed) return;
 
-    await _speechToText.listen(
-      onResult: _onResult,
-      listenFor: const Duration(minutes: 10),
-      pauseFor: const Duration(seconds: 30),
-      partialResults: true,
-      cancelOnError: false,
-      listenMode: ListenMode.dictation,
-    );
+    try {
+      developer.log('🎤 Starting speech recognition...', name: 'dyslexic_ai.speech');
+      
+      await _speechToText.listen(
+        onResult: _onResult,
+        listenFor: const Duration(minutes: 5), // Reduced from 10 minutes
+        pauseFor: const Duration(seconds: 3), // Reduced from 30 seconds
+        partialResults: true,
+        cancelOnError: false,
+        listenMode: ListenMode.dictation,
+      );
 
-    _isListening = true;
-    _ensureListeningController();
-    _listeningController?.add(true);
+      _isListening = true;
+      _ensureListeningController();
+      _listeningController?.add(true);
+      
+      developer.log('🎤 Speech recognition started', name: 'dyslexic_ai.speech');
+    } catch (e) {
+      developer.log('🎤 Failed to start listening: $e', name: 'dyslexic_ai.speech');
+      _isListening = false;
+      _ensureListeningController();
+      _listeningController?.add(false);
+    }
   }
 
   Future<void> stopListening() async {
     if (!_isListening || _isDisposed) return;
 
-    await _speechToText.stop();
-    _isListening = false;
-    _ensureListeningController();
-    _listeningController?.add(false);
+    try {
+      developer.log('🎤 Stopping speech recognition...', name: 'dyslexic_ai.speech');
+      
+      await _speechToText.stop();
+      _isListening = false;
+      _ensureListeningController();
+      _listeningController?.add(false);
+      
+      developer.log('🎤 Speech recognition stopped', name: 'dyslexic_ai.speech');
+    } catch (e) {
+      developer.log('🎤 Failed to stop listening: $e', name: 'dyslexic_ai.speech');
+    }
   }
 
   Future<void> restartListening() async {
     if (_isDisposed) return;
     
+    developer.log('🎤 Restarting speech recognition...', name: 'dyslexic_ai.speech');
+    
     if (_isListening) {
       await stopListening();
-      await Future.delayed(const Duration(milliseconds: 500));
+      await Future.delayed(const Duration(milliseconds: 300)); // Reduced delay
     }
     await startListening();
   }
@@ -92,17 +139,16 @@ class SpeechRecognitionService {
   void _onResult(result) {
     if (_isDisposed) return;
     
-    print('🎤 Speech Result: "${result.recognizedWords}"');
-    print('🎤 Is Final: ${result.finalResult}');
-    print('🎤 Confidence: ${result.confidence}');
+    developer.log('🎤 Speech Result: "${result.recognizedWords}" (final: ${result.finalResult})', name: 'dyslexic_ai.speech');
     
     if (result.recognizedWords.isNotEmpty) {
       _ensureRecognizedWordsController();
       _recognizedWordsController?.add(result.recognizedWords);
     }
     
+    // Auto-stop on final result to prevent hanging
     if (result.finalResult && result.recognizedWords.isNotEmpty) {
-      print('🎤 Got final result, stopping listening automatically');
+      developer.log('🎤 Final result received, auto-stopping', name: 'dyslexic_ai.speech');
       _isListening = false;
       _ensureListeningController();
       _listeningController?.add(false);
@@ -112,15 +158,16 @@ class SpeechRecognitionService {
   void _onError(error) {
     if (_isDisposed) return;
     
-    print('Speech recognition error: $error');
+    developer.log('🎤 Speech error: $error', name: 'dyslexic_ai.speech');
     
-    // Check for common recoverable errors using toString() since errorType doesn't exist
+    // Handle common recoverable errors
     final errorString = error.toString().toLowerCase();
     if (errorString.contains('no match') || errorString.contains('error_no_match')) {
-      print('No speech detected, continuing to listen...');
+      developer.log('🎤 No speech detected, continuing...', name: 'dyslexic_ai.speech');
       return;
     }
     
+    // For other errors, stop listening
     _isListening = false;
     _ensureListeningController();
     _listeningController?.add(false);
@@ -129,7 +176,7 @@ class SpeechRecognitionService {
   void _onStatus(status) {
     if (_isDisposed) return;
     
-    print('Speech recognition status: $status');
+    developer.log('🎤 Speech status: $status', name: 'dyslexic_ai.speech');
     _ensureListeningController();
     
     if (status == 'notListening') {
@@ -143,6 +190,8 @@ class SpeechRecognitionService {
 
   void dispose() {
     if (_isDisposed) return;
+    
+    developer.log('🎤 Disposing speech recognition service', name: 'dyslexic_ai.speech');
     
     _isDisposed = true;
     _isListening = false;

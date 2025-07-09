@@ -18,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final LearnerProfileStore _profileStore;
   late final SessionLogStore _sessionLogStore;
   late final GemmaProfileUpdateService _profileUpdateService;
+  bool _isRecommendationExpanded = false;
 
   @override
   void initState() {
@@ -49,11 +50,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 16),
                   _buildTodaysProgress(context),
                   const SizedBox(height: 16),
+                  _buildPersonalizedSuggestions(context),
+                  const SizedBox(height: 16),
                   _buildQuickTools(context),
                   const SizedBox(height: 16),
                   _buildRecentActivity(),
-                  const SizedBox(height: 16),
-                  _buildPersonalizedSuggestions(context),
                   const SizedBox(height: 16), // Extra bottom padding
                 ],
               );
@@ -207,7 +208,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
-                if (_profileStore.needsUpdate)
+                if (_profileStore.isUpdating)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'AI Updating...',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_profileStore.needsUpdate)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -218,6 +249,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Update Available',
                       style: TextStyle(
                         color: Colors.orange[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Up to date',
+                      style: TextStyle(
+                        color: Colors.green[700],
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -260,33 +307,102 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Current Focus: ${_profileStore.currentFocus}',
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        'Current Focus: ${_profileStore.currentFocus}',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            if (_profileStore.needsUpdate && _profileStore.canUpdateManually)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _profileStore.isUpdating ? null : _updateProfile,
-                    child: _profileStore.isUpdating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Update Profile'),
-                  ),
+            
+            // Add phoneme confusions
+            if (_profileStore.phonemeConfusions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.psychology, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Practice These Sounds',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.phonemeConfusions.take(3).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ],
+            
+            // Add strength areas
+            if (_profileStore.strengthAreas.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.thumb_up, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Strengths',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.strengthAreas.take(2).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -650,9 +766,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.info_outline, color: Colors.grey),
                 SizedBox(width: 12),
-                Text(
-                  'No recent activity. Start a session to begin learning!',
-                  style: TextStyle(color: Colors.grey),
+                Expanded(
+                  child: Text(
+                    'No recent activity. Start a session to begin learning!',
+                    style: TextStyle(color: Colors.grey),
+                    overflow: TextOverflow.visible,
+                    softWrap: true,
+                  ),
                 ),
               ],
             ),
@@ -826,122 +946,84 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.star, color: Colors.white, size: 16),
+            _buildExpandableRecommendation(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandableRecommendation(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isRecommendationExpanded = !_isRecommendationExpanded;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: _isRecommendationExpanded ? Border.all(
+            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            width: 2,
+          ) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recommended: ${_profileStore.recommendedTool}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _profileStore.learningAdvice,
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                  child: const Icon(Icons.star, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recommended: ${_profileStore.recommendedTool}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _profileStore.learningAdvice,
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        maxLines: _isRecommendationExpanded ? null : 2,
+                        overflow: _isRecommendationExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Icon(
+                  _isRecommendationExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ],
             ),
-            if (_profileStore.phonemeConfusions.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.psychology, color: Colors.white, size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Practice These Sounds',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _profileStore.phonemeConfusions.take(3).join(', '),
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (_profileStore.strengthAreas.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.thumb_up, color: Colors.white, size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Your Strengths',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _profileStore.strengthAreas.take(2).join(', '),
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            if (_isRecommendationExpanded) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _navigateToRecommendedTool(_profileStore.recommendedTool),
+                  icon: _getToolIcon(_profileStore.recommendedTool),
+                  label: Text('Try ${_profileStore.recommendedTool}'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ],
@@ -949,6 +1031,42 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Icon _getToolIcon(String toolName) {
+    switch (toolName.toLowerCase()) {
+      case 'reading coach':
+        return const Icon(Icons.record_voice_over, size: 20);
+      case 'word doctor':
+        return const Icon(Icons.healing, size: 20);
+      case 'adaptive story':
+        return const Icon(Icons.book, size: 20);
+      case 'phonics game':
+        return const Icon(Icons.games, size: 20);
+      default:
+        return const Icon(Icons.school, size: 20);
+    }
+  }
+
+  void _navigateToRecommendedTool(String toolName) {
+    switch (toolName.toLowerCase()) {
+      case 'reading coach':
+        Navigator.of(context).pushNamed('/reading_coach');
+        break;
+      case 'word doctor':
+        Navigator.of(context).pushNamed('/word_doctor');
+        break;
+      case 'adaptive story':
+        Navigator.of(context).pushNamed('/adaptive_story');
+        break;
+      case 'phonics game':
+        Navigator.of(context).pushNamed('/phonics_game');
+        break;
+      default:
+        // Fallback to tools screen
+        Navigator.of(context).pushNamed('/tools');
+        break;
+    }
   }
 
   Future<void> _updateProfile() async {

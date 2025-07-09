@@ -47,6 +47,10 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
             return _buildStorySelectionScreen();
           }
 
+          if (_store.storyCompleted) {
+            return _buildCompletionSummaryScreen();
+          }
+
           return _buildStoryReadingScreen();
         },
       ),
@@ -264,6 +268,11 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
     final progress = _store.progressPercentage;
     final currentPart = _store.currentPartIndex + 1;
     final totalParts = _store.currentStory?.totalParts ?? 1;
+    
+    // Calculate question progress across entire story
+    final totalQuestionsInStory = _store.currentStory?.parts.fold(0, (sum, part) => sum + part.questions.length) ?? 0;
+    final completedQuestions = _store.currentStory?.parts.take(_store.currentPartIndex).fold(0, (sum, part) => sum + part.questions.length) ?? 0;
+    final currentQuestionInStory = completedQuestions + _store.currentQuestionIndex + 1;
 
     return Container(
       padding: const EdgeInsets.all(16.0),
@@ -301,7 +310,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Text('Part $currentPart of $totalParts'),
+              Text('Question $currentQuestionInStory of $totalQuestionsInStory'),
               const SizedBox(width: 16),
               Expanded(
                 child: LinearProgressIndicator(
@@ -369,7 +378,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'Some words are hidden (**** ) to help you focus on the question below.',
+                        'Some words are hidden (____ ) to help you focus on the question below.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.orange.shade700,
@@ -779,6 +788,284 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
               }).toList(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCompletionSummaryScreen() {
+    final progress = _store.progress;
+    final story = _store.currentStory;
+    
+    if (progress == null || story == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 40),
+                  
+                  // Completion celebration
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: DyslexiaTheme.successColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: DyslexiaTheme.successColor.withOpacity(0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.celebration,
+                          size: 64,
+                          color: DyslexiaTheme.successColor,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Story Completed!',
+                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: DyslexiaTheme.successColor,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Great job finishing "${story.title}"',
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            color: Colors.grey.shade700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 32),
+                  
+                  // Summary statistics
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Your Results',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          // Accuracy score
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.percent,
+                                  color: DyslexiaTheme.primaryAccent,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Accuracy',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${progress.accuracyPercentage.toStringAsFixed(1)}%',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: DyslexiaTheme.primaryAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Questions answered
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: DyslexiaTheme.successColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.quiz,
+                                  color: DyslexiaTheme.successColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Questions Answered',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${progress.correctAnswersCount}/${progress.totalAnswersCount}',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: DyslexiaTheme.successColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Words practiced
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.school,
+                                  color: Colors.orange,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Words Practiced',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${progress.uniquePracticedWords.length}',
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Words practiced list
+                  if (progress.uniquePracticedWords.isNotEmpty) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Words You Practiced',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: progress.uniquePracticedWords.map((word) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: DyslexiaTheme.successColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: DyslexiaTheme.successColor.withOpacity(0.3)),
+                                  ),
+                                  child: Text(
+                                    word,
+                                    style: TextStyle(
+                                      color: DyslexiaTheme.successColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          
+          // Finish button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _store.finishStory,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DyslexiaTheme.primaryAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.home),
+                  SizedBox(width: 8),
+                  Text(
+                    'Finish & Return to Stories',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+        ],
       ),
     );
   }

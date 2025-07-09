@@ -142,6 +142,25 @@ abstract class _LearnerProfileStore with Store {
   }
 
   @action
+  void setUpdating(bool updating) {
+    isUpdating = updating;
+    developer.log('🧠 Profile updating state set to: $updating', name: 'dyslexic_ai.profile');
+  }
+
+  @action
+  void startUpdate() {
+    isUpdating = true;
+    errorMessage = null;
+    developer.log('🧠 Profile update started', name: 'dyslexic_ai.profile');
+  }
+
+  @action
+  void finishUpdate() {
+    isUpdating = false;
+    developer.log('🧠 Profile update finished', name: 'dyslexic_ai.profile');
+  }
+
+  @action
   Future<void> resetProfile() async {
     developer.log('🧠 Resetting profile to initial state', name: 'dyslexic_ai.profile');
     

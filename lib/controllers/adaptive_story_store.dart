@@ -4,6 +4,7 @@ import '../models/session_log.dart';
 import '../services/story_service.dart';
 import '../services/text_to_speech_service.dart';
 import '../services/session_logging_service.dart';
+import '../services/gemma_profile_update_service.dart';
 import '../utils/service_locator.dart';
 
 part 'adaptive_story_store.g.dart';
@@ -14,6 +15,7 @@ abstract class _AdaptiveStoryStore with Store {
   final StoryService _storyService;
   final TextToSpeechService _ttsService;
   late final SessionLoggingService _sessionLogging;
+  late final GemmaProfileUpdateService _profileUpdateService;
   DateTime? _sessionStartTime;
 
   _AdaptiveStoryStore({
@@ -22,6 +24,7 @@ abstract class _AdaptiveStoryStore with Store {
   })  : _storyService = storyService,
         _ttsService = ttsService {
     _sessionLogging = getIt<SessionLoggingService>();
+    _profileUpdateService = getIt<GemmaProfileUpdateService>();
   }
 
   @observable
@@ -43,10 +46,13 @@ abstract class _AdaptiveStoryStore with Store {
   String? errorMessage;
 
   @observable
-  UserAnswer? lastAnswer;
+  bool showingFeedback = false;
 
   @observable
-  bool showingFeedback = false;
+  bool storyCompleted = false;
+
+  @observable
+  UserAnswer? lastAnswer;
 
   @observable
   ObservableList<String> practicedWords = ObservableList<String>();
@@ -307,8 +313,12 @@ abstract class _AdaptiveStoryStore with Store {
     showingFeedback = false;
     lastAnswer = null;
 
+    print('🔍 nextQuestion: currentQuestionIndex=$currentQuestionIndex, isOnLastQuestion=$isOnLastQuestion');
+    print('🔍 nextQuestion: currentPartIndex=$currentPartIndex, isOnLastPart=$isOnLastPart');
+
     if (isOnLastQuestion) {
       // Move to next part
+      print('🔍 Moving to next part...');
       await nextPart();
     } else {
       // Move to next question in current part
@@ -319,8 +329,12 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   Future<void> nextPart() async {
+    print('🔍 nextPart: currentPartIndex=$currentPartIndex, isOnLastPart=$isOnLastPart');
+    print('🔍 nextPart: story parts length=${currentStory?.parts.length}');
+    
     if (isOnLastPart) {
       // Story completed
+      print('🔍 Story should be completed, calling completeStory...');
       await completeStory();
       return;
     }
@@ -335,9 +349,13 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   Future<void> completeStory() async {
+    print('🔍 completeStory called - progress: ${progress != null}');
+    
     if (progress != null) {
       progress = progress!.copyWith(completedAt: DateTime.now());
+      storyCompleted = true;
       print('🎉 Story completed! Accuracy: ${progress!.accuracyPercentage.toStringAsFixed(1)}%');
+      print('🔍 storyCompleted set to: $storyCompleted');
       
       // Complete session logging
       if (_sessionLogging.hasActiveSession) {
@@ -355,9 +373,19 @@ abstract class _AdaptiveStoryStore with Store {
           'session_duration': _sessionStartTime != null 
             ? DateTime.now().difference(_sessionStartTime!).inSeconds 
             : 0,
+          // Add comprehension data directly to completion data
+          'questions_total': progress!.totalAnswersCount,
+          'questions_correct': progress!.correctAnswersCount,
+          'questions_answered': progress!.totalAnswersCount,
+          'comprehension_score': progress!.accuracyPercentage / 100,
+          'incorrect_answers': progress!.answers
+            .where((answer) => !answer.isCorrect)
+            .map((answer) => answer.userAnswer)
+            .toList(),
+          'comprehension_updated': DateTime.now().toIso8601String(),
         };
 
-        // Log final comprehension results
+        // Log final comprehension results to ensure session data is updated
         _sessionLogging.logComprehensionResults(
           questionsTotal: progress!.totalAnswersCount,
           questionsCorrect: progress!.correctAnswersCount,
@@ -368,13 +396,41 @@ abstract class _AdaptiveStoryStore with Store {
             .toList(),
         );
 
+        // Add a small delay to ensure the comprehension data is processed
+        await Future.delayed(const Duration(milliseconds: 100));
+
         await _sessionLogging.completeSession(
-          finalAccuracy: progress!.accuracyPercentage,
+          finalAccuracy: progress!.accuracyPercentage / 100,
           completionStatus: 'completed',
           additionalData: completionData,
         );
+        
+        // Trigger profile update after story completion
+        print('🧠 Triggering profile update after story completion');
+        _profileUpdateService.updateProfileFromRecentSessions().then((success) {
+          print('🧠 Profile update completed: $success');
+        }).catchError((error) {
+          print('🧠 Profile update failed: $error');
+        });
       }
     }
+  }
+
+  @action
+  void finishStory() {
+    // Reset all state and navigate back to story selection
+    currentStory = null;
+    progress = null;
+    currentPartIndex = 0;
+    currentQuestionIndex = 0;
+    lastAnswer = null;
+    showingFeedback = false;
+    storyCompleted = false;
+    practicedWords.clear();
+    patternPracticeCount.clear();
+    discoveredPatterns.clear();
+    errorMessage = null;
+    _sessionStartTime = null;
   }
 
   @action
@@ -458,7 +514,7 @@ abstract class _AdaptiveStoryStore with Store {
     if (_sessionLogging.hasActiveSession) {
       final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
       _sessionLogging.completeSession(
-        finalAccuracy: currentAccuracy,
+        finalAccuracy: currentAccuracy / 100,
         completionStatus: 'cancelled',
         additionalData: {
           'story_cancelled': true,
@@ -475,6 +531,7 @@ abstract class _AdaptiveStoryStore with Store {
     currentQuestionIndex = 0;
     lastAnswer = null;
     showingFeedback = false;
+    storyCompleted = false;
     practicedWords.clear();
     patternPracticeCount.clear();
     discoveredPatterns.clear();

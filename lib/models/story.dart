@@ -54,7 +54,7 @@ class StoryPart {
     
     for (final word in wordsToMask) {
       final wordPattern = RegExp(r'\b' + RegExp.escape(word) + r'\b', caseSensitive: false);
-      maskedContent = maskedContent.replaceAll(wordPattern, '****');
+      maskedContent = maskedContent.replaceAll(wordPattern, '____');
     }
     
     return maskedContent;
@@ -122,14 +122,9 @@ class Question {
     final wordsToMask = <String>{};
     final contentWords = storyPart.getAllWordsInContent();
     
+    // Only mask the correct answer if it appears in the story content
     if (contentWords.contains(correctAnswer.toLowerCase())) {
       wordsToMask.add(correctAnswer);
-    }
-    
-    for (final option in options) {
-      if (contentWords.contains(option.toLowerCase())) {
-        wordsToMask.add(option);
-      }
     }
     
     return wordsToMask;

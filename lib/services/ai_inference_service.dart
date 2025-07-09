@@ -5,6 +5,7 @@ import 'dart:async';
 
 class AIInferenceService {
   final InferenceModel inferenceModel;
+  InferenceModelSession? _cachedSession;
   
   AIInferenceService(this.inferenceModel);
   
@@ -16,22 +17,23 @@ class AIInferenceService {
         .trim();
   }
   
-  Future<InferenceModelSession> _createFreshSession() async {
-    developer.log('Creating fresh inference session...', name: 'dyslexic_ai.inference');
-    final session = await inferenceModel.createSession(
-      temperature: 0.3,
-      topK: 10,
-    );
-    developer.log('Fresh inference session created successfully', name: 'dyslexic_ai.inference');
-    return session;
+  Future<InferenceModelSession> _getOrCreateSession() async {
+    if (_cachedSession == null) {
+      developer.log('Creating new cached inference session...', name: 'dyslexic_ai.inference');
+      _cachedSession = await inferenceModel.createSession(
+        temperature: 0.3,
+        topK: 10,
+      );
+      developer.log('Cached inference session created successfully', name: 'dyslexic_ai.inference');
+    }
+    return _cachedSession!;
   }
   
   Future<String> generateResponse(String prompt) async {
-    InferenceModelSession? session;
     try {
       developer.log('Generating response for prompt: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}...', name: 'dyslexic_ai.inference');
       
-      session = await _createFreshSession();
+      final session = await _getOrCreateSession();
       
       final completer = Completer<String>();
       final buffer = StringBuffer();
@@ -55,23 +57,20 @@ class AIInferenceService {
       
       final result = await completer.future;
       
-      // Clean up session after use
-      await session.close();
-      developer.log('Session closed after successful generation', name: 'dyslexic_ai.inference');
-      
-      // Clean the response before returning
+      // Clean the response before returning (don't close session - reuse it)
       return _cleanAIResponse(result);
     } catch (e, stackTrace) {
       developer.log('Error in generateResponse: $e', name: 'dyslexic_ai.inference', error: e, stackTrace: stackTrace);
       
-      // Clean up session on error
-      if (session != null) {
+      // If there's an error, invalidate the cached session
+      if (_cachedSession != null) {
         try {
-          await session.close();
-          developer.log('Session closed after error', name: 'dyslexic_ai.inference');
+          await _cachedSession!.close();
+          developer.log('Closed cached session after error', name: 'dyslexic_ai.inference');
         } catch (closeError) {
-          developer.log('Error closing session: $closeError', name: 'dyslexic_ai.inference');
+          developer.log('Error closing cached session: $closeError', name: 'dyslexic_ai.inference');
         }
+        _cachedSession = null;
       }
       
       rethrow;
@@ -138,6 +137,20 @@ Provide only the simplified version.
     return await generateResponse(prompt);
   }
   
-  // Sessions are now created fresh for each request and closed automatically
-  // No need for manual session management
+  // Clean up method for proper disposal
+  Future<void> dispose() async {
+    if (_cachedSession != null) {
+      developer.log('Disposing cached inference session', name: 'dyslexic_ai.inference');
+      try {
+        await _cachedSession!.close();
+        developer.log('Cached session disposed successfully', name: 'dyslexic_ai.inference');
+      } catch (e) {
+        developer.log('Error disposing cached session: $e', name: 'dyslexic_ai.inference');
+      }
+      _cachedSession = null;
+    }
+  }
+  
+  // Session reuse eliminates expensive session creation on every request
+  // First request creates session, subsequent requests reuse it
 } 

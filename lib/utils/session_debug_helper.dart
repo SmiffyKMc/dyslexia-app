@@ -1,10 +1,12 @@
 import 'dart:developer' as developer;
 import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
+import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
 
 class SessionDebugHelper {
   static final SessionLogStore _sessionLogStore = getIt<SessionLogStore>();
+  static final LearnerProfileStore _profileStore = getIt<LearnerProfileStore>();
   
   static void debugSessionData(SessionLog session) {
     developer.log('🐛 === SESSION DEBUG ===', name: 'dyslexic_ai.debug');
@@ -48,21 +50,7 @@ class SessionDebugHelper {
     developer.log('🐛 === END ALL SESSIONS DEBUG ===', name: 'dyslexic_ai.debug');
   }
   
-  static void debugTodaysProgress() {
-    developer.log('🐛 === TODAYS PROGRESS DEBUG ===', name: 'dyslexic_ai.debug');
-    developer.log('🐛 Today\'s Sessions: ${_sessionLogStore.todaysSessionCount}', name: 'dyslexic_ai.debug');
-    developer.log('🐛 Today\'s Accuracy: ${(_sessionLogStore.todaysAverageAccuracy * 100).round()}%', name: 'dyslexic_ai.debug');
-    developer.log('🐛 Today\'s Study Time: ${_sessionLogStore.todaysStudyTime.inMinutes}min', name: 'dyslexic_ai.debug');
-    
-    final todaysLogs = _sessionLogStore.todaysLogs;
-    developer.log('🐛 Today\'s logs count: ${todaysLogs.length}', name: 'dyslexic_ai.debug');
-    
-    for (int i = 0; i < todaysLogs.length; i++) {
-      developer.log('🐛 Today\'s Session ${i + 1}: ${todaysLogs[i].sessionDescription}', name: 'dyslexic_ai.debug');
-    }
-    
-    developer.log('🐛 === END TODAYS PROGRESS DEBUG ===', name: 'dyslexic_ai.debug');
-  }
+
   
   static void debugDataFlow(String context, Map<String, dynamic> data) {
     developer.log('🐛 === DATA FLOW DEBUG: $context ===', name: 'dyslexic_ai.debug');
@@ -111,5 +99,87 @@ class SessionDebugHelper {
     }
     
     developer.log('🐛 === END SESSION VALIDATION ===', name: 'dyslexic_ai.debug');
+  }
+
+  static void debugCurrentSession() {
+    developer.log('🐛 === CURRENT SESSION DEBUG ===', name: 'dyslexic_ai.debug');
+    
+    final currentSession = _sessionLogStore.currentSession;
+    if (currentSession != null) {
+      developer.log('🐛 Current Session Type: ${currentSession.sessionType}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 Current Session Feature: ${currentSession.feature}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 Current Session Data Keys: ${currentSession.data.keys.toList()}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 Current Session Accuracy: ${currentSession.accuracy}', name: 'dyslexic_ai.debug');
+      
+      // Log specific data fields
+      final data = currentSession.data;
+      developer.log('🐛 questions_answered: ${data['questions_answered']}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 questions_total: ${data['questions_total']}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 questions_correct: ${data['questions_correct']}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 words_read: ${data['words_read']}', name: 'dyslexic_ai.debug');
+    } else {
+      developer.log('🐛 No current session active', name: 'dyslexic_ai.debug');
+    }
+    
+    developer.log('🐛 === END CURRENT SESSION DEBUG ===', name: 'dyslexic_ai.debug');
+  }
+
+  static void debugAllSessions() {
+    developer.log('🐛 === ALL SESSIONS DEBUG ===', name: 'dyslexic_ai.debug');
+    
+    final allSessions = _sessionLogStore.sessionLogs;
+    developer.log('🐛 Total Sessions: ${allSessions.length}', name: 'dyslexic_ai.debug');
+    
+    for (int i = 0; i < allSessions.length && i < 5; i++) {
+      final session = allSessions[i];
+      developer.log('🐛 Session $i: ${session.feature} - Accuracy: ${session.accuracy}', name: 'dyslexic_ai.debug');
+      developer.log('🐛   Data: questions_answered=${session.data['questions_answered']}, questions_total=${session.data['questions_total']}', name: 'dyslexic_ai.debug');
+    }
+    
+    developer.log('🐛 === END ALL SESSIONS DEBUG ===', name: 'dyslexic_ai.debug');
+  }
+
+  static void debugTodaysProgress() {
+    developer.log('🐛 === TODAYS PROGRESS DEBUG ===', name: 'dyslexic_ai.debug');
+    
+    final todaysLogs = _sessionLogStore.todaysLogs;
+    developer.log('🐛 Today\'s Sessions Count: ${todaysLogs.length}', name: 'dyslexic_ai.debug');
+    developer.log('🐛 Today\'s Accuracy: ${(_sessionLogStore.todaysAverageAccuracy * 100).round()}%', name: 'dyslexic_ai.debug');
+    developer.log('🐛 Raw Accuracy Value: ${_sessionLogStore.todaysAverageAccuracy}', name: 'dyslexic_ai.debug');
+    
+    for (int i = 0; i < todaysLogs.length; i++) {
+      final log = todaysLogs[i];
+      developer.log('🐛 Today\'s Session $i: ${log.feature} - Accuracy: ${log.accuracy}', name: 'dyslexic_ai.debug');
+    }
+    
+    developer.log('🐛 === END TODAYS PROGRESS DEBUG ===', name: 'dyslexic_ai.debug');
+  }
+
+  static Future<void> clearAllSessionData() async {
+    developer.log('🐛 === CLEARING ALL SESSION DATA ===', name: 'dyslexic_ai.debug');
+    
+    await _sessionLogStore.clearAllLogs();
+    
+    developer.log('🐛 Session data cleared, now resetting profile...', name: 'dyslexic_ai.debug');
+    await _profileStore.resetProfile();
+    
+    developer.log('🐛 All session data and profile cleared', name: 'dyslexic_ai.debug');
+    developer.log('🐛 === SESSION DATA AND PROFILE CLEARED ===', name: 'dyslexic_ai.debug');
+  }
+
+  static void debugRecentActivity() {
+    developer.log('🐛 === RECENT ACTIVITY DEBUG ===', name: 'dyslexic_ai.debug');
+    
+    final recentLogs = _sessionLogStore.sessionLogs.take(5).toList();
+    developer.log('🐛 Recent Sessions Count: ${recentLogs.length}', name: 'dyslexic_ai.debug');
+    
+    for (int i = 0; i < recentLogs.length; i++) {
+      final log = recentLogs[i];
+      developer.log('🐛 Recent Session $i: ${log.sessionDescription}', name: 'dyslexic_ai.debug');
+      developer.log('🐛   Accuracy: ${log.accuracy}, Type: ${log.sessionType}', name: 'dyslexic_ai.debug');
+      developer.log('🐛   Data keys: ${log.data.keys.toList()}', name: 'dyslexic_ai.debug');
+    }
+    
+    developer.log('🐛 === END RECENT ACTIVITY DEBUG ===', name: 'dyslexic_ai.debug');
   }
 } 
