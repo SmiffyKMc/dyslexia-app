@@ -27,54 +27,57 @@ final getIt = GetIt.instance;
 
 Future<void> setupLocator() async {
   await Hive.initFlutter();
-  
+
   final sharedPreferences = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
-  
+
   // Register font preference service
-  getIt.registerLazySingleton<FontPreferenceService>(() => FontPreferenceService());
-  
-  getIt.registerFactory<SpeechRecognitionService>(() => SpeechRecognitionService());
+  getIt.registerLazySingleton<FontPreferenceService>(
+      () => FontPreferenceService());
+
+  getIt.registerFactory<SpeechRecognitionService>(
+      () => SpeechRecognitionService());
   getIt.registerFactory<TextToSpeechService>(() => TextToSpeechService());
   getIt.registerLazySingleton<OcrService>(() => OcrService());
-  getIt.registerLazySingleton<ReadingAnalysisService>(() => ReadingAnalysisService());
+  getIt.registerLazySingleton<ReadingAnalysisService>(
+      () => ReadingAnalysisService());
   getIt.registerLazySingleton<WordAnalysisService>(() => WordAnalysisService());
-  getIt.registerLazySingleton<PersonalDictionaryService>(() => PersonalDictionaryService());
+  getIt.registerLazySingleton<PersonalDictionaryService>(
+      () => PersonalDictionaryService());
   getIt.registerLazySingleton<StoryService>(() => StoryService());
-  getIt.registerLazySingleton<PhonicsSoundsService>(() => PhonicsSoundsService());
-  getIt.registerLazySingleton<ModelDownloadService>(() => ModelDownloadService());
-  
+  getIt.registerLazySingleton<PhonicsSoundsService>(
+      () => PhonicsSoundsService());
+  getIt.registerLazySingleton<ModelDownloadService>(
+      () => ModelDownloadService());
+
   // Register new learner profiler services
   getIt.registerLazySingleton<SessionLogStore>(() => SessionLogStore());
   getIt.registerLazySingleton<LearnerProfileStore>(() => LearnerProfileStore());
-  getIt.registerLazySingleton<SessionLoggingService>(() => SessionLoggingService());
-  getIt.registerLazySingleton<GemmaProfileUpdateService>(() => GemmaProfileUpdateService());
-  
+  getIt.registerLazySingleton<SessionLoggingService>(
+      () => SessionLoggingService());
+  getIt.registerLazySingleton<GemmaProfileUpdateService>(
+      () => GemmaProfileUpdateService());
+
   // Initialize font preference service
   await getIt<FontPreferenceService>().init();
-  
+
   // Initialize learner profiler stores
   await getIt<SessionLogStore>().initialize();
   await getIt<LearnerProfileStore>().initialize();
-  
-  getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore(
-    speechService: getIt<SpeechRecognitionService>(),
-    ttsService: getIt<TextToSpeechService>(),
-    ocrService: getIt<OcrService>(),
-    analysisService: getIt<ReadingAnalysisService>(),
-  ));
+
+  getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore());
 
   getIt.registerFactory<WordDoctorStore>(() => WordDoctorStore(
-    analysisService: getIt<WordAnalysisService>(),
-    dictionaryService: getIt<PersonalDictionaryService>(),
-    ttsService: getIt<TextToSpeechService>(),
-    ocrService: getIt<OcrService>(),
-  ));
+        analysisService: getIt<WordAnalysisService>(),
+        dictionaryService: getIt<PersonalDictionaryService>(),
+        ttsService: getIt<TextToSpeechService>(),
+        ocrService: getIt<OcrService>(),
+      ));
 
   getIt.registerFactory<AdaptiveStoryStore>(() => AdaptiveStoryStore(
-    storyService: getIt<StoryService>(),
-    ttsService: getIt<TextToSpeechService>(),
-  ));
+        storyService: getIt<StoryService>(),
+        ttsService: getIt<TextToSpeechService>(),
+      ));
 
   getIt.registerFactory<PhonicsGameStore>(() => PhonicsGameStore());
 }
@@ -83,31 +86,39 @@ Future<void> setupLocator() async {
 /// This will reuse the singleton instance if already created
 AIInferenceService? getAIInferenceService() {
   try {
-    developer.log('🔍 Getting AI inference service...', name: 'dyslexic_ai.service_locator');
-    
+    developer.log('🔍 Getting AI inference service...',
+        name: 'dyslexic_ai.service_locator');
+
     // Check if we already have a registered singleton
     if (getIt.isRegistered<AIInferenceService>()) {
-      developer.log('✅ Reusing existing AIInferenceService singleton', name: 'dyslexic_ai.service_locator');
+      developer.log('✅ Reusing existing AIInferenceService singleton',
+          name: 'dyslexic_ai.service_locator');
       return getIt<AIInferenceService>();
     }
-    
+
     final plugin = FlutterGemmaPlugin.instance;
-    developer.log('📚 Got flutter_gemma plugin: ${plugin.runtimeType}', name: 'dyslexic_ai.service_locator');
-    
+    developer.log('📚 Got flutter_gemma plugin: ${plugin.runtimeType}',
+        name: 'dyslexic_ai.service_locator');
+
     final inferenceModel = plugin.initializedModel;
-    developer.log('🤖 Initialized model: ${inferenceModel?.runtimeType ?? 'null'}', name: 'dyslexic_ai.service_locator');
-    
+    developer.log(
+        '🤖 Initialized model: ${inferenceModel?.runtimeType ?? 'null'}',
+        name: 'dyslexic_ai.service_locator');
+
     if (inferenceModel != null) {
-      developer.log('✅ Creating new AIInferenceService singleton', name: 'dyslexic_ai.service_locator');
+      developer.log('✅ Creating new AIInferenceService singleton',
+          name: 'dyslexic_ai.service_locator');
       final service = AIInferenceService(inferenceModel);
       getIt.registerSingleton<AIInferenceService>(service);
       return service;
     } else {
-      developer.log('❌ No initialized model available', name: 'dyslexic_ai.service_locator');
+      developer.log('❌ No initialized model available',
+          name: 'dyslexic_ai.service_locator');
       return null;
     }
   } catch (e) {
-    developer.log('❌ Error getting AI service: $e', name: 'dyslexic_ai.service_locator');
+    developer.log('❌ Error getting AI service: $e',
+        name: 'dyslexic_ai.service_locator');
     return null;
   }
-} 
+}

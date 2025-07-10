@@ -37,22 +37,13 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
       (_$hasSessionComputed ??= Computed<bool>(() => super.hasSession,
               name: '_ReadingCoachStore.hasSession'))
           .value;
-
-  late final _$currentSessionAtom =
-      Atom(name: '_ReadingCoachStore.currentSession', context: context);
+  Computed<String>? _$recordingStatusTextComputed;
 
   @override
-  ReadingSession? get currentSession {
-    _$currentSessionAtom.reportRead();
-    return super.currentSession;
-  }
-
-  @override
-  set currentSession(ReadingSession? value) {
-    _$currentSessionAtom.reportWrite(value, super.currentSession, () {
-      super.currentSession = value;
-    });
-  }
+  String get recordingStatusText => (_$recordingStatusTextComputed ??=
+          Computed<String>(() => super.recordingStatusText,
+              name: '_ReadingCoachStore.recordingStatusText'))
+      .value;
 
   late final _$currentTextAtom =
       Atom(name: '_ReadingCoachStore.currentText', context: context);
@@ -67,6 +58,22 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   set currentText(String value) {
     _$currentTextAtom.reportWrite(value, super.currentText, () {
       super.currentText = value;
+    });
+  }
+
+  late final _$currentSessionAtom =
+      Atom(name: '_ReadingCoachStore.currentSession', context: context);
+
+  @override
+  ReadingSession? get currentSession {
+    _$currentSessionAtom.reportRead();
+    return super.currentSession;
+  }
+
+  @override
+  set currentSession(ReadingSession? value) {
+    _$currentSessionAtom.reportWrite(value, super.currentSession, () {
+      super.currentSession = value;
     });
   }
 
@@ -99,6 +106,54 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   set isListening(bool value) {
     _$isListeningAtom.reportWrite(value, super.isListening, () {
       super.isListening = value;
+    });
+  }
+
+  late final _$recordingStatusAtom =
+      Atom(name: '_ReadingCoachStore.recordingStatus', context: context);
+
+  @override
+  RecordingStatus get recordingStatus {
+    _$recordingStatusAtom.reportRead();
+    return super.recordingStatus;
+  }
+
+  @override
+  set recordingStatus(RecordingStatus value) {
+    _$recordingStatusAtom.reportWrite(value, super.recordingStatus, () {
+      super.recordingStatus = value;
+    });
+  }
+
+  late final _$silenceSecondsAtom =
+      Atom(name: '_ReadingCoachStore.silenceSeconds', context: context);
+
+  @override
+  int get silenceSeconds {
+    _$silenceSecondsAtom.reportRead();
+    return super.silenceSeconds;
+  }
+
+  @override
+  set silenceSeconds(int value) {
+    _$silenceSecondsAtom.reportWrite(value, super.silenceSeconds, () {
+      super.silenceSeconds = value;
+    });
+  }
+
+  late final _$isAnalyzingAtom =
+      Atom(name: '_ReadingCoachStore.isAnalyzing', context: context);
+
+  @override
+  bool get isAnalyzing {
+    _$isAnalyzingAtom.reportRead();
+    return super.isAnalyzing;
+  }
+
+  @override
+  set isAnalyzing(bool value) {
+    _$isAnalyzingAtom.reportWrite(value, super.isAnalyzing, () {
+      super.isAnalyzing = value;
     });
   }
 
@@ -271,13 +326,24 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
     return _$restartListeningAsyncAction.run(() => super.restartListening());
   }
 
-  late final _$_autoCompleteSessionAsyncAction =
-      AsyncAction('_ReadingCoachStore._autoCompleteSession', context: context);
+  late final _$_handleRecordingCompleteAsyncAction = AsyncAction(
+      '_ReadingCoachStore._handleRecordingComplete',
+      context: context);
 
   @override
-  Future<void> _autoCompleteSession() {
-    return _$_autoCompleteSessionAsyncAction
-        .run(() => super._autoCompleteSession());
+  Future<void> _handleRecordingComplete() {
+    return _$_handleRecordingCompleteAsyncAction
+        .run(() => super._handleRecordingComplete());
+  }
+
+  late final _$_analyzeCompleteRecordingAsyncAction = AsyncAction(
+      '_ReadingCoachStore._analyzeCompleteRecording',
+      context: context);
+
+  @override
+  Future<void> _analyzeCompleteRecording() {
+    return _$_analyzeCompleteRecordingAsyncAction
+        .run(() => super._analyzeCompleteRecording());
   }
 
   late final _$_ReadingCoachStoreActionController =
@@ -350,12 +416,37 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   }
 
   @override
+  void _onRecordingStatusChanged(RecordingStatus status) {
+    final _$actionInfo = _$_ReadingCoachStoreActionController.startAction(
+        name: '_ReadingCoachStore._onRecordingStatusChanged');
+    try {
+      return super._onRecordingStatusChanged(status);
+    } finally {
+      _$_ReadingCoachStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void _onSilenceSecondsChanged(int seconds) {
+    final _$actionInfo = _$_ReadingCoachStoreActionController.startAction(
+        name: '_ReadingCoachStore._onSilenceSecondsChanged');
+    try {
+      return super._onSilenceSecondsChanged(seconds);
+    } finally {
+      _$_ReadingCoachStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
-currentSession: ${currentSession},
 currentText: ${currentText},
+currentSession: ${currentSession},
 recognizedSpeech: ${recognizedSpeech},
 isListening: ${isListening},
+recordingStatus: ${recordingStatus},
+silenceSeconds: ${silenceSeconds},
+isAnalyzing: ${isAnalyzing},
 isLoading: ${isLoading},
 errorMessage: ${errorMessage},
 liveFeedback: ${liveFeedback},
@@ -364,7 +455,8 @@ presetStories: ${presetStories},
 currentAccuracy: ${currentAccuracy},
 formattedAccuracy: ${formattedAccuracy},
 canStartReading: ${canStartReading},
-hasSession: ${hasSession}
+hasSession: ${hasSession},
+recordingStatusText: ${recordingStatusText}
     ''';
   }
 }

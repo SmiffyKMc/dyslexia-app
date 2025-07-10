@@ -3,15 +3,31 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:developer' as developer;
 
+enum RecordingStatus {
+  idle,
+  recording,
+  detectingSilence,
+  completed,
+  error
+}
+
 class SpeechRecognitionService {
   final SpeechToText _speechToText = SpeechToText();
   StreamController<String>? _recognizedWordsController;
   StreamController<bool>? _listeningController;
+  StreamController<int>? _silenceController;
+  StreamController<RecordingStatus>? _statusController;
   
   bool _isInitialized = false;
   bool _isListening = false;
   bool _isDisposed = false;
   bool _permissionGranted = false;
+  
+  // Silence detection
+  Timer? _silenceTimer;
+  int _silenceSeconds = 0;
+  final int _maxSilenceSeconds = 5; // 5 seconds of silence triggers auto-stop
+  bool _hasDetectedSpeech = false;
 
   Stream<String> get recognizedWordsStream {
     _ensureRecognizedWordsController();
@@ -23,8 +39,19 @@ class SpeechRecognitionService {
     return _listeningController!.stream;
   }
   
+  Stream<int> get silenceSecondsStream {
+    _ensureSilenceController();
+    return _silenceController!.stream;
+  }
+  
+  Stream<RecordingStatus> get recordingStatusStream {
+    _ensureStatusController();
+    return _statusController!.stream;
+  }
+  
   bool get isListening => _isListening;
   bool get isInitialized => _isInitialized;
+  bool get hasDetectedSpeech => _hasDetectedSpeech;
 
   void _ensureRecognizedWordsController() {
     if (_isDisposed) return;
@@ -34,6 +61,16 @@ class SpeechRecognitionService {
   void _ensureListeningController() {
     if (_isDisposed) return;
     _listeningController ??= StreamController<bool>.broadcast();
+  }
+
+  void _ensureSilenceController() {
+    if (_isDisposed) return;
+    _silenceController ??= StreamController<int>.broadcast();
+  }
+
+  void _ensureStatusController() {
+    if (_isDisposed) return;
+    _statusController ??= StreamController<RecordingStatus>.broadcast();
   }
 
   Future<bool> initialize() async {
@@ -46,6 +83,8 @@ class SpeechRecognitionService {
       final hasPermission = await _requestMicrophonePermission();
       if (!hasPermission) {
         developer.log('🎤 Microphone permission denied', name: 'dyslexic_ai.speech');
+        _ensureStatusController();
+        _statusController?.add(RecordingStatus.error);
         return false;
       }
 
@@ -58,10 +97,17 @@ class SpeechRecognitionService {
         debugLogging: false, // Disable debug logging for performance
       );
 
+      if (_isInitialized) {
+        _ensureStatusController();
+        _statusController?.add(RecordingStatus.idle);
+      }
+
       developer.log('🎤 Speech recognition initialized: $_isInitialized', name: 'dyslexic_ai.speech');
       return _isInitialized;
     } catch (e) {
       developer.log('🎤 Speech recognition initialization failed: $e', name: 'dyslexic_ai.speech');
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.error);
       return false;
     }
   }
@@ -85,10 +131,15 @@ class SpeechRecognitionService {
     try {
       developer.log('🎤 Starting speech recognition...', name: 'dyslexic_ai.speech');
       
+      // Reset state
+      _hasDetectedSpeech = false;
+      _silenceSeconds = 0;
+      _stopSilenceTimer();
+      
       await _speechToText.listen(
         onResult: _onResult,
-        listenFor: const Duration(minutes: 5), // Reduced from 10 minutes
-        pauseFor: const Duration(seconds: 3), // Reduced from 30 seconds
+        listenFor: const Duration(minutes: 10), // Longer duration, we'll handle auto-stop
+        pauseFor: const Duration(seconds: 8), // Longer pause tolerance
         partialResults: true,
         cancelOnError: false,
         listenMode: ListenMode.dictation,
@@ -98,12 +149,21 @@ class SpeechRecognitionService {
       _ensureListeningController();
       _listeningController?.add(true);
       
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.recording);
+      
+      // Start silence detection after a brief delay
+      await Future.delayed(const Duration(milliseconds: 500));
+      _startSilenceDetection();
+      
       developer.log('🎤 Speech recognition started', name: 'dyslexic_ai.speech');
     } catch (e) {
       developer.log('🎤 Failed to start listening: $e', name: 'dyslexic_ai.speech');
       _isListening = false;
       _ensureListeningController();
       _listeningController?.add(false);
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.error);
     }
   }
 
@@ -113,14 +173,21 @@ class SpeechRecognitionService {
     try {
       developer.log('🎤 Stopping speech recognition...', name: 'dyslexic_ai.speech');
       
+      _stopSilenceTimer();
+      
       await _speechToText.stop();
       _isListening = false;
       _ensureListeningController();
       _listeningController?.add(false);
       
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.completed);
+      
       developer.log('🎤 Speech recognition stopped', name: 'dyslexic_ai.speech');
     } catch (e) {
       developer.log('🎤 Failed to stop listening: $e', name: 'dyslexic_ai.speech');
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.error);
     }
   }
 
@@ -131,9 +198,56 @@ class SpeechRecognitionService {
     
     if (_isListening) {
       await stopListening();
-      await Future.delayed(const Duration(milliseconds: 300)); // Reduced delay
+      await Future.delayed(const Duration(milliseconds: 300));
     }
     await startListening();
+  }
+
+  void _startSilenceDetection() {
+    _silenceSeconds = 0;
+    _silenceTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _silenceSeconds++;
+      _ensureSilenceController();
+      _silenceController?.add(_silenceSeconds);
+      
+      // Update status based on silence duration
+      if (_silenceSeconds >= 3 && _hasDetectedSpeech) {
+        _ensureStatusController();
+        _statusController?.add(RecordingStatus.detectingSilence);
+      }
+      
+      // Auto-stop after max silence duration (only if we've detected speech)
+      if (_silenceSeconds >= _maxSilenceSeconds && _hasDetectedSpeech) {
+        _handleSilenceTimeout();
+      }
+    });
+  }
+
+  void _stopSilenceTimer() {
+    _silenceTimer?.cancel();
+    _silenceTimer = null;
+  }
+
+  void _resetSilenceTimer() {
+    _silenceSeconds = 0;
+    _ensureSilenceController();
+    _silenceController?.add(_silenceSeconds);
+    
+    // Update status back to recording when speech detected
+    if (_hasDetectedSpeech) {
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.recording);
+    }
+  }
+
+  void _handleSilenceTimeout() {
+    developer.log('🎤 Silence timeout - auto-stopping recording', name: 'dyslexic_ai.speech');
+    _stopSilenceTimer();
+    
+    // Stop listening due to silence
+    if (_isListening) {
+      stopListening();
+    }
   }
 
   void _onResult(result) {
@@ -142,16 +256,17 @@ class SpeechRecognitionService {
     developer.log('🎤 Speech Result: "${result.recognizedWords}" (final: ${result.finalResult})', name: 'dyslexic_ai.speech');
     
     if (result.recognizedWords.isNotEmpty) {
+      _hasDetectedSpeech = true;
+      _resetSilenceTimer();
+      
       _ensureRecognizedWordsController();
       _recognizedWordsController?.add(result.recognizedWords);
     }
     
-    // Auto-stop on final result to prevent hanging
+    // Handle final result
     if (result.finalResult && result.recognizedWords.isNotEmpty) {
-      developer.log('🎤 Final result received, auto-stopping', name: 'dyslexic_ai.speech');
-      _isListening = false;
-      _ensureListeningController();
-      _listeningController?.add(false);
+      developer.log('🎤 Final result received', name: 'dyslexic_ai.speech');
+      // Don't auto-stop here - let silence detection handle it
     }
   }
 
@@ -168,9 +283,12 @@ class SpeechRecognitionService {
     }
     
     // For other errors, stop listening
+    _stopSilenceTimer();
     _isListening = false;
     _ensureListeningController();
     _listeningController?.add(false);
+    _ensureStatusController();
+    _statusController?.add(RecordingStatus.error);
   }
 
   void _onStatus(status) {
@@ -180,11 +298,21 @@ class SpeechRecognitionService {
     _ensureListeningController();
     
     if (status == 'notListening') {
+      _stopSilenceTimer();
       _isListening = false;
       _listeningController?.add(false);
+      
+      // Only mark as completed if we have detected speech
+      if (_hasDetectedSpeech) {
+        _ensureStatusController();
+        _statusController?.add(RecordingStatus.completed);
+      }
     } else if (status == 'listening') {
       _isListening = true;
       _listeningController?.add(true);
+      
+      _ensureStatusController();
+      _statusController?.add(RecordingStatus.recording);
     }
   }
 
@@ -195,11 +323,16 @@ class SpeechRecognitionService {
     
     _isDisposed = true;
     _isListening = false;
+    _stopSilenceTimer();
     
     _recognizedWordsController?.close();
     _listeningController?.close();
+    _silenceController?.close();
+    _statusController?.close();
     
     _recognizedWordsController = null;
     _listeningController = null;
+    _silenceController = null;
+    _statusController = null;
   }
 } 

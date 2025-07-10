@@ -16,36 +16,37 @@ import '../utils/service_locator.dart';
 
 part 'reading_coach_store.g.dart';
 
-class ReadingCoachStore = _ReadingCoachStore with _$ReadingCoachStore;
+class ReadingCoachStore extends _ReadingCoachStore with _$ReadingCoachStore {
+  ReadingCoachStore();
+}
 
 abstract class _ReadingCoachStore with Store {
-  final SpeechRecognitionService _speechService;
-  final TextToSpeechService _ttsService;
-  final OcrService _ocrService;
-  final ReadingAnalysisService _analysisService;
-  final ImagePicker _imagePicker = ImagePicker();
+  late final SpeechRecognitionService _speechService;
+  late final TextToSpeechService _ttsService;
+  late final OcrService _ocrService;
+  late final ReadingAnalysisService _analysisService;
   late final SessionLoggingService _sessionLogging;
-
+  late final ImagePicker _imagePicker;
+  
   StreamSubscription<String>? _speechSubscription;
   StreamSubscription<bool>? _listeningSubscription;
+  StreamSubscription<RecordingStatus>? _recordingStatusSubscription;
+  StreamSubscription<int>? _silenceSubscription;
 
-  _ReadingCoachStore({
-    required SpeechRecognitionService speechService,
-    required TextToSpeechService ttsService,
-    required OcrService ocrService,
-    required ReadingAnalysisService analysisService,
-  })  : _speechService = speechService,
-        _ttsService = ttsService,
-        _ocrService = ocrService,
-        _analysisService = analysisService {
+  _ReadingCoachStore() {
+    _speechService = getIt<SpeechRecognitionService>();
+    _ttsService = getIt<TextToSpeechService>();
+    _ocrService = getIt<OcrService>();
+    _analysisService = getIt<ReadingAnalysisService>();
     _sessionLogging = getIt<SessionLoggingService>();
+    _imagePicker = ImagePicker();
   }
 
   @observable
-  ReadingSession? currentSession;
+  String currentText = '';
 
   @observable
-  String currentText = '';
+  ReadingSession? currentSession;
 
   @observable
   String recognizedSpeech = '';
@@ -53,7 +54,16 @@ abstract class _ReadingCoachStore with Store {
   @observable
   bool isListening = false;
 
-  bool _hasFinalResult = false;
+  @observable
+  RecordingStatus recordingStatus = RecordingStatus.idle;
+
+  @observable
+  int silenceSeconds = 0;
+
+  @observable
+  bool isAnalyzing = false;
+
+
 
   @observable
   bool isLoading = false;
@@ -82,10 +92,26 @@ abstract class _ReadingCoachStore with Store {
   }
 
   @computed
-  bool get canStartReading => currentText.isNotEmpty && !isListening;
+  bool get canStartReading => currentText.isNotEmpty && !isListening && !isAnalyzing;
 
   @computed
   bool get hasSession => currentSession != null;
+
+  @computed
+  String get recordingStatusText {
+    switch (recordingStatus) {
+      case RecordingStatus.idle:
+        return 'Ready to record';
+      case RecordingStatus.recording:
+        return 'Recording...';
+      case RecordingStatus.detectingSilence:
+        return 'Finishing up... (${silenceSeconds}s)';
+      case RecordingStatus.completed:
+        return 'Recording complete';
+      case RecordingStatus.error:
+        return 'Recording error';
+    }
+  }
 
   @action
   Future<void> initialize() async {
@@ -96,8 +122,11 @@ abstract class _ReadingCoachStore with Store {
       await _speechService.initialize();
       await _ttsService.initialize();
       
+      // Set up all listeners for the new recording flow
       _speechSubscription = _speechService.recognizedWordsStream.listen(_onSpeechRecognized);
       _listeningSubscription = _speechService.listeningStream.listen(_onListeningChanged);
+      _recordingStatusSubscription = _speechService.recordingStatusStream.listen(_onRecordingStatusChanged);
+      _silenceSubscription = _speechService.silenceSecondsStream.listen(_onSilenceSecondsChanged);
       
       presetStories = PresetStoriesService.getPresetStories();
     } catch (e) {
@@ -218,7 +247,7 @@ abstract class _ReadingCoachStore with Store {
     liveFeedback.clear();
     practiceWords.clear();
     recognizedSpeech = '';
-    _hasFinalResult = false;
+    isAnalyzing = false;
 
     // Start session logging
     await _sessionLogging.startSession(
@@ -234,6 +263,9 @@ abstract class _ReadingCoachStore with Store {
       },
     );
 
+    // Ensure TTS is stopped before starting speech recognition
+    await _ttsService.prepareForSpeechRecognition();
+
     await _speechService.startListening();
     developer.log('Reading session started successfully', name: 'dyslexic_ai.reading_coach');
   }
@@ -246,22 +278,21 @@ abstract class _ReadingCoachStore with Store {
     }
 
     developer.log('Stopping reading session', name: 'dyslexic_ai.reading_coach');
+    
+    // Stop TTS first to prevent conflicts
+    await _ttsService.stop();
+    
     await _speechService.stopListening();
     
-    // Wait a bit for any final speech results to come through
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    if (currentSession != null && recognizedSpeech.isNotEmpty) {
-      await _analyzeReading();
-      _completeSession();
-      developer.log('Reading session completed', name: 'dyslexic_ai.reading_coach');
-    }
+    // Note: Analysis will be triggered by recording status change
   }
 
   @action
   Future<void> pauseReading() async {
     if (!isListening) return;
 
+    // Stop TTS and speech recognition
+    await _ttsService.stop();
     await _speechService.stopListening();
     
     if (currentSession != null) {
@@ -274,6 +305,10 @@ abstract class _ReadingCoachStore with Store {
     if (currentSession?.status != ReadingSessionStatus.paused) return;
 
     currentSession = currentSession!.copyWith(status: ReadingSessionStatus.reading);
+    
+    // Ensure TTS is ready before starting speech recognition
+    await _ttsService.prepareForSpeechRecognition();
+    
     await _speechService.startListening();
   }
 
@@ -284,18 +319,43 @@ abstract class _ReadingCoachStore with Store {
       _sessionLogging.cancelSession(reason: 'session_restarted');
     }
     
-    await stopReading();
+    // Stop both services
+    await _ttsService.stop();
+    await _speechService.stopListening();
+    
+    await Future.delayed(const Duration(milliseconds: 300)); // Brief pause
+    
     await startReading();
   }
 
   @action
   Future<void> speakWord(String word) async {
-    await _ttsService.speakWord(word);
+    try {
+      // Only speak if not currently recording
+      if (!isListening) {
+        await _ttsService.speakWord(word);
+      } else {
+        developer.log('Cannot speak word while recording', name: 'dyslexic_ai.reading_coach');
+      }
+    } catch (e) {
+      developer.log('TTS error speaking word: $e', name: 'dyslexic_ai.reading_coach');
+      errorMessage = 'Unable to speak word. Please try again.';
+    }
   }
 
   @action
   Future<void> speakText(String text) async {
-    await _ttsService.speak(text);
+    try {
+      // Only speak if not currently recording
+      if (!isListening) {
+        await _ttsService.speak(text);
+      } else {
+        developer.log('Cannot speak text while recording', name: 'dyslexic_ai.reading_coach');
+      }
+    } catch (e) {
+      developer.log('TTS error speaking text: $e', name: 'dyslexic_ai.reading_coach');
+      errorMessage = 'Unable to speak text. Please try again.';
+    }
   }
 
   @action
@@ -320,6 +380,7 @@ abstract class _ReadingCoachStore with Store {
 
   @action
   void _onSpeechRecognized(String speech) {
+    // Only update speech, don't trigger analysis here
     recognizedSpeech = speech;
   }
 
@@ -327,47 +388,71 @@ abstract class _ReadingCoachStore with Store {
   void _onListeningChanged(bool listening) {
     isListening = listening;
     
-    // If listening stopped during a reading session
+    // Remove auto-complete logic - now handled by recording status
     if (!listening && currentSession?.status == ReadingSessionStatus.reading) {
       if (recognizedSpeech.isEmpty) {
         errorMessage = 'Having trouble hearing you. Try speaking louder or moving closer to the microphone.';
-      } else {
-        // We have speech data, automatically trigger analysis
-        _autoCompleteSession();
       }
     }
+  }
+
+  @action
+  void _onRecordingStatusChanged(RecordingStatus status) {
+    recordingStatus = status;
+    
+    // Handle recording completion - this is where we trigger analysis
+    if (status == RecordingStatus.completed && currentSession != null) {
+      _handleRecordingComplete();
+    } else if (status == RecordingStatus.error) {
+      errorMessage = 'Recording failed. Please try again.';
+    }
+  }
+
+  @action
+  void _onSilenceSecondsChanged(int seconds) {
+    silenceSeconds = seconds;
   }
 
   @action
   Future<void> restartListening() async {
     if (currentSession?.status == ReadingSessionStatus.reading) {
       errorMessage = null;
+      
+      // Ensure TTS is stopped before restarting
+      await _ttsService.prepareForSpeechRecognition();
+      
       await _speechService.restartListening();
     }
   }
 
   @action
-  Future<void> _autoCompleteSession() async {
-    if (currentSession == null || recognizedSpeech.isEmpty) {
-      developer.log('Cannot auto-complete session: missing data', name: 'dyslexic_ai.reading_coach');
+  Future<void> _handleRecordingComplete() async {
+    if (currentSession == null) {
+      developer.log('Cannot handle recording completion: missing session', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    // Wait a bit for any final speech results to settle
-    await Future.delayed(const Duration(milliseconds: 500));
+    if (recognizedSpeech.isEmpty) {
+      developer.log('Cannot handle recording completion: no speech recognized', name: 'dyslexic_ai.reading_coach');
+      errorMessage = 'No speech was detected. Please try again.';
+      return;
+    }
+
+    developer.log('Recording completed, starting analysis', name: 'dyslexic_ai.reading_coach');
     
-    await _analyzeReading();
-    _completeSession();
-    developer.log('Session auto-completed', name: 'dyslexic_ai.reading_coach');
+    // Now analyze the complete recording
+    await _analyzeCompleteRecording();
   }
 
-  Future<void> _analyzeReading() async {
+  @action
+  Future<void> _analyzeCompleteRecording() async {
     if (currentSession == null || recognizedSpeech.isEmpty) {
-      developer.log('Cannot analyze reading: missing session or speech data', name: 'dyslexic_ai.reading_coach');
+      developer.log('Cannot analyze recording: missing session or speech data', name: 'dyslexic_ai.reading_coach');
       return;
     }
 
-    developer.log('Starting reading analysis', name: 'dyslexic_ai.reading_coach');
+    isAnalyzing = true;
+    developer.log('Starting analysis of complete recording', name: 'dyslexic_ai.reading_coach');
 
     try {
       final results = await _analysisService.analyzeReading(
@@ -377,39 +462,16 @@ abstract class _ReadingCoachStore with Store {
 
       currentSession = currentSession!.copyWith(
         wordResults: results,
-        accuracyScore: currentSession!.calculateAccuracy(),
+        status: ReadingSessionStatus.completed,
       );
 
-      // Log reading metrics
-      final accuracy = currentSession!.calculateAccuracy();
-      final wordsPerMinute = _calculateWordsPerMinute();
-      final mispronuncedPhonemes = _extractPhonemeErrors(results);
-      
-      _sessionLogging.logReadingMetrics(
-        wordsRead: results.length,
-        wordsPerMinute: wordsPerMinute,
-        accuracy: accuracy,
-        difficultWords: currentSession!.mispronuncedWords,
-      );
-      
-      // Log phoneme errors
-      for (final phoneme in mispronuncedPhonemes) {
-        _sessionLogging.logPhonemeError(phoneme);
-      }
-      
-      // Log confidence based on accuracy
-      final confidenceLevel = accuracy > 0.8 ? 'high' : 
-                            accuracy > 0.6 ? 'medium' : 
-                            accuracy > 0.4 ? 'building' : 'low';
-      _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'reading_accuracy');
-
-      await _generateFeedback(results);
-      practiceWords = await _analysisService.suggestPracticeWords(results);
-      
-      developer.log('Reading analysis completed successfully', name: 'dyslexic_ai.reading_coach');
+      _completeSession();
+      developer.log('Analysis completed successfully', name: 'dyslexic_ai.reading_coach');
     } catch (e) {
-      developer.log('Reading analysis failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
-      errorMessage = 'Failed to analyze reading: $e';
+      developer.log('Analysis failed: $e', name: 'dyslexic_ai.reading_coach');
+      errorMessage = 'Analysis failed: $e';
+    } finally {
+      isAnalyzing = false;
     }
   }
 
@@ -569,6 +631,12 @@ abstract class _ReadingCoachStore with Store {
     
     _speechSubscription?.cancel();
     _listeningSubscription?.cancel();
+    _recordingStatusSubscription?.cancel();
+    _silenceSubscription?.cancel();
+    
+    // Stop TTS service before disposing
+    _ttsService.stop();
+    
     _speechService.dispose();
     _ttsService.dispose();
   }
