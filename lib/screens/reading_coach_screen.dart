@@ -57,39 +57,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     );
   }
 
-  void _showImageSourceSelector() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add text from image',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _store.takePhoto();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _store.pickImageFromGallery();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  void _selectImageFromGallery() {
+    _store.pickImageFromGallery();
   }
 
   @override
@@ -220,9 +189,9 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _showImageSourceSelector,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Scan Text from Image'),
+            onPressed: _selectImageFromGallery,
+            icon: const Icon(Icons.photo_library),
+            label: const Text('Select Image from Gallery'),
           ),
         ),
       ],

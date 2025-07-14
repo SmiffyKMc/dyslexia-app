@@ -521,8 +521,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '20 minutes today',
+                        '${_sessionLogStore.todaysStudyTime.inMinutes} minutes today',
                         style: Theme.of(context).textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Goal: 30 minutes',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
@@ -534,10 +541,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
-                          widthFactor: 0.7,
+                          widthFactor: (_sessionLogStore.todaysStudyTime.inMinutes / 30.0).clamp(0.0, 1.0),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
+                              color: _sessionLogStore.todaysStudyTime.inMinutes >= 30 
+                                  ? Colors.green 
+                                  : Theme.of(context).primaryColor,
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),

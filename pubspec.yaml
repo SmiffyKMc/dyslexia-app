@@ -61,7 +61,6 @@ dependencies:
   
   # Image Processing & OCR
   image_picker: ^1.1.2
-  camera: ^0.10.6
   image: ^4.1.7
   
   # Permissions

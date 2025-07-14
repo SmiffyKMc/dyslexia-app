@@ -245,14 +245,6 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
     return _$initializeAsyncAction.run(() => super.initialize());
   }
 
-  late final _$takePhotoAsyncAction =
-      AsyncAction('_ReadingCoachStore.takePhoto', context: context);
-
-  @override
-  Future<void> takePhoto() {
-    return _$takePhotoAsyncAction.run(() => super.takePhoto());
-  }
-
   late final _$pickImageFromGalleryAsyncAction =
       AsyncAction('_ReadingCoachStore.pickImageFromGallery', context: context);
 

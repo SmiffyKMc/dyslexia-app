@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:mobx/mobx.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
+
 import '../models/reading_session.dart';
 import '../models/session_log.dart';
 import '../services/speech_recognition_service.dart';
@@ -147,70 +147,7 @@ abstract class _ReadingCoachStore with Store {
     setCurrentText(story.content);
   }
 
-  @action
-  Future<void> takePhoto() async {
-    isLoading = true;
-    errorMessage = null;
 
-    try {
-      developer.log('📷 Checking camera permissions...', name: 'dyslexic_ai.reading_coach');
-      
-      // Check camera permission first
-      final cameraPermission = await Permission.camera.status;
-      if (!cameraPermission.isGranted) {
-        developer.log('📷 Camera permission not granted, requesting...', name: 'dyslexic_ai.reading_coach');
-        final permissionResult = await Permission.camera.request();
-        if (!permissionResult.isGranted) {
-          errorMessage = 'Camera permission is required to take photos. Please enable camera access in settings.';
-          return;
-        }
-      }
-      
-      developer.log('📷 Camera permission granted, preparing for photo capture...', name: 'dyslexic_ai.reading_coach');
-      
-      // Add memory preparation before camera launch
-      await _prepareForCameraLaunch();
-      
-      developer.log('📷 Launching camera...', name: 'dyslexic_ai.reading_coach');
-      final XFile? image = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 80,  // Slightly reduced quality for memory efficiency
-        preferredCameraDevice: CameraDevice.rear,
-        maxWidth: 1024,    // Limit resolution to reduce memory usage
-        maxHeight: 1024,
-      );
-      
-      // Handle return from camera
-      await _handleCameraReturn();
-      
-      if (image != null) {
-        developer.log('📷 Photo taken successfully: ${image.path}', name: 'dyslexic_ai.reading_coach');
-        
-        // Process with additional memory management
-        await _processPhotoWithMemoryManagement(image);
-        
-        developer.log('📷 OCR completed successfully', name: 'dyslexic_ai.reading_coach');
-      } else {
-        developer.log('📷 No image selected', name: 'dyslexic_ai.reading_coach');
-        errorMessage = 'No photo was taken';
-      }
-    } catch (e) {
-      developer.log('❌ Camera error: $e', name: 'dyslexic_ai.reading_coach', error: e);
-      await _handleCameraReturn(); // Ensure cleanup on error
-      
-      if (e.toString().contains('permission')) {
-        errorMessage = 'Camera permission denied. Please enable camera access in settings.';
-      } else if (e.toString().contains('unavailable')) {
-        errorMessage = 'Camera is not available on this device.';
-      } else if (e.toString().contains('memory') || e.toString().contains('OutOfMemory')) {
-        errorMessage = 'Not enough memory available. Please close other apps and try again.';
-      } else {
-        errorMessage = 'Failed to take photo: $e';
-      }
-    } finally {
-      isLoading = false;
-    }
-  }
 
   @action
   Future<void> pickImageFromGallery() async {
@@ -560,69 +497,7 @@ abstract class _ReadingCoachStore with Store {
     return phonemeErrors.toSet().toList();
   }
 
-  /// Prepare system for camera launch by managing memory
-  Future<void> _prepareForCameraLaunch() async {
-    try {
-      developer.log('Preparing for camera launch', name: 'dyslexic_ai.reading_coach');
-      
-      // Give the system a moment to prepare
-      await Future.delayed(const Duration(milliseconds: 200));
-      
-      // Explicitly trigger garbage collection
-      // Note: In Dart, we can't force GC, but we can give the system time
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      developer.log('Camera preparation complete', name: 'dyslexic_ai.reading_coach');
-    } catch (e) {
-      developer.log('Camera preparation failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
-    }
-  }
-  
-  /// Handle return from camera app
-  Future<void> _handleCameraReturn() async {
-    try {
-      developer.log('Handling camera return', name: 'dyslexic_ai.reading_coach');
-      
-      // Give the system time to stabilize after camera app
-      await Future.delayed(const Duration(milliseconds: 300));
-      
-      // Ensure services are still initialized
-      if (!_speechService.isInitialized) {
-        developer.log('Reinitializing speech service after camera', name: 'dyslexic_ai.reading_coach');
-        await _speechService.initialize();
-      }
-      
-      developer.log('Camera return handled successfully', name: 'dyslexic_ai.reading_coach');
-    } catch (e) {
-      developer.log('Camera return handling failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
-    }
-  }
-  
-  /// Process photo with memory management
-  Future<void> _processPhotoWithMemoryManagement(XFile image) async {
-    try {
-      developer.log('Processing photo with memory management', name: 'dyslexic_ai.reading_coach');
-      
-      // Add a small delay to allow memory to stabilize
-      await Future.delayed(const Duration(milliseconds: 150));
-      
-      // Process the image
-      final extractedText = await _ocrService.processImageForReading(File(image.path));
-      setCurrentText(extractedText);
-      
-      // Clean up the temporary image file if possible
-      try {
-        await File(image.path).delete();
-        developer.log('Temporary image file cleaned up', name: 'dyslexic_ai.reading_coach');
-      } catch (e) {
-        developer.log('Could not clean up temporary image: $e', name: 'dyslexic_ai.reading_coach');
-      }
-      
-    } catch (e) {
-      developer.log('Photo processing failed: $e', name: 'dyslexic_ai.reading_coach', error: e);
-      rethrow;
-    }
-  }
+
 
   void dispose() {
     // Cancel any active session logging

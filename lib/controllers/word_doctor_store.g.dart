@@ -270,15 +270,6 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
     return _$clearRecentWordsAsyncAction.run(() => super.clearRecentWords());
   }
 
-  late final _$scanWordFromCameraAsyncAction =
-      AsyncAction('_WordDoctorStore.scanWordFromCamera', context: context);
-
-  @override
-  Future<void> scanWordFromCamera() {
-    return _$scanWordFromCameraAsyncAction
-        .run(() => super.scanWordFromCamera());
-  }
-
   late final _$scanWordFromGalleryAsyncAction =
       AsyncAction('_WordDoctorStore.scanWordFromGallery', context: context);
 
