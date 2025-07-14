@@ -1,27 +1,219 @@
 import 'dart:io';
-import 'dart:async';
+import 'dart:typed_data';
+import 'dart:developer' as developer;
+import 'package:flutter/services.dart';
+import 'package:flutter_gemma/core/message.dart';
+import 'package:image/image.dart' as img;
+import 'global_session_manager.dart';
 
+/// OCR result data class
+class OCRResult {
+  final String text;
+  final double? confidence;
+  final String? error;
+
+  OCRResult({
+    required this.text,
+    this.confidence,
+    this.error,
+  });
+
+  // Compatibility getters
+  bool get isSuccess => error == null;
+  bool get hasText => text.isNotEmpty;
+}
+
+/// Simplified OCR service following flutter_gemma best practices
 class OcrService {
+  final GlobalSessionManager _sessionManager;
   
-  Future<String> extractTextFromImage(File imageFile) async {
-    await Future.delayed(const Duration(seconds: 2));
-    
-    return '''The quick brown fox jumps over the lazy dog. 
-This is a sample text extracted from the image.
-Reading is a wonderful skill that helps us learn and explore new worlds.
-Practice makes perfect when it comes to reading aloud.''';
+  // Simple image constraints for mobile OCR
+  static const int _maxImageSize = 400;
+  static const int _maxImageBytes = 256 * 1024; // 256KB max
+  
+  // Simple OCR prompt
+  static const String _ocrPrompt = '''
+Extract all text from this image. Return only the text content, no additional formatting or explanations.
+If no text is found, return an empty response.
+''';
+
+  OcrService() : _sessionManager = GlobalSessionManager();
+
+  /// Main OCR method with simple error handling
+  Future<OCRResult> scanImage(File imageFile) async {
+    try {
+      developer.log('Starting OCR scan for image: ${imageFile.path}', name: 'dyslexic_ai.ocr');
+      
+      // Simple image processing
+      final processedBytes = await _resizeImage(imageFile);
+      developer.log('Image resized: ${processedBytes.length} bytes', name: 'dyslexic_ai.ocr');
+
+      // Perform OCR
+      final result = await _performOCR(processedBytes);
+      
+      developer.log('OCR completed successfully', name: 'dyslexic_ai.ocr');
+      return result;
+      
+    } catch (e) {
+      developer.log('OCR scan failed: $e', name: 'dyslexic_ai.ocr');
+      return OCRResult(
+        text: '',
+        error: 'OCR processing failed: ${e.toString()}',
+      );
+    }
   }
 
+  /// Legacy compatibility method
   Future<String> processImageForReading(File imageFile) async {
-    final extractedText = await extractTextFromImage(imageFile);
-    
-    return cleanAndFormatText(extractedText);
+    final result = await scanImage(imageFile);
+    if (result.isSuccess) {
+      return cleanAndFormatText(result.text);
+    } else {
+      throw Exception(result.error ?? 'OCR processing failed');
+    }
   }
 
+  /// Legacy compatibility method
+  Future<String> extractTextFromImage(File imageFile) async {
+    final result = await scanImage(imageFile);
+    return result.isSuccess ? result.text : '';
+  }
+
+  /// Clean and format text for reading applications
   String cleanAndFormatText(String rawText) {
     return rawText
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .replaceAll(RegExp(r'[^\w\s\.\,\!\?\;\:]'), '')
+        .replaceAll(RegExp(r'\s+'), ' ') // Normalize whitespace
         .trim();
+  }
+
+  /// Get OCR status for compatibility
+  Future<String> getOCRStatus() async {
+    try {
+      final session = await _sessionManager.getSession();
+      return 'OCR Ready';
+    } catch (e) {
+      return 'OCR Not Available - Model not loaded';
+    }
+  }
+
+  /// Simple image resizing to optimize for mobile OCR
+  Future<Uint8List> _resizeImage(File imageFile) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final image = img.decodeImage(bytes);
+      
+      if (image == null) {
+        throw Exception('Invalid image format');
+      }
+
+      // Resize to maximum dimensions while maintaining aspect ratio
+      final resized = img.copyResize(
+        image, 
+        width: image.width > image.height ? _maxImageSize : null,
+        height: image.height > image.width ? _maxImageSize : null,
+      );
+
+      // Convert to JPEG with good quality
+      final resizedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 75));
+      
+      // Check size constraint
+      if (resizedBytes.length > _maxImageBytes) {
+        // If still too large, reduce quality
+        final compressedBytes = Uint8List.fromList(img.encodeJpg(resized, quality: 50));
+        return compressedBytes;
+      }
+      
+      return resizedBytes;
+      
+    } catch (e) {
+      developer.log('Image resizing failed: $e', name: 'dyslexic_ai.ocr');
+      rethrow;
+    }
+  }
+
+  /// Perform OCR operation with flutter_gemma
+  Future<OCRResult> _performOCR(Uint8List imageBytes) async {
+    try {
+      final session = await _sessionManager.getSession();
+      
+      // Create multimodal message
+      final message = Message(
+        text: _ocrPrompt,
+        imageBytes: imageBytes,
+        isUser: true,
+      );
+      
+      developer.log('Sending OCR message to model (${imageBytes.length} bytes)...', name: 'dyslexic_ai.ocr');
+      
+      await session.addQueryChunk(message);
+      
+      // Get response - this runs in background naturally
+      final response = await session.getResponse();
+      developer.log('OCR response received: ${response.length} chars', name: 'dyslexic_ai.ocr');
+      
+      final extractedText = response.trim();
+      
+      // Basic validation
+      if (extractedText.isEmpty) {
+        return OCRResult(
+          text: '',
+          confidence: 0.0,
+          error: 'No text could be extracted from the image.',
+        );
+      }
+      
+      // Simple confidence estimation based on text length and character diversity
+      final confidence = _estimateConfidence(extractedText);
+      
+      return OCRResult(
+        text: extractedText,
+        confidence: confidence,
+      );
+      
+    } catch (e) {
+      developer.log('OCR operation failed: $e', name: 'dyslexic_ai.ocr');
+      
+      // Simple error handling - invalidate session and rethrow
+      await _sessionManager.invalidateSession();
+      
+      // Provide user-friendly error message
+      String userError = 'OCR processing failed. Please try again with a different image.';
+      if (e.toString().contains('memory')) {
+        userError = 'Not enough memory available. Please try with a smaller image.';
+      } else if (e.toString().contains('timeout')) {
+        userError = 'OCR operation timed out. Please try with a clearer image.';
+      }
+      
+      return OCRResult(
+        text: '',
+        confidence: 0.0,
+        error: userError,
+      );
+    }
+  }
+
+  /// Simple confidence estimation
+  double _estimateConfidence(String text) {
+    if (text.isEmpty) return 0.0;
+    
+    // Basic heuristics for confidence
+    double confidence = 0.7; // Base confidence
+    
+    // Longer text generally means better extraction
+    if (text.length > 50) confidence += 0.1;
+    if (text.length > 100) confidence += 0.1;
+    
+    // Presence of common words increases confidence
+    final commonWords = ['the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'had', 'her', 'was', 'one', 'our', 'out', 'day', 'get', 'has', 'him', 'his', 'how', 'its', 'may', 'new', 'now', 'old', 'see', 'two', 'who', 'boy', 'did', 'man', 'way', 'too'];
+    final lowerText = text.toLowerCase();
+    final foundCommonWords = commonWords.where((word) => lowerText.contains(word)).length;
+    confidence += (foundCommonWords / commonWords.length) * 0.2;
+    
+    return confidence.clamp(0.0, 1.0);
+  }
+
+  /// Dispose method for cleanup
+  Future<void> dispose() async {
+    await _sessionManager.dispose();
   }
 } 

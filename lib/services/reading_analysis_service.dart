@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:developer' as developer;
 import '../models/reading_session.dart';
 
 class ReadingAnalysisService {
@@ -7,29 +8,17 @@ class ReadingAnalysisService {
     required String expectedText,
     required String spokenText,
   }) async {
-    print('📊 === READING ANALYSIS START ===');
-    print('📊 Expected Text: "$expectedText"');
-    print('📊 Spoken Text: "$spokenText"');
+    developer.log('Starting reading analysis', name: 'dyslexic_ai.reading_analysis');
     
     await Future.delayed(const Duration(milliseconds: 500));
     
     final expectedWords = expectedText.toLowerCase().split(RegExp(r'\s+'));
     final spokenWords = spokenText.toLowerCase().split(RegExp(r'\s+'));
     
-    print('📊 Expected Words (${expectedWords.length}): $expectedWords');
-    print('📊 Spoken Words (${spokenWords.length}): $spokenWords');
-    
     final results = _compareWords(expectedWords, spokenWords);
     
-    print('📊 === ANALYSIS RESULTS ===');
-    for (int i = 0; i < results.length; i++) {
-      final result = results[i];
-      print('📊 Word ${i + 1}: "${result.expectedWord}" vs "${result.spokenWord}" → ${result.isCorrect ? "✅" : "❌"} (confidence: ${result.confidence.toStringAsFixed(2)})');
-    }
-    
     final accuracy = results.where((r) => r.isCorrect).length / results.length;
-    print('📊 Overall Accuracy: ${(accuracy * 100).toStringAsFixed(1)}% (${results.where((r) => r.isCorrect).length}/${results.length})');
-    print('📊 === READING ANALYSIS END ===');
+    developer.log('Reading analysis completed: ${(accuracy * 100).toStringAsFixed(1)}% accuracy', name: 'dyslexic_ai.reading_analysis');
     
     return results;
   }
@@ -38,15 +27,8 @@ class ReadingAnalysisService {
     final results = <WordResult>[];
     final random = math.Random();
     
-    print('📊 === WORD ALIGNMENT START ===');
-    print('📊 Expected: $expectedWords');
-    print('📊 Spoken: $spokenWords');
-    
     // Use dynamic programming for better word alignment
     final alignment = _alignWords(expectedWords, spokenWords);
-    
-    print('📊 Alignment result: $alignment');
-    print('📊 === WORD ALIGNMENT END ===');
     
     for (int i = 0; i < expectedWords.length; i++) {
       final expectedWord = expectedWords[i];
@@ -81,20 +63,14 @@ class ReadingAnalysisService {
         alignment[expIndex] = spoken[spokenIndex];
         usedSpokenIndices[spokenIndex] = true;
         spokenIndex++;
-        print('📊 Exact match: "${expected[expIndex]}" = "${spoken[spokenIndex-1]}"');
       } else {
         // Check if the spoken word appears later in expected
         bool foundMatch = false;
         for (int laterExpIndex = expIndex + 1; laterExpIndex < math.min(expIndex + 3, expected.length); laterExpIndex++) {
           if (_normalizeWord(expected[laterExpIndex]) == spokenWord) {
-            print('📊 Word "${spoken[spokenIndex]}" found later at position $laterExpIndex, skipping "${expected[expIndex]}"');
             foundMatch = true;
             break;
           }
-        }
-        
-        if (!foundMatch) {
-          print('📊 No match for "${expected[expIndex]}", word skipped or mispronounced');
         }
       }
     }
@@ -110,7 +86,6 @@ class ReadingAnalysisService {
         if (similarity > 0.6) {
           alignment[expIndex] = spoken[spIndex];
           usedSpokenIndices[spIndex] = true;
-          print('📊 Similarity match: "${expected[expIndex]}" ≈ "${spoken[spIndex]}" (${(similarity * 100).toStringAsFixed(1)}%)');
           break;
         }
       }
@@ -121,24 +96,18 @@ class ReadingAnalysisService {
 
   bool _isWordCorrect(String expected, String? spoken) {
     if (spoken == null) {
-      print('📊   Word comparison: "$expected" vs null → ❌ (no speech)');
       return false;
     }
     
-    final originalExpected = expected;
-    final originalSpoken = spoken;
     expected = _normalizeWord(expected);
     spoken = _normalizeWord(spoken);
     
     if (expected == spoken) {
-      print('📊   Word comparison: "$originalExpected" vs "$originalSpoken" → ✅ (exact match)');
       return true;
     }
     
     final similarity = _calculateSimilarity(expected, spoken);
-    final isCorrect = similarity > 0.8;
-    print('📊   Word comparison: "$originalExpected" vs "$originalSpoken" → ${isCorrect ? "✅" : "❌"} (similarity: ${(similarity * 100).toStringAsFixed(1)}%)');
-    return isCorrect;
+    return similarity > 0.8;
   }
 
   String _normalizeWord(String word) {

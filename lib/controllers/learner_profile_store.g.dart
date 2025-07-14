@@ -252,6 +252,39 @@ mixin _$LearnerProfileStore on _LearnerProfileStore, Store {
   }
 
   @override
+  void setUpdating(bool updating) {
+    final _$actionInfo = _$_LearnerProfileStoreActionController.startAction(
+        name: '_LearnerProfileStore.setUpdating');
+    try {
+      return super.setUpdating(updating);
+    } finally {
+      _$_LearnerProfileStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void startUpdate() {
+    final _$actionInfo = _$_LearnerProfileStoreActionController.startAction(
+        name: '_LearnerProfileStore.startUpdate');
+    try {
+      return super.startUpdate();
+    } finally {
+      _$_LearnerProfileStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void finishUpdate() {
+    final _$actionInfo = _$_LearnerProfileStoreActionController.startAction(
+        name: '_LearnerProfileStore.finishUpdate');
+    try {
+      return super.finishUpdate();
+    } finally {
+      _$_LearnerProfileStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentProfile: ${currentProfile},

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:developer' as developer;
+
 import 'package:uuid/uuid.dart';
 
 enum SessionType {
@@ -8,8 +11,9 @@ enum SessionType {
   textSimplifier,
   soundItOut,
   buildSentence,
+  sentenceFixer,
   readAloud,
-  soundFocusGame,
+
   visualDictionary,
   wordConfusion,
   thoughtToWord,
@@ -139,6 +143,11 @@ class SessionLog {
         if (gameAccuracy > 0.8) return 'high';
         if (gameAccuracy > 0.6) return 'medium';
         return 'low';
+      case SessionType.sentenceFixer:
+        final sentenceAccuracy = accuracy ?? 0.5;
+        if (sentenceAccuracy > 0.8) return 'high';
+        if (sentenceAccuracy > 0.6) return 'medium';
+        return 'low';
       default:
         return 'medium';
     }
@@ -188,16 +197,37 @@ class SessionLog {
     switch (sessionType) {
       case SessionType.readingCoach:
         final wordsRead = data['words_read'] as int? ?? 0;
-        return 'Read $wordsRead words with ${(accuracy ?? 0.0 * 100).round()}% accuracy';
+        final accuracyPercent = ((accuracy ?? 0.0) * 100).round();
+        
+        // Debug logging for session description
+        if (wordsRead == 0 || accuracyPercent == 0) {
+          developer.log('🐛 SessionDescription Debug: words_read=$wordsRead, accuracy=$accuracy, data keys=${data.keys}', name: 'dyslexic_ai.session_debug');
+        }
+        
+        return 'Read $wordsRead words with $accuracyPercent% accuracy';
       case SessionType.wordDoctor:
         final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
         return 'Analyzed $wordsAnalyzed words';
       case SessionType.adaptiveStory:
         final questionsAnswered = data['questions_answered'] as int? ?? 0;
+        final questionsTotal = data['questions_total'] as int? ?? 0;
+        final questionsCorrect = data['questions_correct'] as int? ?? 0;
+        
+        // Debug logging for session description
+        developer.log('🐛 AdaptiveStory SessionDescription Debug:', name: 'dyslexic_ai.session_debug');
+        developer.log('   questions_answered: $questionsAnswered', name: 'dyslexic_ai.session_debug');
+        developer.log('   questions_total: $questionsTotal', name: 'dyslexic_ai.session_debug');
+        developer.log('   questions_correct: $questionsCorrect', name: 'dyslexic_ai.session_debug');
+        developer.log('   data keys: ${data.keys.toList()}', name: 'dyslexic_ai.session_debug');
+        
         return 'Answered $questionsAnswered story questions';
       case SessionType.phonicsGame:
         final roundsCompleted = data['rounds_completed'] as int? ?? 0;
         return 'Completed $roundsCompleted phonics rounds';
+      case SessionType.sentenceFixer:
+        final sentencesCompleted = data['sentences_completed'] as int? ?? 0;
+        final sentencesCorrect = data['sentences_correct'] as int? ?? 0;
+        return 'Fixed $sentencesCorrect/$sentencesCompleted sentences';
       default:
         return 'Completed ${feature.toLowerCase()} session';
     }

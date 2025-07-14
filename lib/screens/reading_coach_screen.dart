@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/reading_coach_store.dart';
+import '../controllers/learner_profile_store.dart';
 import '../models/reading_session.dart';
 import '../utils/service_locator.dart';
 import '../widgets/story_selector_modal.dart';
@@ -15,11 +16,13 @@ class ReadingCoachScreen extends StatefulWidget {
 
 class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   late ReadingCoachStore _store;
+  late LearnerProfileStore _profileStore;
 
   @override
   void initState() {
     super.initState();
     _store = getIt<ReadingCoachStore>();
+    _profileStore = getIt<LearnerProfileStore>();
     _store.initialize();
   }
 
@@ -37,6 +40,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
       builder: (context) => StorySelectorModal(
         stories: _store.presetStories,
         onStorySelected: _store.selectPresetStory,
+        learnerProfile: _profileStore.currentProfile,
       ),
     );
   }
@@ -53,39 +57,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     );
   }
 
-  void _showImageSourceSelector() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'Add text from image',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _store.takePhoto();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Choose from Gallery'),
-              onTap: () {
-                Navigator.pop(context);
-                _store.pickImageFromGallery();
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+  void _selectImageFromGallery() {
+    _store.pickImageFromGallery();
   }
 
   @override
@@ -216,9 +189,9 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: _showImageSourceSelector,
-            icon: const Icon(Icons.camera_alt),
-            label: const Text('Scan Text from Image'),
+            onPressed: _selectImageFromGallery,
+            icon: const Icon(Icons.photo_library),
+            label: const Text('Select Image from Gallery'),
           ),
         ),
       ],

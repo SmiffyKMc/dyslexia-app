@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
+import 'screens/learn_screen.dart';
 import 'screens/tools_screen.dart';
 import 'screens/progress_screen.dart';
 import 'screens/settings_screen.dart';
@@ -13,15 +14,17 @@ import 'screens/thought_to_word_screen.dart';
 import 'screens/text_simplifier_screen.dart';
 import 'screens/sound_it_out_screen.dart';
 import 'screens/build_sentence_screen.dart';
+import 'screens/sentence_fixer_screen.dart';
 import 'screens/read_aloud_screen.dart';
-import 'screens/sound_focus_game_screen.dart';
+
 import 'screens/visual_dictionary_screen.dart';
 import 'screens/model_loading_screen.dart';
 import 'screens/text_simplifier_example.dart';
 import 'utils/theme.dart';
 import 'utils/service_locator.dart';
-import 'services/model_download_service.dart';
 import 'services/font_preference_service.dart';
+import 'services/gemma_profile_update_service.dart';
+import 'services/global_session_manager.dart';
 import 'dart:developer' as developer;
 
 void main() async {
@@ -36,8 +39,52 @@ void main() async {
   runApp(const DyslexiaAIApp());
 }
 
-class DyslexiaAIApp extends StatelessWidget {
+class DyslexiaAIApp extends StatefulWidget {
   const DyslexiaAIApp({super.key});
+
+  @override
+  State<DyslexiaAIApp> createState() => _DyslexiaAIAppState();
+}
+
+class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserver {
+  late final GemmaProfileUpdateService _profileUpdateService;
+  late final GlobalSessionManager _sessionManager;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _sessionManager = getGlobalSessionManager();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _profileUpdateService.dispose();
+    // Don't dispose global session manager - it should persist for app lifetime
+    // GlobalSessionManager is a singleton that manages its own lifecycle
+    // _sessionManager.dispose(); // ❌ Removed - causes premature disposal
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    developer.log('App lifecycle state changed: $state', name: 'dyslexic_ai.main');
+    _profileUpdateService.handleAppLifecycleChange(state);
+    
+    // Handle session lifecycle based on app state
+    if (state == AppLifecycleState.resumed) {
+      // Warmup session when app resumes for better performance
+      _sessionManager.warmupSession().catchError((e) {
+        developer.log('Session warmup failed: $e', name: 'dyslexic_ai.main');
+      });
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      // Optional: Could invalidate session when app goes to background to save memory
+      // _sessionManager.invalidateSession();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +99,7 @@ class DyslexiaAIApp extends StatelessWidget {
           home: const ModelLoadingScreen(),
           routes: {
             '/home': (context) => const HomeScreen(),
+            '/learn': (context) => const LearnScreen(),
             '/tools': (context) => const ToolsScreen(),
             '/progress': (context) => const ProgressScreen(),
             '/settings': (context) => const SettingsScreen(),
@@ -64,8 +112,9 @@ class DyslexiaAIApp extends StatelessWidget {
             '/text_simplifier': (context) => const TextSimplifierScreen(),
             '/sound_it_out': (context) => const SoundItOutScreen(),
             '/build_sentence': (context) => const BuildSentenceScreen(),
+            '/sentence_fixer': (context) => const SentenceFixerScreen(),
             '/read_aloud': (context) => const ReadAloudScreen(),
-            '/sound_focus_game': (context) => const SoundFocusGameScreen(),
+      
             '/visual_dictionary': (context) => const VisualDictionaryScreen(),
             '/text_simplifier_example': (context) => const TextSimplifierExample(),
           },
@@ -121,6 +170,7 @@ class _MainAppState extends State<MainApp> {
         },
         children: const [
           HomeScreen(),
+          LearnScreen(),
           ToolsScreen(),
           ProgressScreen(),
           SettingsScreen(),
@@ -134,6 +184,10 @@ class _MainAppState extends State<MainApp> {
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.school),
+            label: 'Learn',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.build),

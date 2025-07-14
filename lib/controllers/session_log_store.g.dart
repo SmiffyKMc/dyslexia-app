@@ -59,6 +59,34 @@ mixin _$SessionLogStore on _SessionLogStore, Store {
           Computed<List<String>>(() => super.commonPhonemeErrors,
               name: '_SessionLogStore.commonPhonemeErrors'))
       .value;
+  Computed<List<SessionLog>>? _$todaysLogsComputed;
+
+  @override
+  List<SessionLog> get todaysLogs => (_$todaysLogsComputed ??=
+          Computed<List<SessionLog>>(() => super.todaysLogs,
+              name: '_SessionLogStore.todaysLogs'))
+      .value;
+  Computed<double>? _$todaysAverageAccuracyComputed;
+
+  @override
+  double get todaysAverageAccuracy => (_$todaysAverageAccuracyComputed ??=
+          Computed<double>(() => super.todaysAverageAccuracy,
+              name: '_SessionLogStore.todaysAverageAccuracy'))
+      .value;
+  Computed<Duration>? _$todaysStudyTimeComputed;
+
+  @override
+  Duration get todaysStudyTime => (_$todaysStudyTimeComputed ??=
+          Computed<Duration>(() => super.todaysStudyTime,
+              name: '_SessionLogStore.todaysStudyTime'))
+      .value;
+  Computed<int>? _$todaysSessionCountComputed;
+
+  @override
+  int get todaysSessionCount => (_$todaysSessionCountComputed ??= Computed<int>(
+          () => super.todaysSessionCount,
+          name: '_SessionLogStore.todaysSessionCount'))
+      .value;
 
   late final _$sessionLogsAtom =
       Atom(name: '_SessionLogStore.sessionLogs', context: context);
@@ -226,7 +254,11 @@ last3SessionsSummary: ${last3SessionsSummary},
 sessionTypeCount: ${sessionTypeCount},
 averageAccuracy: ${averageAccuracy},
 totalStudyTime: ${totalStudyTime},
-commonPhonemeErrors: ${commonPhonemeErrors}
+commonPhonemeErrors: ${commonPhonemeErrors},
+todaysLogs: ${todaysLogs},
+todaysAverageAccuracy: ${todaysAverageAccuracy},
+todaysStudyTime: ${todaysStudyTime},
+todaysSessionCount: ${todaysSessionCount}
     ''';
   }
 }

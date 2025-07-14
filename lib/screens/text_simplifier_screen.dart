@@ -74,8 +74,8 @@ class TextSimplifierScreen extends StatelessWidget {
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       onPressed: () {},
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Scan'),
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text('Select Image'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey[200],
                         foregroundColor: Colors.black87,

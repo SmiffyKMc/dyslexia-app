@@ -61,13 +61,13 @@ dependencies:
   
   # Image Processing & OCR
   image_picker: ^1.1.2
-  camera: ^0.10.6
+  image: ^4.1.7
   
   # Permissions
   permission_handler: ^11.3.1
   
   # AI Integration
-  flutter_gemma: ^0.8.6
+  flutter_gemma: ^0.9.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

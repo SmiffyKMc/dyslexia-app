@@ -1,15 +1,96 @@
 import 'package:flutter/material.dart';
 import '../models/reading_session.dart';
+import '../models/story.dart';
+import '../models/learner_profile.dart';
+import '../services/story_service.dart';
+import '../utils/service_locator.dart';
 
 class StorySelectorModal extends StatelessWidget {
   final List<PresetStory> stories;
   final Function(PresetStory) onStorySelected;
+  final LearnerProfile? learnerProfile;
 
   const StorySelectorModal({
     super.key,
     required this.stories,
     required this.onStorySelected,
+    this.learnerProfile,
   });
+
+  Future<void> _generateAIStory(BuildContext context) async {
+    if (learnerProfile == null) return;
+    
+    final messenger = ScaffoldMessenger.of(context);
+    
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+      
+      // Generate AI story
+      final storyService = getIt<StoryService>();
+      final aiStory = await storyService.generateStoryWithAI(learnerProfile!);
+      
+      // Hide loading indicator
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      if (aiStory != null) {
+        // Convert AI story to PresetStory for compatibility
+        final presetStory = PresetStory(
+          id: aiStory.id,
+          title: '🤖 ${aiStory.title}',
+          content: aiStory.parts.first.content,
+          difficulty: _mapDifficultyToString(aiStory.difficulty),
+          tags: aiStory.learningPatterns,
+        );
+        
+        // Close modal and return AI story
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          onStorySelected(presetStory);
+        }
+      } else {
+        // Show error message
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Failed to generate AI story. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Hide loading indicator if still showing
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+      
+      // Show error message
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Error generating story: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  String _mapDifficultyToString(StoryDifficulty difficulty) {
+    switch (difficulty) {
+      case StoryDifficulty.beginner:
+        return 'Easy';
+      case StoryDifficulty.intermediate:
+        return 'Medium';
+      case StoryDifficulty.advanced:
+        return 'Hard';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +118,21 @@ class StorySelectorModal extends StatelessWidget {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
           ),
+          const SizedBox(height: 16),
+          if (learnerProfile != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ElevatedButton.icon(
+                onPressed: () => _generateAIStory(context),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Generate AI Story'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           Expanded(
             child: ListView.builder(

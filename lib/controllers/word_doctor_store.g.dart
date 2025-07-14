@@ -16,6 +16,13 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
       (_$canAnalyzeComputed ??= Computed<bool>(() => super.canAnalyze,
               name: '_WordDoctorStore.canAnalyze'))
           .value;
+  Computed<bool>? _$canScanImageComputed;
+
+  @override
+  bool get canScanImage =>
+      (_$canScanImageComputed ??= Computed<bool>(() => super.canScanImage,
+              name: '_WordDoctorStore.canScanImage'))
+          .value;
   Computed<bool>? _$hasCurrentAnalysisComputed;
 
   @override
@@ -157,6 +164,22 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
     });
   }
 
+  late final _$isScanningAtom =
+      Atom(name: '_WordDoctorStore.isScanning', context: context);
+
+  @override
+  bool get isScanning {
+    _$isScanningAtom.reportRead();
+    return super.isScanning;
+  }
+
+  @override
+  set isScanning(bool value) {
+    _$isScanningAtom.reportWrite(value, super.isScanning, () {
+      super.isScanning = value;
+    });
+  }
+
   late final _$analyzeCurrentWordAsyncAction =
       AsyncAction('_WordDoctorStore.analyzeCurrentWord', context: context);
 
@@ -247,6 +270,23 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
     return _$clearRecentWordsAsyncAction.run(() => super.clearRecentWords());
   }
 
+  late final _$scanWordFromGalleryAsyncAction =
+      AsyncAction('_WordDoctorStore.scanWordFromGallery', context: context);
+
+  @override
+  Future<void> scanWordFromGallery() {
+    return _$scanWordFromGalleryAsyncAction
+        .run(() => super.scanWordFromGallery());
+  }
+
+  late final _$getOCRStatusAsyncAction =
+      AsyncAction('_WordDoctorStore.getOCRStatus', context: context);
+
+  @override
+  Future<String> getOCRStatus() {
+    return _$getOCRStatusAsyncAction.run(() => super.getOCRStatus());
+  }
+
   late final _$_WordDoctorStoreActionController =
       ActionController(name: '_WordDoctorStore', context: context);
 
@@ -293,7 +333,9 @@ isAnalyzing: ${isAnalyzing},
 isLoading: ${isLoading},
 errorMessage: ${errorMessage},
 inputWord: ${inputWord},
+isScanning: ${isScanning},
 canAnalyze: ${canAnalyze},
+canScanImage: ${canScanImage},
 hasCurrentAnalysis: ${hasCurrentAnalysis},
 isCurrentWordSaved: ${isCurrentWordSaved},
 savedWordsCount: ${savedWordsCount},

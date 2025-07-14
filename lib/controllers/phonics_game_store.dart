@@ -282,7 +282,8 @@ class PhonicsGameStore with ChangeNotifier {
     // Complete session logging
     await _sessionLogging.completeSession(
       finalAccuracy: _currentSession!.accuracyPercentage / 100,
-      finalScore: _currentSession!.score,
+      finalScore: _currentSession!.score.toDouble(),
+      completionStatus: 'completed',
       additionalData: {
         'final_status': 'completed',
         'total_rounds': _currentSession!.totalRounds,

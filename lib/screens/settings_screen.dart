@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/font_preference_service.dart';
 import '../utils/service_locator.dart';
+import '../utils/session_debug_helper.dart';
 import 'dart:developer' as developer;
+import '../screens/profile_debug_screen.dart'; // Added import for ProfileDebugScreen
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -42,6 +44,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: Text('Font changed to ${value ? 'OpenDyslexic' : 'Roboto'}'),
           duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _clearSessionData() async {
+    await SessionDebugHelper.clearAllSessionData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All session data cleared - restart app to see changes'),
+          duration: Duration(seconds: 3),
         ),
       );
     }
@@ -258,6 +272,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Icons.privacy_tip,
               () {},
             ),
+            _buildSettingsTile(
+              'Clear Session Data',
+              'Reset all session history and progress',
+              Icons.delete_forever,
+              _clearSessionData,
+            ),
+            _buildSettingsTile(
+              'Profile Debug',
+              'View AI profile generation status and logs',
+              Icons.psychology,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileDebugScreen(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -328,6 +359,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  Widget _buildSettingsGroup(String title, List<Widget> tiles) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(
+            title,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+        ),
+        ...tiles,
+      ],
+    );
+  }
+
+  Widget _buildSettingsTile(String title, String subtitle, IconData icon, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, color: Colors.grey[600]),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
       onTap: onTap,
       contentPadding: EdgeInsets.zero,
     );

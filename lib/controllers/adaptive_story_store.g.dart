@@ -23,6 +23,14 @@ mixin _$AdaptiveStoryStore on _AdaptiveStoryStore, Store {
           Computed<Question?>(() => super.currentQuestion,
               name: '_AdaptiveStoryStore.currentQuestion'))
       .value;
+  Computed<String>? _$currentPartContentWithMaskingComputed;
+
+  @override
+  String get currentPartContentWithMasking =>
+      (_$currentPartContentWithMaskingComputed ??= Computed<String>(
+              () => super.currentPartContentWithMasking,
+              name: '_AdaptiveStoryStore.currentPartContentWithMasking'))
+          .value;
   Computed<bool>? _$hasCurrentStoryComputed;
 
   @override
@@ -191,22 +199,6 @@ mixin _$AdaptiveStoryStore on _AdaptiveStoryStore, Store {
     });
   }
 
-  late final _$lastAnswerAtom =
-      Atom(name: '_AdaptiveStoryStore.lastAnswer', context: context);
-
-  @override
-  UserAnswer? get lastAnswer {
-    _$lastAnswerAtom.reportRead();
-    return super.lastAnswer;
-  }
-
-  @override
-  set lastAnswer(UserAnswer? value) {
-    _$lastAnswerAtom.reportWrite(value, super.lastAnswer, () {
-      super.lastAnswer = value;
-    });
-  }
-
   late final _$showingFeedbackAtom =
       Atom(name: '_AdaptiveStoryStore.showingFeedback', context: context);
 
@@ -220,6 +212,38 @@ mixin _$AdaptiveStoryStore on _AdaptiveStoryStore, Store {
   set showingFeedback(bool value) {
     _$showingFeedbackAtom.reportWrite(value, super.showingFeedback, () {
       super.showingFeedback = value;
+    });
+  }
+
+  late final _$storyCompletedAtom =
+      Atom(name: '_AdaptiveStoryStore.storyCompleted', context: context);
+
+  @override
+  bool get storyCompleted {
+    _$storyCompletedAtom.reportRead();
+    return super.storyCompleted;
+  }
+
+  @override
+  set storyCompleted(bool value) {
+    _$storyCompletedAtom.reportWrite(value, super.storyCompleted, () {
+      super.storyCompleted = value;
+    });
+  }
+
+  late final _$lastAnswerAtom =
+      Atom(name: '_AdaptiveStoryStore.lastAnswer', context: context);
+
+  @override
+  UserAnswer? get lastAnswer {
+    _$lastAnswerAtom.reportRead();
+    return super.lastAnswer;
+  }
+
+  @override
+  set lastAnswer(UserAnswer? value) {
+    _$lastAnswerAtom.reportWrite(value, super.lastAnswer, () {
+      super.lastAnswer = value;
     });
   }
 
@@ -389,6 +413,17 @@ mixin _$AdaptiveStoryStore on _AdaptiveStoryStore, Store {
   }
 
   @override
+  void finishStory() {
+    final _$actionInfo = _$_AdaptiveStoryStoreActionController.startAction(
+        name: '_AdaptiveStoryStore.finishStory');
+    try {
+      return super.finishStory();
+    } finally {
+      _$_AdaptiveStoryStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void clearError() {
     final _$actionInfo = _$_AdaptiveStoryStoreActionController.startAction(
         name: '_AdaptiveStoryStore.clearError');
@@ -430,13 +465,15 @@ currentPartIndex: ${currentPartIndex},
 currentQuestionIndex: ${currentQuestionIndex},
 isLoading: ${isLoading},
 errorMessage: ${errorMessage},
-lastAnswer: ${lastAnswer},
 showingFeedback: ${showingFeedback},
+storyCompleted: ${storyCompleted},
+lastAnswer: ${lastAnswer},
 practicedWords: ${practicedWords},
 patternPracticeCount: ${patternPracticeCount},
 discoveredPatterns: ${discoveredPatterns},
 currentPart: ${currentPart},
 currentQuestion: ${currentQuestion},
+currentPartContentWithMasking: ${currentPartContentWithMasking},
 hasCurrentStory: ${hasCurrentStory},
 hasCurrentQuestion: ${hasCurrentQuestion},
 isOnLastPart: ${isOnLastPart},

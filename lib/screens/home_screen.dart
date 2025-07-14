@@ -5,6 +5,7 @@ import '../controllers/session_log_store.dart';
 import '../services/gemma_profile_update_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
+import '../utils/session_debug_helper.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final LearnerProfileStore _profileStore;
   late final SessionLogStore _sessionLogStore;
   late final GemmaProfileUpdateService _profileUpdateService;
+  bool _isRecommendationExpanded = false;
 
   @override
   void initState() {
@@ -30,25 +32,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Observer(
-            builder: (context) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 16),
-                _buildLearnerProfile(context),
-                const SizedBox(height: 16),
-                _buildTodaysProgress(context),
-                const SizedBox(height: 16),
-                _buildQuickTools(context),
-                const SizedBox(height: 16),
-                _buildRecentActivity(),
-                const SizedBox(height: 16),
-                _buildPersonalizedSuggestions(context),
-                const SizedBox(height: 16), // Extra bottom padding
-              ],
+        child: GestureDetector(
+          // Track user activity to defer background AI processing
+          onTap: () => _profileUpdateService.markUserActive(),
+          onScaleStart: (_) => _profileUpdateService.markUserActive(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Observer(
+              builder: (context) {
+                // Debug today's progress when UI rebuilds
+                if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
+                  SessionDebugHelper.debugTodaysProgress();
+                }
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 16),
+                    _buildLearnerProfile(context),
+                    const SizedBox(height: 16),
+                    _buildTodaysProgress(context),
+                    const SizedBox(height: 16),
+                    _buildPersonalizedSuggestions(context),
+                    const SizedBox(height: 16),
+                    _buildQuickTools(context),
+                    const SizedBox(height: 16),
+                    _buildRecentActivity(),
+                    const SizedBox(height: 16), // Extra bottom padding
+                  ],
+                );
+              },
             ),
           ),
         ),
@@ -87,9 +101,50 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),
         ),
-        IconButton(
-          onPressed: () {},
-          icon: const Icon(Icons.settings, size: 20),
+        Stack(
+          children: [
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.settings, size: 20),
+            ),
+            if (_profileStore.isUpdating)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.3),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 800),
+                    tween: Tween<double>(begin: 0.3, end: 1.0),
+                    builder: (context, value, child) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(value),
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    },
+                    onEnd: () {
+                      if (mounted && _profileStore.isUpdating) {
+                        setState(() {});
+                      }
+                    },
+                  ),
+                ),
+              ),
+          ],
         ),
       ],
     );
@@ -158,7 +213,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 const Spacer(),
-                if (_profileStore.needsUpdate)
+                if (_profileStore.isUpdating)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'AI Updating...',
+                          style: TextStyle(
+                            color: Colors.blue[700],
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (_profileStore.needsUpdate)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -169,6 +254,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Update Available',
                       style: TextStyle(
                         color: Colors.orange[700],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Up to date',
+                      style: TextStyle(
+                        color: Colors.green[700],
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -211,33 +312,102 @@ class _HomeScreenState extends State<HomeScreen> {
                       size: 16,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Current Focus: ${_profileStore.currentFocus}',
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        'Current Focus: ${_profileStore.currentFocus}',
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            if (_profileStore.needsUpdate && _profileStore.canUpdateManually)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _profileStore.isUpdating ? null : _updateProfile,
-                    child: _profileStore.isUpdating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Update Profile'),
-                  ),
+            
+            // Add phoneme confusions
+            if (_profileStore.phonemeConfusions.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.psychology, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Practice These Sounds',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.phonemeConfusions.take(3).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ],
+            
+            // Add strength areas
+            if (_profileStore.strengthAreas.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.thumb_up, color: Colors.white, size: 16),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Your Strengths',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            _profileStore.strengthAreas.take(2).join(', '),
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -245,77 +415,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAIActivityIndicator() {
-    final isAIActive = _profileStore.isUpdating || _profileStore.isLoading;
-    
-    if (!isAIActive) {
-      return const SizedBox(width: 8); // Placeholder space when not active
-    }
-    
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: Tooltip(
-        message: 'AI is analyzing your learning patterns...',
-        child: Container(
-          width: 32,
-          height: 32,
+    return Observer(
+      builder: (context) {
+        if (!_profileUpdateService.isBackgroundProcessingActive) {
+          return const SizedBox.shrink();
+        }
+        
+        return Container(
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.blue.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.blue.withOpacity(0.3),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withOpacity(0.3)),
           ),
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Pulsing background animation
-              TweenAnimationBuilder<double>(
-                duration: const Duration(seconds: 2),
-                tween: Tween<double>(begin: 0.5, end: 1.0),
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1 * value),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  );
-                },
-                onEnd: () {
-                  // This will restart the animation
-                  if (mounted && isAIActive) {
-                    setState(() {});
-                  }
-                },
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
               ),
-              // Robot icon with rotation
-              TweenAnimationBuilder<double>(
-                duration: const Duration(seconds: 3),
-                tween: Tween<double>(begin: 0, end: 1),
-                builder: (context, value, child) {
-                  return Transform.rotate(
-                    angle: value * 2 * 3.14159, // Full rotation
-                    child: Icon(
-                      Icons.smart_toy,
-                      size: 16,
-                      color: Colors.blue[600],
-                    ),
-                  );
-                },
-                onEnd: () {
-                  // Restart rotation if still active
-                  if (mounted && isAIActive) {
-                    setState(() {});
-                  }
-                },
+              const SizedBox(width: 6),
+              Text(
+                'AI Learning',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -384,8 +521,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '20 minutes today',
+                        '${_sessionLogStore.todaysStudyTime.inMinutes} minutes today',
                         style: Theme.of(context).textTheme.titleMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'Goal: 30 minutes',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
@@ -397,10 +541,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         child: FractionallySizedBox(
                           alignment: Alignment.centerLeft,
-                          widthFactor: 0.7,
+                          widthFactor: (_sessionLogStore.todaysStudyTime.inMinutes / 30.0).clamp(0.0, 1.0),
                           child: Container(
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor,
+                              color: _sessionLogStore.todaysStudyTime.inMinutes >= 30 
+                                  ? Colors.green 
+                                  : Theme.of(context).primaryColor,
                               borderRadius: BorderRadius.circular(3),
                             ),
                           ),
@@ -417,17 +563,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 _buildProgressStat(
                   'Sessions', 
-                  '${_sessionLogStore.sessionLogs.length}', 
+                  '${_sessionLogStore.todaysSessionCount}', 
                   context
                 ),
                 _buildProgressStat(
                   'Accuracy', 
-                  '${(_sessionLogStore.averageAccuracy * 100).round()}%', 
+                  '${(_sessionLogStore.todaysAverageAccuracy * 100).round()}%', 
                   context
                 ),
                 _buildProgressStat(
                   'Study Time', 
-                  '${_sessionLogStore.totalStudyTime.inMinutes}min', 
+                  '${_sessionLogStore.todaysStudyTime.inMinutes}min', 
                   context
                 ),
               ],
@@ -467,7 +613,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick Tools',
+          'Quick Learn',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
@@ -478,16 +624,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 context,
                 'Reading Coach',
                 Icons.mic_outlined,
-                '/reading-coach',
+                '/reading_coach',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildToolCard(
                 context,
-                'Word Doctor',
-                Icons.search_outlined,
-                '/word-doctor',
+                'Story Mode',
+                Icons.menu_book_outlined,
+                '/adaptive_story',
               ),
             ),
           ],
@@ -498,18 +644,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildToolCard(
                 context,
-                'Story Mode',
-                Icons.menu_book_outlined,
-                '/adaptive-story',
+                'Phonics Game',
+                Icons.games_outlined,
+                '/phonics_game',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildToolCard(
                 context,
-                'Phonics Game',
-                Icons.games_outlined,
-                '/phonics-game',
+                'Sentence Fixer',
+                Icons.search_outlined,
+                '/sentence_fixer',
               ),
             ),
           ],
@@ -517,9 +663,13 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         Center(
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+              // Track user activity when navigating to learn screen
+              _profileUpdateService.markUserActive();
+              Navigator.pushNamed(context, '/learn');
+            },
             child: Text(
-              'See all tools >',
+              'See all learning activities >',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).primaryColor,
               ),
@@ -533,7 +683,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildToolCard(BuildContext context, String title, IconData icon, String route) {
     return Card(
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, route),
+        onTap: () {
+          // Track user activity when navigating to tools
+          _profileUpdateService.markUserActive();
+          Navigator.pushNamed(context, route);
+        },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -573,6 +727,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRecentActivity() {
     final recentSessions = _sessionLogStore.recentLogs.take(3).toList();
     
+    // Debug recent sessions if they show incorrect data
+    for (final session in recentSessions) {
+      if (session.sessionType == SessionType.readingCoach && 
+          (session.data['words_read'] == 0 || session.accuracy == 0)) {
+        SessionDebugHelper.debugSessionData(session);
+        SessionDebugHelper.validateSessionData(session);
+      }
+    }
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -592,9 +755,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.info_outline, color: Colors.grey),
                 SizedBox(width: 12),
-                Text(
-                  'No recent activity. Start a session to begin learning!',
-                  style: TextStyle(color: Colors.grey),
+                Expanded(
+                  child: Text(
+                    'No recent activity. Start a session to begin learning!',
+                    style: TextStyle(color: Colors.grey),
+                    overflow: TextOverflow.visible,
+                    softWrap: true,
+                  ),
                 ),
               ],
             ),
@@ -768,122 +935,84 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.star, color: Colors.white, size: 16),
+            _buildExpandableRecommendation(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExpandableRecommendation(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isRecommendationExpanded = !_isRecommendationExpanded;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).primaryColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: _isRecommendationExpanded ? Border.all(
+            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            width: 2,
+          ) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Recommended: ${_profileStore.recommendedTool}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _profileStore.learningAdvice,
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                  child: const Icon(Icons.star, color: Colors.white, size: 16),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recommended: ${_profileStore.recommendedTool}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _profileStore.learningAdvice,
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        maxLines: _isRecommendationExpanded ? null : 2,
+                        overflow: _isRecommendationExpanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Icon(
+                  _isRecommendationExpanded ? Icons.expand_less : Icons.expand_more,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ],
             ),
-            if (_profileStore.phonemeConfusions.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.orange,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.psychology, color: Colors.white, size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Practice These Sounds',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _profileStore.phonemeConfusions.take(3).join(', '),
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (_profileStore.strengthAreas.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: Colors.green,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.thumb_up, color: Colors.white, size: 16),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Your Strengths',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _profileStore.strengthAreas.take(2).join(', '),
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            if (_isRecommendationExpanded) ...[
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _navigateToRecommendedTool(_profileStore.recommendedTool),
+                  icon: _getToolIcon(_profileStore.recommendedTool),
+                  label: Text('Try ${_profileStore.recommendedTool}'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ],
@@ -891,6 +1020,51 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Icon _getToolIcon(String toolName) {
+    switch (toolName.toLowerCase()) {
+      case 'reading coach':
+        return const Icon(Icons.mic_outlined, size: 20);
+      case 'adaptive story':
+      case 'story mode':
+        return const Icon(Icons.menu_book_outlined, size: 20);
+      case 'phonics game':
+        return const Icon(Icons.games_outlined, size: 20);
+      case 'sentence fixer':
+        return const Icon(Icons.search_outlined, size: 20);
+
+      case 'word doctor':
+        return const Icon(Icons.search_outlined, size: 20);
+      default:
+        return const Icon(Icons.school, size: 20);
+    }
+  }
+
+  void _navigateToRecommendedTool(String toolName) {
+    switch (toolName.toLowerCase()) {
+      case 'reading coach':
+        Navigator.of(context).pushNamed('/reading_coach');
+        break;
+      case 'adaptive story':
+      case 'story mode':
+        Navigator.of(context).pushNamed('/adaptive_story');
+        break;
+      case 'phonics game':
+        Navigator.of(context).pushNamed('/phonics_game');
+        break;
+      case 'sentence fixer':
+        Navigator.of(context).pushNamed('/sentence_fixer');
+        break;
+
+      case 'word doctor':
+        Navigator.of(context).pushNamed('/word_doctor');
+        break;
+      default:
+        // Fallback to learn screen for learning activities
+        Navigator.of(context).pushNamed('/learn');
+        break;
+    }
   }
 
   Future<void> _updateProfile() async {

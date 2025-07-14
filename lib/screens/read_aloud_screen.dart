@@ -39,8 +39,8 @@ class ReadAloudScreen extends StatelessWidget {
                       height: 48,
                       child: OutlinedButton.icon(
                         onPressed: () {},
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Scan Text'),
+                        icon: const Icon(Icons.photo_library),
+                        label: const Text('Select Image'),
                       ),
                     ),
                   ),

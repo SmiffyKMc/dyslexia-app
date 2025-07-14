@@ -84,6 +84,38 @@ abstract class _SessionLogStore with Store {
     return sortedErrors.take(5).map((entry) => entry.key).toList();
   }
 
+  @computed
+  List<SessionLog> get todaysLogs {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    
+    return sessionLogs.where((log) => 
+      log.timestamp.isAfter(startOfDay) && 
+      log.timestamp.isBefore(endOfDay)
+    ).toList();
+  }
+
+  @computed
+  double get todaysAverageAccuracy {
+    final accuracies = todaysLogs
+        .where((log) => log.accuracy != null)
+        .map((log) => log.accuracy!)
+        .toList();
+    
+    if (accuracies.isEmpty) return 0.0;
+    return accuracies.reduce((a, b) => a + b) / accuracies.length;
+  }
+
+  @computed
+  Duration get todaysStudyTime => todaysLogs.fold(
+    Duration.zero, 
+    (total, log) => total + log.duration
+  );
+
+  @computed
+  int get todaysSessionCount => todaysLogs.length;
+
   @action
   Future<void> initialize() async {
     developer.log('📊 Initializing SessionLogStore...', name: 'dyslexic_ai.sessions');
@@ -158,10 +190,15 @@ abstract class _SessionLogStore with Store {
     developer.log('📊 Completing session: ${currentSession!.feature}', name: 'dyslexic_ai.sessions');
     
     final completedData = Map<String, dynamic>.from(currentSession!.data);
+    developer.log('📊 Current session data before merging: questions_answered=${completedData['questions_answered']}, questions_total=${completedData['questions_total']}', name: 'dyslexic_ai.sessions');
+    
     if (finalData != null) {
+      developer.log('📊 Final data to merge: $finalData', name: 'dyslexic_ai.sessions');
       completedData.addAll(finalData);
     }
     completedData['status'] = 'completed';
+    
+    developer.log('📊 Completed session data after merging: questions_answered=${completedData['questions_answered']}, questions_total=${completedData['questions_total']}', name: 'dyslexic_ai.sessions');
     
     final completedSession = currentSession!.copyWith(
       data: completedData,
@@ -170,6 +207,8 @@ abstract class _SessionLogStore with Store {
       score: score,
       timestamp: DateTime.now(),
     );
+    
+    developer.log('📊 Final session log data: questions_answered=${completedSession.data['questions_answered']}, questions_total=${completedSession.data['questions_total']}', name: 'dyslexic_ai.sessions');
     
     await logSession(completedSession);
     currentSession = null;

@@ -138,6 +138,39 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                         ),
                       ),
                     ),
+            const SizedBox(height: 12),
+            const Text(
+              'Or scan a word from an image:',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Observer(
+              builder: (_) => ElevatedButton.icon(
+                onPressed: _store.canScanImage ? () => _store.scanWordFromGallery() : null,
+                icon: _store.isScanning
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.photo_library),
+                label: Text(_store.isScanning ? 'Scanning...' : 'Select Image'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
                   ],
         ),
       ),
