@@ -2,17 +2,26 @@ import 'package:flutter_gemma/flutter_gemma_interface.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'dart:developer' as developer;
 import 'dart:async';
+import '../utils/service_locator.dart';
+import 'global_session_manager.dart';
 
 class AIInferenceService {
   final InferenceModel inferenceModel;
-  InferenceModelSession? _cachedSession;
+  
+  // Use shared session manager instead of individual cached session
+  late final GlobalSessionManager _sessionManager;
   
   // Token management constants
   static const int maxTokenLimit = 2048;
   static const int safeTokenLimit = 1800; // Leave buffer for response
   static const int emergencyTokenLimit = 400; // Absolute minimum
   
-  AIInferenceService(this.inferenceModel);
+  // Cooperative yielding to prevent UI blocking
+  static const int yieldInterval = 50; // milliseconds between yields
+  
+  AIInferenceService(this.inferenceModel) {
+    _sessionManager = getGlobalSessionManager();
+  }
   
   // Clean AI response by removing special tokens
   String _cleanAIResponse(String response) {
@@ -22,22 +31,10 @@ class AIInferenceService {
         .trim();
   }
   
-  Future<InferenceModelSession> _getOrCreateSession() async {
-    if (_cachedSession == null) {
-      developer.log('Creating new cached inference session...', name: 'dyslexic_ai.inference');
-      _cachedSession = await inferenceModel.createSession(
-        temperature: 0.3,
-        topK: 10,
-      );
-      developer.log('Cached inference session created successfully', name: 'dyslexic_ai.inference');
-    }
-    return _cachedSession!;
-  }
-  
   /// Check if a prompt will exceed token limits
   Future<bool> _isWithinTokenLimit(String prompt) async {
     try {
-      final session = await _getOrCreateSession();
+      final session = await _sessionManager.getSession();
       final tokenCount = await session.sizeInTokens(prompt);
       
       developer.log('Token count for prompt: $tokenCount / $maxTokenLimit', name: 'dyslexic_ai.inference');
@@ -50,10 +47,15 @@ class AIInferenceService {
     }
   }
   
-  /// Generate response with token validation and error recovery
-  Future<String> generateResponse(String prompt, {String? fallbackPrompt}) async {
+  /// Generate response with token validation, cooperative yielding, and error recovery
+  Future<String> generateResponse(String prompt, {String? fallbackPrompt, bool isBackgroundTask = false}) async {
     try {
-      developer.log('Generating response for prompt: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}...', name: 'dyslexic_ai.inference');
+      developer.log('Generating response for prompt: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}... (background: $isBackgroundTask)', name: 'dyslexic_ai.inference');
+      
+      // For background tasks, add cooperative yielding before starting
+      if (isBackgroundTask) {
+        await _cooperativeYield();
+      }
       
       // Check token limit before processing
       if (!await _isWithinTokenLimit(prompt)) {
@@ -61,14 +63,14 @@ class AIInferenceService {
         
         if (fallbackPrompt != null && await _isWithinTokenLimit(fallbackPrompt)) {
           developer.log('Using provided fallback prompt', name: 'dyslexic_ai.inference');
-          return await _performGeneration(fallbackPrompt);
+          return await _performGeneration(fallbackPrompt, isBackgroundTask: isBackgroundTask);
         } else {
           developer.log('No suitable fallback, returning error response', name: 'dyslexic_ai.inference');
           return _createFallbackResponse();
         }
       }
       
-      return await _performGeneration(prompt);
+      return await _performGeneration(prompt, isBackgroundTask: isBackgroundTask);
       
     } catch (e, stackTrace) {
       developer.log('Error in generateResponse: $e', name: 'dyslexic_ai.inference', error: e, stackTrace: stackTrace);
@@ -82,7 +84,7 @@ class AIInferenceService {
         if (fallbackPrompt != null) {
           try {
             developer.log('Attempting fallback after token error', name: 'dyslexic_ai.inference');
-            return await _performGeneration(fallbackPrompt);
+            return await _performGeneration(fallbackPrompt, isBackgroundTask: isBackgroundTask);
           } catch (fallbackError) {
             developer.log('Fallback also failed: $fallbackError', name: 'dyslexic_ai.inference');
           }
@@ -97,22 +99,30 @@ class AIInferenceService {
     }
   }
   
-  /// Perform the actual generation with proper session management
-  Future<String> _performGeneration(String prompt) async {
-    final session = await _getOrCreateSession();
+  /// Perform the actual generation with proper session management and cooperative yielding
+  Future<String> _performGeneration(String prompt, {bool isBackgroundTask = false}) async {
+    final session = await _sessionManager.getSession();
     
     final completer = Completer<String>();
     final buffer = StringBuffer();
+    int tokenCount = 0;
     
     await session.addQueryChunk(Message(text: prompt));
     
     session.getResponseAsync().listen(
       (token) {
         buffer.write(token);
+        tokenCount++;
+        
+        // For background tasks, yield periodically to keep UI responsive
+        if (isBackgroundTask && tokenCount % 10 == 0) {
+          // Add a small delay every 10 tokens to let UI update
+          Future.delayed(const Duration(milliseconds: 5));
+        }
       },
       onDone: () {
         final response = buffer.toString().trim();
-        developer.log('Response generated: ${response.substring(0, response.length > 100 ? 100 : response.length)}...', name: 'dyslexic_ai.inference');
+        developer.log('Response generated: ${response.substring(0, response.length > 100 ? 100 : response.length)}... (tokens: $tokenCount)', name: 'dyslexic_ai.inference');
         completer.complete(response);
       },
       onError: (error) {
@@ -122,20 +132,23 @@ class AIInferenceService {
     );
     
     final result = await completer.future;
+    
+    // Final cooperative yield for background tasks
+    if (isBackgroundTask) {
+      await _cooperativeYield();
+    }
+    
     return _cleanAIResponse(result);
+  }
+  
+  /// Cooperative yielding to prevent UI blocking during background processing
+  Future<void> _cooperativeYield() async {
+    await Future.delayed(const Duration(milliseconds: yieldInterval));
   }
   
   /// Invalidate and recreate session after errors
   Future<void> _invalidateSession() async {
-    if (_cachedSession != null) {
-      try {
-        await _cachedSession!.close();
-        developer.log('Closed cached session after error', name: 'dyslexic_ai.inference');
-      } catch (closeError) {
-        developer.log('Error closing cached session: $closeError', name: 'dyslexic_ai.inference');
-      }
-      _cachedSession = null;
-    }
+    await _sessionManager.invalidateSession();
   }
   
   /// Create a fallback response when token limits are exceeded
@@ -218,6 +231,9 @@ Provide only the simplified version.
   
   // Clean up method for proper disposal
   Future<void> dispose() async {
-    await _invalidateSession();
+    developer.log('🗑️ Disposing AIInferenceService...', name: 'dyslexic_ai.inference');
+    // Don't invalidate global session - let GlobalSessionManager handle its own lifecycle
+    // Individual services should not affect global session state
+    developer.log('✅ AIInferenceService disposed successfully', name: 'dyslexic_ai.inference');
   }
 } 

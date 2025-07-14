@@ -11,6 +11,14 @@ enum TTSStatus {
   error
 }
 
+enum PhonemeType {
+  vowel,
+  consonant,
+  digraph,
+  blend,
+  other
+}
+
 class TTSRequest {
   final String text;
   final double? speechRate;
@@ -135,6 +143,137 @@ class TextToSpeechService {
     ));
   }
 
+  /// Speak a phoneme with enhanced pronunciation using SSML
+  Future<void> speakPhoneme(String phoneme, {bool useSSML = true}) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+    
+    if (phoneme.trim().isEmpty) {
+      developer.log('🔊 Empty phoneme provided to speakPhoneme()', name: 'dyslexic_ai.tts');
+      return;
+    }
+
+    String textToSpeak;
+    double speechRate;
+    
+    if (useSSML) {
+      textToSpeak = _buildPhonemeSSML(phoneme);
+      speechRate = _getOptimalSpeechRate(phoneme);
+    } else {
+      textToSpeak = phoneme;
+      speechRate = 0.4; // Slower for phonemes
+    }
+
+    return _queueSpeechRequest(TTSRequest(
+      text: textToSpeak,
+      speechRate: speechRate,
+      completer: Completer<void>(),
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  /// Speak a phoneme with enhanced clarity and emphasis
+  Future<void> speakPhonemeWithEmphasis(String phoneme) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+    
+    if (phoneme.trim().isEmpty) {
+      developer.log('🔊 Empty phoneme provided to speakPhonemeWithEmphasis()', name: 'dyslexic_ai.tts');
+      return;
+    }
+
+    final ssmlText = _buildPhonemeSSMLWithEmphasis(phoneme);
+    final speechRate = _getOptimalSpeechRate(phoneme);
+
+    return _queueSpeechRequest(TTSRequest(
+      text: ssmlText,
+      speechRate: speechRate,
+      completer: Completer<void>(),
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  /// Build SSML markup for enhanced phoneme pronunciation (conservative approach)
+  String _buildPhonemeSSML(String phoneme) {
+    final phonemeType = _getPhonemeType(phoneme);
+    
+    switch (phonemeType) {
+      case PhonemeType.vowel:
+        return '<speak><prosody rate="slow" pitch="medium">$phoneme</prosody></speak>';
+      
+      case PhonemeType.consonant:
+        return '<speak><prosody rate="x-slow" pitch="low">$phoneme</prosody></speak>';
+      
+      case PhonemeType.digraph:
+        return '<speak><prosody rate="slow" pitch="medium">$phoneme</prosody><break time="200ms"/></speak>';
+      
+      case PhonemeType.blend:
+        return '<speak><prosody rate="slow">$phoneme</prosody></speak>';
+      
+      default:
+        return '<speak><prosody rate="slow">$phoneme</prosody></speak>';
+    }
+  }
+
+  /// Build SSML markup with emphasis for difficult phonemes (conservative approach)
+  String _buildPhonemeSSMLWithEmphasis(String phoneme) {
+    return '<speak>'
+           '<prosody rate="x-slow" pitch="medium" volume="loud">'
+           '<emphasis level="strong">$phoneme</emphasis>'
+           '</prosody>'
+           '<break time="300ms"/>'
+           '</speak>';
+  }
+
+  /// Get optimal speech rate for different phoneme types
+  double _getOptimalSpeechRate(String phoneme) {
+    final phonemeType = _getPhonemeType(phoneme);
+    
+    switch (phonemeType) {
+      case PhonemeType.vowel:
+        return 0.3; // Very slow for vowels
+      case PhonemeType.consonant:
+        return 0.4; // Slow for consonants
+      case PhonemeType.digraph:
+        return 0.35; // Extra slow for digraphs
+      case PhonemeType.blend:
+        return 0.45; // Moderate slow for blends
+      default:
+        return 0.4; // Default slow rate
+    }
+  }
+
+  /// Determine phoneme type for appropriate SSML treatment
+  PhonemeType _getPhonemeType(String phoneme) {
+    final p = phoneme.toLowerCase();
+    
+    // Vowels
+    if (['a', 'e', 'i', 'o', 'u', 'aa', 'ee', 'ii', 'oo', 'uu', 'a_e', 'e_e', 'i_e', 'o_e', 'u_e'].contains(p)) {
+      return PhonemeType.vowel;
+    }
+    
+    // Digraphs
+    if (['ch', 'sh', 'th', 'ph', 'wh', 'ck', 'ng'].contains(p)) {
+      return PhonemeType.digraph;
+    }
+    
+    // Consonant blends
+    if (['bl', 'br', 'cl', 'cr', 'dr', 'fl', 'fr', 'gl', 'gr', 'pl', 'pr', 'sc', 'sk', 'sl', 'sm', 'sn', 'sp', 'st', 'sw', 'tr', 'tw', 'scr', 'spl', 'spr', 'str', 'thr'].contains(p)) {
+      return PhonemeType.blend;
+    }
+    
+    // Single consonants
+    if (['b', 'c', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q', 'r', 's', 't', 'v', 'w', 'x', 'y', 'z'].contains(p)) {
+      return PhonemeType.consonant;
+    }
+    
+    return PhonemeType.other;
+  }
+
+
+
   Future<void> _queueSpeechRequest(TTSRequest request) async {
     try {
       developer.log('🔊 Queueing speech request: "${request.text}"', name: 'dyslexic_ai.tts');
@@ -169,6 +308,15 @@ class TextToSpeechService {
     try {
       developer.log('🔊 Processing speech request: "${request.text}"', name: 'dyslexic_ai.tts');
       
+      // Safety check - don't process if not initialized or in error state
+      if (!_isInitialized || _status == TTSStatus.error) {
+        developer.log('🔊 Skipping TTS request - service not ready', name: 'dyslexic_ai.tts');
+        if (!request.completer.isCompleted) {
+          request.completer.completeError(Exception('TTS service not ready'));
+        }
+        return;
+      }
+      
       _currentRequest = request;
       
       // Set speech rate if specified
@@ -191,7 +339,7 @@ class TextToSpeechService {
 
   void _startTimeoutTimer() {
     _timeoutTimer?.cancel();
-    _timeoutTimer = Timer(const Duration(seconds: 30), () {
+    _timeoutTimer = Timer(const Duration(seconds: 10), () {  // Reduced from 30 to 10 seconds
       developer.log('🔊 Speech timeout - forcing completion', name: 'dyslexic_ai.tts');
       _onSpeechComplete();
     });
@@ -201,26 +349,42 @@ class TextToSpeechService {
     _timeoutTimer?.cancel();
     
     if (_currentRequest != null && !_currentRequest!.completer.isCompleted) {
-      _currentRequest!.completer.complete();
+      try {
+        _currentRequest!.completer.complete();
+      } catch (e) {
+        developer.log('🔊 Error completing TTS request: $e', name: 'dyslexic_ai.tts');
+      }
     }
     
     _currentRequest = null;
     _updateStatus(TTSStatus.idle);
     
     // Reset speech rate to default after word pronunciation
-    if (_defaultSpeechRate != 0.5) {
-      _flutterTts.setSpeechRate(_defaultSpeechRate);
+    try {
+      if (_defaultSpeechRate != 0.5) {
+        _flutterTts.setSpeechRate(_defaultSpeechRate);
+      }
+    } catch (e) {
+      developer.log('🔊 Error resetting speech rate: $e', name: 'dyslexic_ai.tts');
     }
     
-    // Process next item in queue
-    _processQueueIfNeeded();
+    // Process next item in queue with error handling
+    try {
+      _processQueueIfNeeded();
+    } catch (e) {
+      developer.log('🔊 Error processing next TTS item: $e', name: 'dyslexic_ai.tts');
+    }
   }
 
   void _onSpeechError(String error) {
     _timeoutTimer?.cancel();
     
     if (_currentRequest != null && !_currentRequest!.completer.isCompleted) {
-      _currentRequest!.completer.completeError(Exception('TTS Error: $error'));
+      try {
+        _currentRequest!.completer.completeError(Exception('TTS Error: $error'));
+      } catch (e) {
+        developer.log('🔊 Error completing TTS request with error: $e', name: 'dyslexic_ai.tts');
+      }
     }
     
     _currentRequest = null;
@@ -230,7 +394,11 @@ class TextToSpeechService {
     while (_speechQueue.isNotEmpty) {
       final request = _speechQueue.removeFirst();
       if (!request.completer.isCompleted) {
-        request.completer.completeError(Exception('TTS Error: $error'));
+        try {
+          request.completer.completeError(Exception('TTS Error: $error'));
+        } catch (e) {
+          developer.log('🔊 Error completing queued TTS request: $e', name: 'dyslexic_ai.tts');
+        }
       }
     }
     
@@ -305,6 +473,37 @@ class TextToSpeechService {
     while (_status == TTSStatus.speaking || _speechQueue.isNotEmpty) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
+  }
+
+  /// Clear the TTS queue and stop current speech (for Word Doctor new analysis)
+  Future<void> clearQueue() async {
+    developer.log('🔊 Clearing TTS queue', name: 'dyslexic_ai.tts');
+    
+    _timeoutTimer?.cancel();
+    
+    // Complete current request
+    if (_currentRequest != null && !_currentRequest!.completer.isCompleted) {
+      _currentRequest!.completer.complete();
+    }
+    _currentRequest = null;
+    
+    // Clear all queued requests
+    while (_speechQueue.isNotEmpty) {
+      final request = _speechQueue.removeFirst();
+      if (!request.completer.isCompleted) {
+        request.completer.complete();
+      }
+    }
+    
+    // Stop any current speech
+    try {
+      await _flutterTts.stop();
+    } catch (e) {
+      developer.log('🔊 Error stopping TTS during clearQueue: $e', name: 'dyslexic_ai.tts');
+    }
+    
+    _updateStatus(TTSStatus.idle);
+    _isProcessingQueue = false;
   }
 
   /// Ensure TTS is stopped before starting speech recognition

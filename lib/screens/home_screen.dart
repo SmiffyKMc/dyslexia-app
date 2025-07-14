@@ -32,33 +32,38 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Observer(
-            builder: (context) {
-              // Debug today's progress when UI rebuilds
-              if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
-                SessionDebugHelper.debugTodaysProgress();
-              }
-              
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(context),
-                  const SizedBox(height: 16),
-                  _buildLearnerProfile(context),
-                  const SizedBox(height: 16),
-                  _buildTodaysProgress(context),
-                  const SizedBox(height: 16),
-                  _buildPersonalizedSuggestions(context),
-                  const SizedBox(height: 16),
-                  _buildQuickTools(context),
-                  const SizedBox(height: 16),
-                  _buildRecentActivity(),
-                  const SizedBox(height: 16), // Extra bottom padding
-                ],
-              );
-            },
+        child: GestureDetector(
+          // Track user activity to defer background AI processing
+          onTap: () => _profileUpdateService.markUserActive(),
+          onScaleStart: (_) => _profileUpdateService.markUserActive(),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Observer(
+              builder: (context) {
+                // Debug today's progress when UI rebuilds
+                if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
+                  SessionDebugHelper.debugTodaysProgress();
+                }
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(context),
+                    const SizedBox(height: 16),
+                    _buildLearnerProfile(context),
+                    const SizedBox(height: 16),
+                    _buildTodaysProgress(context),
+                    const SizedBox(height: 16),
+                    _buildPersonalizedSuggestions(context),
+                    const SizedBox(height: 16),
+                    _buildQuickTools(context),
+                    const SizedBox(height: 16),
+                    _buildRecentActivity(),
+                    const SizedBox(height: 16), // Extra bottom padding
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -410,77 +415,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAIActivityIndicator() {
-    final isAIActive = _profileStore.isUpdating || _profileStore.isLoading;
-    
-    if (!isAIActive) {
-      return const SizedBox(width: 8); // Placeholder space when not active
-    }
-    
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      child: Tooltip(
-        message: 'AI is analyzing your learning patterns...',
-        child: Container(
-          width: 32,
-          height: 32,
+    return Observer(
+      builder: (context) {
+        if (!_profileUpdateService.isBackgroundProcessingActive) {
+          return const SizedBox.shrink();
+        }
+        
+        return Container(
+          margin: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: Colors.blue.withOpacity(0.1),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: Colors.blue.withOpacity(0.3),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withOpacity(0.3)),
           ),
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Pulsing background animation
-              TweenAnimationBuilder<double>(
-                duration: const Duration(seconds: 2),
-                tween: Tween<double>(begin: 0.5, end: 1.0),
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1 * value),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  );
-                },
-                onEnd: () {
-                  // This will restart the animation
-                  if (mounted && isAIActive) {
-                    setState(() {});
-                  }
-                },
+              SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                ),
               ),
-              // Robot icon with rotation
-              TweenAnimationBuilder<double>(
-                duration: const Duration(seconds: 3),
-                tween: Tween<double>(begin: 0, end: 1),
-                builder: (context, value, child) {
-                  return Transform.rotate(
-                    angle: value * 2 * 3.14159, // Full rotation
-                    child: Icon(
-                      Icons.smart_toy,
-                      size: 16,
-                      color: Colors.blue[600],
-                    ),
-                  );
-                },
-                onEnd: () {
-                  // Restart rotation if still active
-                  if (mounted && isAIActive) {
-                    setState(() {});
-                  }
-                },
+              const SizedBox(width: 6),
+              Text(
+                'AI Learning',
+                style: TextStyle(
+                  color: Colors.blue,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -632,7 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Quick Tools',
+          'Quick Learn',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
@@ -650,9 +622,9 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildToolCard(
                 context,
-                'Word Doctor',
-                Icons.search_outlined,
-                '/word_doctor',
+                'Story Mode',
+                Icons.menu_book_outlined,
+                '/adaptive_story',
               ),
             ),
           ],
@@ -663,18 +635,18 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _buildToolCard(
                 context,
-                'Story Mode',
-                Icons.menu_book_outlined,
-                '/adaptive_story',
+                'Phonics Game',
+                Icons.games_outlined,
+                '/phonics_game',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _buildToolCard(
                 context,
-                'Phonics Game',
-                Icons.games_outlined,
-                '/phonics_game',
+                'Sentence Fixer',
+                Icons.search_outlined,
+                '/sentence_fixer',
               ),
             ),
           ],
@@ -682,9 +654,13 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         Center(
           child: TextButton(
-            onPressed: () {},
+            onPressed: () {
+              // Track user activity when navigating to learn screen
+              _profileUpdateService.markUserActive();
+              Navigator.pushNamed(context, '/learn');
+            },
             child: Text(
-              'See all tools >',
+              'See all learning activities >',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).primaryColor,
               ),
@@ -698,7 +674,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildToolCard(BuildContext context, String title, IconData icon, String route) {
     return Card(
       child: InkWell(
-        onTap: () => Navigator.pushNamed(context, route),
+        onTap: () {
+          // Track user activity when navigating to tools
+          _profileUpdateService.markUserActive();
+          Navigator.pushNamed(context, route);
+        },
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -1036,13 +1016,17 @@ class _HomeScreenState extends State<HomeScreen> {
   Icon _getToolIcon(String toolName) {
     switch (toolName.toLowerCase()) {
       case 'reading coach':
-        return const Icon(Icons.record_voice_over, size: 20);
-      case 'word doctor':
-        return const Icon(Icons.healing, size: 20);
+        return const Icon(Icons.mic_outlined, size: 20);
       case 'adaptive story':
-        return const Icon(Icons.book, size: 20);
+      case 'story mode':
+        return const Icon(Icons.menu_book_outlined, size: 20);
       case 'phonics game':
-        return const Icon(Icons.games, size: 20);
+        return const Icon(Icons.games_outlined, size: 20);
+      case 'sentence fixer':
+        return const Icon(Icons.search_outlined, size: 20);
+
+      case 'word doctor':
+        return const Icon(Icons.search_outlined, size: 20);
       default:
         return const Icon(Icons.school, size: 20);
     }
@@ -1053,18 +1037,23 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'reading coach':
         Navigator.of(context).pushNamed('/reading_coach');
         break;
-      case 'word doctor':
-        Navigator.of(context).pushNamed('/word_doctor');
-        break;
       case 'adaptive story':
+      case 'story mode':
         Navigator.of(context).pushNamed('/adaptive_story');
         break;
       case 'phonics game':
         Navigator.of(context).pushNamed('/phonics_game');
         break;
+      case 'sentence fixer':
+        Navigator.of(context).pushNamed('/sentence_fixer');
+        break;
+
+      case 'word doctor':
+        Navigator.of(context).pushNamed('/word_doctor');
+        break;
       default:
-        // Fallback to tools screen
-        Navigator.of(context).pushNamed('/tools');
+        // Fallback to learn screen for learning activities
+        Navigator.of(context).pushNamed('/learn');
         break;
     }
   }

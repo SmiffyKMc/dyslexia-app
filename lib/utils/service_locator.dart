@@ -10,6 +10,7 @@ import '../services/word_analysis_service.dart';
 import '../services/personal_dictionary_service.dart';
 import '../services/ai_inference_service.dart';
 import '../services/font_preference_service.dart';
+import '../services/global_session_manager.dart';
 import '../controllers/reading_coach_store.dart';
 import '../controllers/word_doctor_store.dart';
 import '../controllers/adaptive_story_store.dart';
@@ -30,6 +31,9 @@ Future<void> setupLocator() async {
 
   final sharedPreferences = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
+
+  // Register global session manager (must be early for other services to use)
+  getIt.registerSingleton<GlobalSessionManager>(GlobalSessionManager());
 
   // Register font preference service
   getIt.registerLazySingleton<FontPreferenceService>(
@@ -80,6 +84,11 @@ Future<void> setupLocator() async {
       ));
 
   getIt.registerFactory<PhonicsGameStore>(() => PhonicsGameStore());
+}
+
+/// Helper function to get the GlobalSessionManager
+GlobalSessionManager getGlobalSessionManager() {
+  return getIt<GlobalSessionManager>();
 }
 
 /// Helper function to get AI inference service if available

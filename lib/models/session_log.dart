@@ -11,8 +11,9 @@ enum SessionType {
   textSimplifier,
   soundItOut,
   buildSentence,
+  sentenceFixer,
   readAloud,
-  soundFocusGame,
+
   visualDictionary,
   wordConfusion,
   thoughtToWord,
@@ -142,6 +143,11 @@ class SessionLog {
         if (gameAccuracy > 0.8) return 'high';
         if (gameAccuracy > 0.6) return 'medium';
         return 'low';
+      case SessionType.sentenceFixer:
+        final sentenceAccuracy = accuracy ?? 0.5;
+        if (sentenceAccuracy > 0.8) return 'high';
+        if (sentenceAccuracy > 0.6) return 'medium';
+        return 'low';
       default:
         return 'medium';
     }
@@ -218,6 +224,10 @@ class SessionLog {
       case SessionType.phonicsGame:
         final roundsCompleted = data['rounds_completed'] as int? ?? 0;
         return 'Completed $roundsCompleted phonics rounds';
+      case SessionType.sentenceFixer:
+        final sentencesCompleted = data['sentences_completed'] as int? ?? 0;
+        final sentencesCorrect = data['sentences_correct'] as int? ?? 0;
+        return 'Fixed $sentencesCorrect/$sentencesCompleted sentences';
       default:
         return 'Completed ${feature.toLowerCase()} session';
     }

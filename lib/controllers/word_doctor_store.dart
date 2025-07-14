@@ -1,5 +1,6 @@
 import 'package:mobx/mobx.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/word_analysis.dart';
@@ -60,6 +61,10 @@ abstract class _WordDoctorStore with Store {
   @observable
   bool isScanning = false;
 
+  // Debouncing for TTS calls
+  Timer? _ttsDebounceTimer;
+  String? _lastTtsRequest;
+
   @computed
   bool get canAnalyze => inputWord.trim().isNotEmpty && !isAnalyzing && !isScanning;
 
@@ -95,6 +100,9 @@ abstract class _WordDoctorStore with Store {
 
     final wordToAnalyze = inputWord.trim();
     print('🔍 Starting analysis for: "$wordToAnalyze"');
+
+    // Clear any pending TTS requests from previous analysis
+    await _ttsService.clearQueue();
 
     isAnalyzing = true;
     errorMessage = null;
@@ -141,6 +149,7 @@ abstract class _WordDoctorStore with Store {
              // Complete session successfully
        await _sessionLogging.completeSession(
          finalAccuracy: 1.0, // Successfully analyzed
+         completionStatus: 'completed',
          additionalData: {
            'syllable_count': analysis.syllables.length,
            'phoneme_count': analysis.phonemes.length,
@@ -158,6 +167,7 @@ abstract class _WordDoctorStore with Store {
       // Complete session with error
       await _sessionLogging.completeSession(
         finalAccuracy: 0.0,
+        completionStatus: 'failed',
         additionalData: {
           'error_message': e.toString(),
           'analysis_status': 'failed',
@@ -183,6 +193,20 @@ abstract class _WordDoctorStore with Store {
   @action
   Future<void> speakSyllable(String syllable) async {
     print('🔊 Speaking syllable: "$syllable"');
+    
+    // Debounce rapid TTS calls
+    final requestKey = 'syllable:$syllable';
+    if (_lastTtsRequest == requestKey) {
+      print('🔊 Debouncing syllable TTS call');
+      return;
+    }
+    
+    _lastTtsRequest = requestKey;
+    _ttsDebounceTimer?.cancel();
+    _ttsDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _lastTtsRequest = null;
+    });
+    
     try {
       await _ttsService.speakWord(syllable);
       
@@ -201,6 +225,20 @@ abstract class _WordDoctorStore with Store {
   @action
   Future<void> speakWord(String word) async {
     print('🔊 Speaking word: "$word"');
+    
+    // Debounce rapid TTS calls
+    final requestKey = 'word:$word';
+    if (_lastTtsRequest == requestKey) {
+      print('🔊 Debouncing word TTS call');
+      return;
+    }
+    
+    _lastTtsRequest = requestKey;
+    _ttsDebounceTimer?.cancel();
+    _ttsDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _lastTtsRequest = null;
+    });
+    
     try {
       await _ttsService.speakWord(word);
       
@@ -586,6 +624,7 @@ abstract class _WordDoctorStore with Store {
   }
 
   void dispose() {
+    _ttsDebounceTimer?.cancel();
     // Cancel any active session logging
     if (_sessionLogging.hasActiveSession) {
       _sessionLogging.cancelSession(reason: 'word_doctor_disposed');

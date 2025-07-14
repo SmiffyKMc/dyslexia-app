@@ -182,6 +182,7 @@ abstract class _AdaptiveStoryStore with Store {
       if (_sessionLogging.hasActiveSession) {
         await _sessionLogging.completeSession(
           finalAccuracy: 0.0,
+          completionStatus: 'failed',
           additionalData: {
             'error_message': e.toString(),
             'story_status': 'failed_to_start',
@@ -405,13 +406,9 @@ abstract class _AdaptiveStoryStore with Store {
           additionalData: completionData,
         );
         
-        // Trigger profile update after story completion
-        print('🧠 Triggering profile update after story completion');
-        _profileUpdateService.updateProfileFromRecentSessions().then((success) {
-          print('🧠 Profile update completed: $success');
-        }).catchError((error) {
-          print('🧠 Profile update failed: $error');
-        });
+        // Schedule intelligent background profile update after story completion
+        print('🧠 Scheduling background profile update after story completion');
+        _profileUpdateService.scheduleBackgroundUpdate();
       }
     }
   }

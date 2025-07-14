@@ -499,6 +499,7 @@ abstract class _ReadingCoachStore with Store {
     
     _sessionLogging.completeSession(
       finalAccuracy: accuracy,
+      completionStatus: 'completed',
       additionalData: {
         'final_status': 'completed',
         'words_read': wordsRead,  // Ensure words_read is preserved

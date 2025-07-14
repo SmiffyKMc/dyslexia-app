@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
@@ -233,62 +232,55 @@ class SessionLoggingService {
   }
 
   Future<void> completeSession({
-    double? finalAccuracy,
-    int? finalScore,
-    String? completionStatus,
+    required double finalAccuracy,
+    double? finalScore,
+    required String completionStatus,
     Map<String, dynamic>? additionalData,
   }) async {
-    developer.log('📝 Completing session...', name: 'dyslexic_ai.session_logging');
+    if (_sessionStartTime == null) {
+      developer.log('No active session to complete', name: 'dyslexic_ai.session_logging');
+      return;
+    }
+
+    final duration = DateTime.now().difference(_sessionStartTime!);
     
     _sessionTimer?.cancel();
     _sessionTimer = null;
-    
-    final duration = _sessionStartTime != null 
-        ? DateTime.now().difference(_sessionStartTime!)
-        : const Duration(minutes: 1);
-    
+
     final finalData = <String, dynamic>{
+      'completion_status': completionStatus,
       'session_end': DateTime.now().toIso8601String(),
-      'completion_status': completionStatus ?? 'completed',
-      'session_duration_minutes': duration.inMinutes,
-      'session_duration_seconds': duration.inSeconds,
+      'total_duration_seconds': duration.inSeconds,
+      'final_accuracy': finalAccuracy,
+      'final_score': finalScore,
+      'completion_timestamp': DateTime.now().toIso8601String(),
       ...?additionalData,
     };
 
-    // Debug: Check current session data before completion
-    final currentSessionData = _sessionLogStore.currentSession?.data ?? {};
-    developer.log('📝 Current session data before completion: questions_answered=${currentSessionData['questions_answered']}, questions_total=${currentSessionData['questions_total']}', name: 'dyslexic_ai.session_logging');
+    developer.log('📝 Completing session: ${getCurrentSessionData()['feature_name']} - Duration: ${duration.inMinutes}m, Accuracy: ${(finalAccuracy * 100).round()}%', name: 'dyslexic_ai.session_logging');
     
-    // Enhanced logging for debugging
-    developer.log('📝 Session completion data: accuracy=$finalAccuracy, score=$finalScore, duration=${duration.inMinutes}min', name: 'dyslexic_ai.session_logging');
-    developer.log('📝 Final data keys: ${finalData.keys.toList()}', name: 'dyslexic_ai.session_logging');
-    developer.log('📝 Additional data: $additionalData', name: 'dyslexic_ai.session_logging');
-    if (finalData.containsKey('words_read')) {
-      developer.log('📝 words_read in final data: ${finalData['words_read']}', name: 'dyslexic_ai.session_logging');
-    }
-    
-    // Debug: Log comprehension data from both current session and final data
-    developer.log('📝 Comprehension data from current session: questions_answered=${currentSessionData['questions_answered']}, questions_total=${currentSessionData['questions_total']}', name: 'dyslexic_ai.session_logging');
     developer.log('📝 Comprehension data from final data: questions_answered=${finalData['questions_answered']}, questions_total=${finalData['questions_total']}', name: 'dyslexic_ai.session_logging');
 
     await _sessionLogStore.completeCurrentSession(
       duration: duration,
       accuracy: finalAccuracy,
-      score: finalScore,
+      score: finalScore?.round(),
       finalData: finalData,
     );
     
     _profileStore.incrementSessionCount();
     
-    // Trigger automatic profile update in background (fire-and-forget)
+    // Schedule intelligent background profile update that waits for user inactivity
     if (_profileStore.needsUpdate && _profileUpdateService.canUpdateProfile) {
-      developer.log('📝 Triggering automatic profile update after session completion', name: 'dyslexic_ai.session_logging');
-      unawaited(_profileUpdateService.updateProfileFromRecentSessions());
+      developer.log('📝 Scheduling background profile update after session completion', name: 'dyslexic_ai.session_logging');
+      _profileUpdateService.scheduleBackgroundUpdate();
+    } else {
+      developer.log('📝 Background update not scheduled - needsUpdate: ${_profileStore.needsUpdate}, canUpdate: ${_profileUpdateService.canUpdateProfile}, sessionsSince: ${_profileStore.sessionsSinceLastUpdate}', name: 'dyslexic_ai.session_logging');
     }
     
     _sessionStartTime = null;
     
-    developer.log('📝 Session completed and profile updated', name: 'dyslexic_ai.session_logging');
+    developer.log('📝 Session completed, profile update scheduled for background processing', name: 'dyslexic_ai.session_logging');
   }
 
   void cancelSession({String? reason}) {
