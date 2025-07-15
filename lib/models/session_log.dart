@@ -10,13 +10,13 @@ enum SessionType {
   phonicsGame,
   textSimplifier,
   soundItOut,
-  buildSentence,
+
   sentenceFixer,
   readAloud,
 
-  visualDictionary,
-  wordConfusion,
-  thoughtToWord,
+
+
+
 }
 
 class SessionLog {
@@ -170,7 +170,7 @@ class SessionLog {
   }
 
   String get preferredStyleIndicator {
-    if (sessionType == SessionType.visualDictionary) return 'visual';
+
     if (sessionType == SessionType.soundItOut || sessionType == SessionType.phonicsGame) {
       return 'auditory';
     }

@@ -15,20 +15,20 @@ class GlobalSessionManager {
   /// Standard session configuration
   static const double temperature = 0.3;
   static const int topK = 10;
-
+  
   /// Get the shared session, creating it if necessary
   Future<InferenceModelSession> getSession() async {
     if (_session != null) {
       return _session!;
     }
-
+    
     developer.log('Creating new session...', name: 'dyslexic_ai.session');
     
     final model = await _getModel();
     if (model == null) {
       throw Exception('AI model not available - please ensure model is loaded');
     }
-
+    
     _session = await model.createSession(
       temperature: temperature,
       topK: topK,
@@ -37,7 +37,7 @@ class GlobalSessionManager {
     developer.log('Session created successfully', name: 'dyslexic_ai.session');
     return _session!;
   }
-
+  
   /// Invalidate the current session (call on errors)
   Future<void> invalidateSession() async {
     if (_session != null) {
@@ -50,7 +50,7 @@ class GlobalSessionManager {
       _session = null;
     }
   }
-
+  
   /// Warm up the session (create it proactively) - for compatibility
   Future<void> warmupSession() async {
     if (_session == null) {
@@ -58,7 +58,7 @@ class GlobalSessionManager {
       await getSession();
     }
   }
-
+  
   /// Get the model instance
   Future<InferenceModel?> _getModel() async {
     if (_model == null) {
@@ -73,7 +73,7 @@ class GlobalSessionManager {
     
     return _model;
   }
-
+  
   /// Dispose of the session manager
   Future<void> dispose() async {
     await invalidateSession();

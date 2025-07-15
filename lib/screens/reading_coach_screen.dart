@@ -58,7 +58,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   void _selectImageFromGallery() {
-    _store.pickImageFromGallery();
+                _store.pickImageFromGallery();
   }
 
   @override
@@ -91,63 +91,113 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
         ],
       ),
       body: SafeArea(
-        child: Observer(
-          builder: (context) {
-            if (_store.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_store.errorMessage != null) ...[
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        border: Border.all(color: Colors.red[200]!),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error, color: Colors.red[600]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _store.errorMessage!,
-                              style: TextStyle(color: Colors.red[600]),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: _store.clearError,
-                            icon: const Icon(Icons.close),
-                            iconSize: 16,
-                          ),
-                        ],
-                      ),
+        child: Column(
+          children: [
+            // Loading state - needs Observer for isLoading
+            Observer(
+              builder: (context) {
+                if (_store.isLoading) {
+                  return const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
+            
+            // Main content - only show when not loading
+            Observer(
+              builder: (context) {
+                if (_store.isLoading) {
+                  return const SizedBox.shrink();
+                }
+                
+                return Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Error message - needs Observer for errorMessage
+                        Observer(
+                          builder: (context) {
+                            if (_store.errorMessage == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red[50],
+                                border: Border.all(color: Colors.red[200]!),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.error, color: Colors.red[600]),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _store.errorMessage!,
+                                      style: TextStyle(color: Colors.red[600]),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: _store.clearError,
+                                    icon: const Icon(Icons.close),
+                                    iconSize: 16,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                        
+                        // Space after error message
+                        Observer(
+                          builder: (context) => _store.errorMessage != null 
+                              ? const SizedBox(height: 16) 
+                              : const SizedBox.shrink(),
+                        ),
+                        
+                        // Static text selection section - no Observer needed
+                        _buildTextSelection(),
+                        const SizedBox(height: 24),
+                        
+                        // Current text display - needs Observer for currentText
+                        Observer(
+                          builder: (context) => _buildCurrentText(),
+                        ),
+                        const SizedBox(height: 24),
+                        
+                        // Reading controls - needs Observer for multiple states
+                        Observer(
+                          builder: (context) => _buildReadingControls(),
+                        ),
+                        
+                        // Session results - needs Observer for hasSession
+                        Observer(
+                          builder: (context) {
+                            if (!_store.hasSession) {
+                              return const SizedBox.shrink();
+                            }
+                            return Column(
+                              children: [
+                                const SizedBox(height: 24),
+                                _buildSessionResults(),
+                                const SizedBox(height: 24),
+                                _buildPracticeWords(),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  _buildTextSelection(),
-                  const SizedBox(height: 24),
-                  _buildCurrentText(),
-                  const SizedBox(height: 24),
-                  _buildReadingControls(),
-                  if (_store.hasSession) ...[
-                    const SizedBox(height: 24),
-                    _buildLiveFeedback(),
-                    const SizedBox(height: 16),
-                    _buildSessionResults(),
-                    const SizedBox(height: 16),
-                    _buildPracticeWords(),
-                  ],
-                ],
-              ),
-            );
-          },
+                  ),
+                );
+              },
+            ),
+          ],
         ),
       ),
     );

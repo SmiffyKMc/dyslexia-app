@@ -62,14 +62,7 @@ class ToolsScreen extends StatelessWidget {
                     '/sound_it_out',
                     Colors.red,
                   ),
-                  _buildToolCard(
-                    context,
-                    'Build Sentence',
-                    'Sentence construction help',
-                    Icons.construction_outlined,
-                    '/build_sentence',
-                    Colors.indigo,
-                  ),
+
                   _buildToolCard(
                     context,
                     'Read Aloud',
@@ -78,30 +71,9 @@ class ToolsScreen extends StatelessWidget {
                     '/read_aloud',
                     Colors.pink,
                   ),
-                  _buildToolCard(
-                    context,
-                    'Thought to Word',
-                    'Express your thoughts clearly',
-                    Icons.psychology_outlined,
-                    '/thought_to_word',
-                    Colors.cyan,
-                  ),
-                  _buildToolCard(
-                    context,
-                    'Visual Dictionary',
-                    'Build your personal word collection',
-                    Icons.library_books_outlined,
-                    '/visual_dictionary',
-                    Colors.deepOrange,
-                  ),
-                  _buildToolCard(
-                    context,
-                    'Word Confusion',
-                    'Track challenging words',
-                    Icons.psychology_alt_outlined,
-                    '/word_confusion',
-                    Colors.amber,
-                  ),
+
+
+
                 ],
               ),
             ],

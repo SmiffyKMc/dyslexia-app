@@ -14,19 +14,28 @@ class WordDoctorScreen extends StatefulWidget {
 class _WordDoctorScreenState extends State<WordDoctorScreen> {
   late WordDoctorStore _store;
   final TextEditingController _wordController = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _store = getIt<WordDoctorStore>();
-    _wordController.addListener(() {
-      _store.setInputWord(_wordController.text);
-    });
+  }
+
+  void _onSubmit() {
+    // Sync text to store only when button is pressed
+    final wordToAnalyze = _wordController.text.trim();
+    if (wordToAnalyze.isEmpty) return;
+    
+    _store.setInputWord(wordToAnalyze);
+    _store.analyzeCurrentWord();
+    _inputFocusNode.unfocus();
   }
 
   @override
   void dispose() {
     _wordController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -53,125 +62,140 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
           ),
         ],
       ),
-      body: Observer(
-        builder: (_) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildWordInput(),
-              const SizedBox(height: 20),
-              if (_store.errorMessage != null) _buildErrorMessage(),
-              if (_store.isAnalyzing) _buildLoadingIndicator(),
-              if (_store.hasCurrentAnalysis) ...[
-                _buildAnalysisCard(),
-                const SizedBox(height: 16),
-                _buildSyllablesCard(),
-                const SizedBox(height: 16),
-                _buildMnemonicCard(),
-                const SizedBox(height: 16),
-                _buildExampleSentenceCard(),
-                const SizedBox(height: 16),
-                _buildActionButtons(),
-              ],
-            ],
+      body: Column(
+        children: [
+          // Input section - no Observer wrapper needed
+          _buildWordInput(),
+          
+          // Results section - separate Observer for analysis results
+          Expanded(
+            child: Observer(
+              builder: (_) => SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_store.errorMessage != null) _buildErrorMessage(),
+                    if (_store.isAnalyzing) _buildLoadingIndicator(),
+                    if (_store.hasCurrentAnalysis) ...[
+                      _buildAnalysisCard(),
+                      const SizedBox(height: 16),
+                      _buildSyllablesCard(),
+                      const SizedBox(height: 16),
+                      _buildMnemonicCard(),
+                      const SizedBox(height: 16),
+                      _buildExampleSentenceCard(),
+                      const SizedBox(height: 16),
+                      _buildActionButtons(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildWordInput() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Container(
+      color: DyslexiaTheme.primaryBackground,
+      child: Card(
+        margin: const EdgeInsets.all(16),
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            const Text(
-              'Enter a word to analyze',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+              const Text(
+                'Enter a word to analyze',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _wordController,
-              style: const TextStyle(
-                fontSize: 16,
-              ),
-              decoration: InputDecoration(
-                hintText: 'Type a word here...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  ),
-                suffixIcon: Observer(
-                  builder: (_) => IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: _store.canAnalyze ? _store.analyzeCurrentWord : null,
-                  ),
-            ),
-              ),
-              onSubmitted: (_) => _store.analyzeCurrentWord(),
-                    ),
-                    const SizedBox(height: 12),
-            Observer(
-              builder: (_) => ElevatedButton(
-                onPressed: _store.canAnalyze ? _store.analyzeCurrentWord : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: DyslexiaTheme.primaryAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
+              const SizedBox(height: 12),
+              TextField(
+                controller: _wordController,
+                focusNode: _inputFocusNode,
+                style: const TextStyle(
+                  fontSize: 16,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Type a word here...',
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                      ),
-                      child: const Text(
-                  'Analyze Word',
-                  style: TextStyle(
-                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                  ),
-                        ),
-                      ),
+                  suffixIcon: Observer(
+                    builder: (_) => IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: (_wordController.text.trim().isNotEmpty && !_store.isAnalyzing && !_store.isScanning) 
+                          ? _onSubmit : null,
                     ),
-            const SizedBox(height: 12),
-            const Text(
-              'Or scan a word from an image:',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
+                  ),
+                ),
+                onSubmitted: (_) => _onSubmit(),
               ),
-            ),
-            const SizedBox(height: 8),
-            Observer(
-              builder: (_) => ElevatedButton.icon(
-                onPressed: _store.canScanImage ? () => _store.scanWordFromGallery() : null,
-                icon: _store.isScanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Icon(Icons.photo_library),
-                label: Text(_store.isScanning ? 'Scanning...' : 'Select Image'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 12),
+              Observer(
+                builder: (_) => ElevatedButton(
+                  onPressed: (_wordController.text.trim().isNotEmpty && !_store.isAnalyzing && !_store.isScanning) 
+                      ? _onSubmit : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: DyslexiaTheme.primaryAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    'Analyze Word',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
-            ),
-                  ],
+              const SizedBox(height: 12),
+              const Text(
+                'Or scan a word from an image:',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Observer(
+                builder: (_) => ElevatedButton.icon(
+                  onPressed: _store.canScanImage ? () => _store.scanWordFromGallery() : null,
+                  icon: _store.isScanning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.photo_library),
+                  label: Text(_store.isScanning ? 'Scanning...' : 'Select Image'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -38,12 +38,12 @@ If no text is found, return an empty response.
 ''';
 
   OcrService() : _sessionManager = GlobalSessionManager();
-
+  
   /// Main OCR method with simple error handling
   Future<OCRResult> scanImage(File imageFile) async {
-    try {
+      try {
       developer.log('Starting OCR scan for image: ${imageFile.path}', name: 'dyslexic_ai.ocr');
-      
+        
       // Simple image processing
       final processedBytes = await _resizeImage(imageFile);
       developer.log('Image resized: ${processedBytes.length} bytes', name: 'dyslexic_ai.ocr');
@@ -135,7 +135,7 @@ If no text is found, return an empty response.
   Future<OCRResult> _performOCR(Uint8List imageBytes) async {
     try {
       final session = await _sessionManager.getSession();
-      
+
       // Create multimodal message
       final message = Message(
         text: _ocrPrompt,
@@ -195,7 +195,7 @@ If no text is found, return an empty response.
   /// Simple confidence estimation
   double _estimateConfidence(String text) {
     if (text.isEmpty) return 0.0;
-    
+      
     // Basic heuristics for confidence
     double confidence = 0.7; // Base confidence
     
@@ -210,8 +210,8 @@ If no text is found, return an empty response.
     confidence += (foundCommonWords / commonWords.length) * 0.2;
     
     return confidence.clamp(0.0, 1.0);
-  }
-
+    }
+  
   /// Dispose method for cleanup
   Future<void> dispose() async {
     await _sessionManager.dispose();

@@ -33,26 +33,49 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
       appBar: AppBar(
         title: const Text('Adaptive Story Mode'),
       ),
-      body: Observer(
-        builder: (context) {
-          if (_store.errorMessage != null) {
-            return _buildErrorState();
-          }
+      body: Column(
+        children: [
+          // Error state - needs Observer for errorMessage
+          Observer(
+            builder: (context) {
+              if (_store.errorMessage == null) {
+                return const SizedBox.shrink();
+              }
+              return _buildErrorState();
+            },
+          ),
+          
+          // Loading state - needs Observer for isLoading
+          Observer(
+            builder: (context) {
+              if (!_store.isLoading) {
+                return const SizedBox.shrink();
+              }
+              return const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              );
+            },
+          ),
+          
+          // Main content - needs Observer for story states
+          Observer(
+            builder: (context) {
+              if (_store.errorMessage != null || _store.isLoading) {
+                return const SizedBox.shrink();
+              }
+              
+              if (!_store.hasCurrentStory) {
+                return Expanded(child: _buildStorySelectionScreen());
+              }
 
-          if (_store.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+              if (_store.storyCompleted) {
+                return Expanded(child: _buildCompletionSummaryScreen());
+              }
 
-          if (!_store.hasCurrentStory) {
-            return _buildStorySelectionScreen();
-          }
-
-          if (_store.storyCompleted) {
-            return _buildCompletionSummaryScreen();
-          }
-
-          return _buildStoryReadingScreen();
-        },
+              return Expanded(child: _buildStoryReadingScreen());
+            },
+          ),
+        ],
       ),
     );
   }

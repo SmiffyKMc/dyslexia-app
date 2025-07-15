@@ -29,18 +29,18 @@ class AIInferenceService {
       developer.log('Error in generateResponse: $e', name: 'dyslexic_ai.inference');
       
       // Simple fallback handling
-      if (fallbackPrompt != null) {
-        try {
+        if (fallbackPrompt != null) {
+          try {
           developer.log('Attempting fallback prompt', name: 'dyslexic_ai.inference');
           final session = await _sessionManager.getSession();
           await session.addQueryChunk(Message(text: fallbackPrompt));
           final response = await session.getResponse();
           return _cleanAIResponse(response);
-        } catch (fallbackError) {
-          developer.log('Fallback also failed: $fallbackError', name: 'dyslexic_ai.inference');
+          } catch (fallbackError) {
+            developer.log('Fallback also failed: $fallbackError', name: 'dyslexic_ai.inference');
+          }
         }
-      }
-      
+        
       // Simple error handling - invalidate session and rethrow
       await _sessionManager.invalidateSession();
       rethrow;
@@ -52,9 +52,9 @@ class AIInferenceService {
     try {
       developer.log('Generating stream response for prompt: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}...', name: 'dyslexic_ai.inference');
       
-      final session = await _sessionManager.getSession();
-      await session.addQueryChunk(Message(text: prompt));
-      
+    final session = await _sessionManager.getSession();
+    await session.addQueryChunk(Message(text: prompt));
+    
       // Return the stream directly - flutter_gemma handles background processing
       return session.getResponseAsync().map((token) => _cleanAIResponse(token));
       
@@ -62,9 +62,9 @@ class AIInferenceService {
       developer.log('Error in generateResponseStream: $e', name: 'dyslexic_ai.inference');
       
       // Simple error handling - invalidate session and rethrow
-      await _sessionManager.invalidateSession();
+    await _sessionManager.invalidateSession();
       rethrow;
-    }
+  }
   }
 
   /// Legacy compatibility method
@@ -83,7 +83,7 @@ Provide only the simplified version.
     
     return await generateResponse(prompt);
   }
-
+  
   /// Clean AI response by removing special tokens
   String _cleanAIResponse(String response) {
     return response

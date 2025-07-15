@@ -38,31 +38,41 @@ class _HomeScreenState extends State<HomeScreen> {
           onScaleStart: (_) => _profileUpdateService.markUserActive(),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: Observer(
-              builder: (context) {
-                // Debug today's progress when UI rebuilds
-                if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
-                  SessionDebugHelper.debugTodaysProgress();
-                }
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Static header - no Observer needed
+                _buildHeader(context),
+                const SizedBox(height: 16),
                 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 16),
-                    _buildLearnerProfile(context),
-                    const SizedBox(height: 16),
-                    _buildTodaysProgress(context),
-                    const SizedBox(height: 16),
-                    _buildPersonalizedSuggestions(context),
-                    const SizedBox(height: 16),
-                    _buildQuickTools(context),
-                    const SizedBox(height: 16),
-                    _buildRecentActivity(),
-                    const SizedBox(height: 16), // Extra bottom padding
-                  ],
-                );
-              },
+                // Profile section - only rebuilds when profile changes
+                Observer(
+                  builder: (context) => _buildLearnerProfile(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Progress section - only rebuilds when session data changes
+                Observer(
+                  builder: (context) => _buildTodaysProgress(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Suggestions section - only rebuilds when profile changes
+                Observer(
+                  builder: (context) => _buildPersonalizedSuggestions(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Static tools - no Observer needed
+                _buildQuickTools(context),
+                const SizedBox(height: 16),
+                
+                // Recent activity - only rebuilds when session logs change
+                Observer(
+                  builder: (context) => _buildRecentActivity(),
+                ),
+                const SizedBox(height: 16), // Extra bottom padding
+              ],
             ),
           ),
         ),
@@ -96,7 +106,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        _buildAIActivityIndicator(),
+        // AI Activity indicator still needs Observer for background processing state
+        Observer(
+          builder: (context) => _buildAIActivityIndicator(),
+        ),
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),

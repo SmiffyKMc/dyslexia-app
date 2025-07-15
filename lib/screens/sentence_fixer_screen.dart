@@ -46,26 +46,60 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
         ],
       ),
       body: SafeArea(
-        child: Observer(
-          builder: (context) {
-            if (_store.isLoading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (_store.errorMessage != null) {
-              return _buildErrorScreen();
-            }
-
-            if (!_store.hasCurrentSession) {
-              return _buildStartScreen();
-            }
-
-            if (_store.isSessionCompleted) {
-              return _buildCompletionScreen();
-            }
-
-            return _buildGameScreen();
-          },
+        child: Column(
+          children: [
+            // Loading state - needs Observer for isLoading
+            Observer(
+              builder: (context) {
+                if (!_store.isLoading) {
+                  return const SizedBox.shrink();
+                }
+                return const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              },
+            ),
+            
+            // Error state - needs Observer for errorMessage
+            Observer(
+              builder: (context) {
+                if (_store.isLoading || _store.errorMessage == null) {
+                  return const SizedBox.shrink();
+                }
+                return Expanded(child: _buildErrorScreen());
+              },
+            ),
+            
+            // Start screen - needs Observer for session state
+            Observer(
+              builder: (context) {
+                if (_store.isLoading || _store.errorMessage != null || _store.hasCurrentSession) {
+                  return const SizedBox.shrink();
+                }
+                return Expanded(child: _buildStartScreen());
+              },
+            ),
+            
+            // Completion screen - needs Observer for completion state
+            Observer(
+              builder: (context) {
+                if (_store.isLoading || _store.errorMessage != null || !_store.hasCurrentSession || !_store.isSessionCompleted) {
+                  return const SizedBox.shrink();
+                }
+                return Expanded(child: _buildCompletionScreen());
+              },
+            ),
+            
+            // Game screen - needs Observer for game state
+            Observer(
+              builder: (context) {
+                if (_store.isLoading || _store.errorMessage != null || !_store.hasCurrentSession || _store.isSessionCompleted) {
+                  return const SizedBox.shrink();
+                }
+                return Expanded(child: _buildGameScreen());
+              },
+            ),
+          ],
         ),
       ),
     );
