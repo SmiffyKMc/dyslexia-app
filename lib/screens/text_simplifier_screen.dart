@@ -113,6 +113,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                 focusNode: _inputFocusNode,
                 maxLines: null,
                 expands: true,
+                textAlignVertical: TextAlignVertical.top,
                 decoration: const InputDecoration(
                   hintText: 'Paste or type complex text here...',
                   border: OutlineInputBorder(),
