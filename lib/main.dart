@@ -15,7 +15,6 @@ import 'screens/text_simplifier_screen.dart';
 import 'screens/sound_it_out_screen.dart';
 
 import 'screens/sentence_fixer_screen.dart';
-import 'screens/read_aloud_screen.dart';
 
 
 import 'screens/model_loading_screen.dart';
@@ -113,7 +112,6 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
             '/sound_it_out': (context) => const SoundItOutScreen(),
 
             '/sentence_fixer': (context) => const SentenceFixerScreen(),
-            '/read_aloud': (context) => const ReadAloudScreen(),
       
       
             '/text_simplifier_example': (context) => const TextSimplifierExample(),

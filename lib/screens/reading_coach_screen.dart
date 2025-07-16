@@ -5,7 +5,6 @@ import '../controllers/learner_profile_store.dart';
 import '../models/reading_session.dart';
 import '../utils/service_locator.dart';
 import '../widgets/story_selector_modal.dart';
-import '../widgets/text_input_modal.dart';
 
 class ReadingCoachScreen extends StatefulWidget {
   const ReadingCoachScreen({super.key});
@@ -17,6 +16,7 @@ class ReadingCoachScreen extends StatefulWidget {
 class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   late ReadingCoachStore _store;
   late LearnerProfileStore _profileStore;
+  final TextEditingController _textController = TextEditingController();
 
   @override
   void initState() {
@@ -24,10 +24,14 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     _store = getIt<ReadingCoachStore>();
     _profileStore = getIt<LearnerProfileStore>();
     _store.initialize();
+    
+    // Initialize text field with current text
+    _textController.text = _store.currentText;
   }
 
   @override
   void dispose() {
+    _textController.dispose();
     _store.dispose();
     super.dispose();
   }
@@ -39,26 +43,17 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => StorySelectorModal(
         stories: _store.presetStories,
-        onStorySelected: _store.selectPresetStory,
+        onStorySelected: (story) {
+          _store.selectPresetStory(story);
+          _textController.text = story.content;
+        },
         learnerProfile: _profileStore.currentProfile,
       ),
     );
   }
 
-  void _showTextInputModal() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => TextInputModal(
-        initialText: _store.currentText,
-        onTextSubmitted: _store.setCurrentText,
-      ),
-    );
-  }
-
   void _selectImageFromGallery() {
-                _store.pickImageFromGallery();
+    _store.pickImageFromGallery();
   }
 
   @override
@@ -205,44 +200,47 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
 
   Widget _buildTextSelection() {
     return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            const Text(
-              'Choose text to read',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Enter text to read',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _textController,
+          maxLines: 4,
+          minLines: 3,
+          decoration: InputDecoration(
+            hintText: 'Type or paste text to practice reading...',
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                onPressed: _showTextInputModal,
-                    icon: const Icon(Icons.paste),
-                    label: const Text('Paste Text'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                onPressed: _showStorySelectorModal,
-                    icon: const Icon(Icons.library_books),
-                    label: const Text('Choose Story'),
-                  ),
-                ),
-              ],
-            ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _selectImageFromGallery,
-            icon: const Icon(Icons.photo_library),
-            label: const Text('Select Image from Gallery'),
+            contentPadding: const EdgeInsets.all(16),
           ),
+          onChanged: (text) {
+            _store.setCurrentText(text);
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _showStorySelectorModal,
+                icon: const Icon(Icons.library_books),
+                label: const Text('Choose Story'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _selectImageFromGallery,
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Scan Image'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -306,11 +304,6 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                     color: Colors.grey,
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: _showTextInputModal,
-                icon: const Icon(Icons.edit, size: 20),
-                tooltip: 'Edit text',
               ),
               IconButton(
                 onPressed: () => _store.speakText(_store.currentText),

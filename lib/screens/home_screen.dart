@@ -782,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...recentSessions.map((session) => _buildActivityItem(
             _getSessionIcon(session.sessionType),
-            session.sessionDescription,
+            session.summaryText,
             _formatSessionTime(session.timestamp),
           )),
       ],
@@ -793,17 +793,13 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (sessionType) {
       case SessionType.readingCoach:
         return Icons.mic_outlined;
-      case SessionType.wordDoctor:
-        return Icons.search_outlined;
       case SessionType.adaptiveStory:
         return Icons.menu_book_outlined;
       case SessionType.phonicsGame:
         return Icons.games_outlined;
-      case SessionType.textSimplifier:
-        return Icons.text_fields;
       case SessionType.soundItOut:
         return Icons.volume_up;
-      default:
+      case SessionType.sentenceFixer:
         return Icons.school;
     }
   }

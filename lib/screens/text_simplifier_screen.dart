@@ -797,177 +797,201 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   }
 
   Widget _buildSimplificationControls() {
+    return Card(
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Primary controls - always visible
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Reading Level',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                _buildReadingLevelDropdown(),
+              ],
+            ),
+            const SizedBox(height: 16),
+            
+            // Smart defaults with clear labels
+            Row(
+              children: [
+                Expanded(
+                  child: _buildExplainChangesCheckbox(),
+                ),
+              ],
+            ),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: _buildDefineKeyTermsCheckbox(),
+                ),
+              ],
+            ),
+            
+            // Advanced options (collapsible)
+            _buildAdvancedOptionsExpansion(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadingLevelDropdown() {
     return Observer(
-      builder: (context) => Card(
-        elevation: 2,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (context) => GestureDetector(
+        onTap: _showReadingLevelSelector,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Primary controls - always visible
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Reading Level',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _showReadingLevelSelector,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _store.selectedReadingLevel,
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            Icons.arrow_drop_down,
-                            color: Theme.of(context).primaryColor,
-                            size: 20,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Smart defaults with clear labels
-              Row(
-                children: [
-                  Expanded(
-                    child: CheckboxListTile(
-                      title: Text(
-                        'Explain changes',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Show what was changed',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      value: _store.explainChanges,
-                      onChanged: (value) {
-                        if (value != null) {
-                          _store.setExplainChanges(value);
-                        }
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-              ),
-              
-              Row(
-                children: [
-                  Expanded(
-                    child: CheckboxListTile(
-                      title: Text(
-                        'Define difficult words',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Tap words for definitions',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                      value: _store.defineKeyTerms,
-                      onChanged: (value) {
-                        if (value != null) {
-                          _store.setDefineKeyTerms(value);
-                        }
-                      },
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ],
-              ),
-              
-              // Advanced options (collapsible)
-              ExpansionTile(
-                title: Text(
-                  'Advanced Options',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+              Text(
+                _store.selectedReadingLevel,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).primaryColor,
                 ),
-                subtitle: Text(
-                  'Display and feature options',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                ),
-                initiallyExpanded: false,
-                children: [
-                  CheckboxListTile(
-                    title: Text(
-                      'Side-by-side view',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    subtitle: Text(
-                      'Show original and simplified text together',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    value: _store.sideBySideView,
-                    onChanged: (value) {
-                      if (value != null) {
-                        _store.setSideBySideView(value);
-                      }
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                  CheckboxListTile(
-                    title: Text(
-                      'Add visual elements',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    subtitle: Text(
-                      'Include emoji and visual cues (experimental)',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    value: _store.addVisuals,
-                    onChanged: (value) {
-                      if (value != null) {
-                        _store.setAddVisuals(value);
-                      }
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                  ),
-                ],
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_drop_down,
+                color: Theme.of(context).primaryColor,
+                size: 20,
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildExplainChangesCheckbox() {
+    return Observer(
+      builder: (context) => CheckboxListTile(
+        title: Text(
+          'Explain changes',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Show what was changed',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey[600],
+          ),
+        ),
+        value: _store.explainChanges,
+        onChanged: (value) {
+          if (value != null) {
+            _store.setExplainChanges(value);
+          }
+        },
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildDefineKeyTermsCheckbox() {
+    return Observer(
+      builder: (context) => CheckboxListTile(
+        title: Text(
+          'Define difficult words',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          'Tap words for definitions',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Colors.grey[600],
+          ),
+        ),
+        value: _store.defineKeyTerms,
+        onChanged: (value) {
+          if (value != null) {
+            _store.setDefineKeyTerms(value);
+          }
+        },
+        controlAffinity: ListTileControlAffinity.leading,
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+  }
+
+  Widget _buildAdvancedOptionsExpansion() {
+    return ExpansionTile(
+      title: Text(
+        'Advanced Options',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      subtitle: Text(
+        'Display and feature options',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: Colors.grey[600],
+        ),
+      ),
+      initiallyExpanded: false,
+      children: [
+        Observer(
+          builder: (context) => CheckboxListTile(
+            title: Text(
+              'Side-by-side view',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            subtitle: Text(
+              'Show original and simplified text together',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+            value: _store.sideBySideView,
+            onChanged: (value) {
+              if (value != null) {
+                _store.setSideBySideView(value);
+              }
+            },
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+        ),
+        Observer(
+          builder: (context) => CheckboxListTile(
+            title: Text(
+              'Add visual elements',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            subtitle: Text(
+              'Include emoji and visual cues (experimental)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[600],
+              ),
+            ),
+            value: _store.addVisuals,
+            onChanged: (value) {
+              if (value != null) {
+                _store.setAddVisuals(value);
+              }
+            },
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+        ),
+      ],
     );
   }
 

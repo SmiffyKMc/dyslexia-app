@@ -1,7 +1,35 @@
 import 'package:flutter/material.dart';
+import '../utils/input_validation_helper.dart';
 
-class SoundItOutScreen extends StatelessWidget {
+class SoundItOutScreen extends StatefulWidget {
   const SoundItOutScreen({super.key});
+
+  @override
+  State<SoundItOutScreen> createState() => _SoundItOutScreenState();
+}
+
+class _SoundItOutScreenState extends State<SoundItOutScreen> {
+  final TextEditingController _wordController = TextEditingController();
+
+  void _onAnalyze() {
+    final word = _wordController.text.trim();
+    if (word.isEmpty) {
+      InputValidationHelper.showInputError(
+        context,
+        'Please enter a word to sound out. Type any word in the text field above.',
+      );
+      return;
+    }
+    
+    // TODO: Implement actual analysis logic
+    print('Analyzing word: $word');
+  }
+
+  @override
+  void dispose() {
+    _wordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,15 +84,17 @@ class SoundItOutScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
+                    controller: _wordController,
                     decoration: const InputDecoration(
                       hintText: 'Type a word...',
                       border: OutlineInputBorder(),
                     ),
+                    onSubmitted: (_) => _onAnalyze(),
                   ),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _onAnalyze,
                   child: const Text('Analyze'),
                 ),
               ],
@@ -74,7 +104,10 @@ class SoundItOutScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      // TODO: Implement speech recognition
+                      print('Say word feature not implemented yet');
+                    },
                     icon: const Icon(Icons.mic),
                     label: const Text('Say Word'),
                   ),
@@ -82,7 +115,10 @@ class SoundItOutScreen extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      // TODO: Implement random word selection
+                      print('Random word feature not implemented yet');
+                    },
                     icon: const Icon(Icons.shuffle),
                     label: const Text('Random Word'),
                   ),

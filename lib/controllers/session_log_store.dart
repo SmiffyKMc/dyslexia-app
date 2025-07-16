@@ -29,7 +29,7 @@ abstract class _SessionLogStore with Store {
   List<SessionLog> get recentLogs => sessionLogs.take(10).toList();
 
   @computed
-  List<SessionLog> get completedLogs => sessionLogs.where((log) => log.isCompleted).toList();
+  List<SessionLog> get completedLogs => sessionLogs;
 
   @computed
   SessionLogSummary? get last3SessionsSummary {
@@ -149,7 +149,7 @@ abstract class _SessionLogStore with Store {
       
       await _saveSessionLogsToStorage();
       
-      developer.log('📊 Session logged successfully: ${sessionLog.sessionDescription}', name: 'dyslexic_ai.sessions');
+      developer.log('📊 Session logged successfully: ${sessionLog.summaryText}', name: 'dyslexic_ai.sessions');
     } catch (e) {
       developer.log('❌ Failed to log session: $e', name: 'dyslexic_ai.sessions');
       errorMessage = 'Failed to save session data: $e';

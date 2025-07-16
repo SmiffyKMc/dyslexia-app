@@ -63,17 +63,6 @@ class ToolsScreen extends StatelessWidget {
                     Colors.red,
                   ),
 
-                  _buildToolCard(
-                    context,
-                    'Read Aloud',
-                    'Text-to-speech with highlighting',
-                    Icons.record_voice_over_outlined,
-                    '/read_aloud',
-                    Colors.pink,
-                  ),
-
-
-
                 ],
               ),
             ],

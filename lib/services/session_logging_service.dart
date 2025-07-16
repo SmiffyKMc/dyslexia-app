@@ -175,7 +175,7 @@ class SessionLoggingService {
     });
   }
 
-  void logConfidenceIndicator(String level, {String? reason}) {
+  void logConfidenceLevel(String level, {String? reason}) {
     developer.log('📝 Logging confidence: $level', name: 'dyslexic_ai.session_logging');
     
     updateSessionData({

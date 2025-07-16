@@ -5,18 +5,10 @@ import 'package:uuid/uuid.dart';
 
 enum SessionType {
   readingCoach,
-  wordDoctor,
   adaptiveStory,
   phonicsGame,
-  textSimplifier,
   soundItOut,
-
   sentenceFixer,
-  readAloud,
-
-
-
-
 }
 
 class SessionLog {
@@ -104,66 +96,64 @@ class SessionLog {
         final mispronounced = data['mispronounced_phonemes'] as List<dynamic>? ?? [];
         errors.addAll(mispronounced.cast<String>());
         break;
-      case SessionType.wordDoctor:
-        final phonemeErrors = data['phoneme_errors'] as List<dynamic>? ?? [];
-        errors.addAll(phonemeErrors.cast<String>());
-        break;
       case SessionType.phonicsGame:
         final difficult = data['difficult_sounds'] as List<dynamic>? ?? [];
         errors.addAll(difficult.cast<String>());
         break;
-      case SessionType.adaptiveStory:
-        final mistakes = data['phoneme_mistakes'] as List<dynamic>? ?? [];
-        errors.addAll(mistakes.cast<String>());
+      case SessionType.soundItOut:
+        final phonemeErrors = data['phoneme_errors'] as List<dynamic>? ?? [];
+        errors.addAll(phonemeErrors.cast<String>());
         break;
-      default:
+      case SessionType.sentenceFixer:
+        final grammarErrors = data['grammar_errors'] as List<dynamic>? ?? [];
+        errors.addAll(grammarErrors.cast<String>());
+        break;
+      case SessionType.adaptiveStory:
+        final readingErrors = data['reading_errors'] as List<dynamic>? ?? [];
+        errors.addAll(readingErrors.cast<String>());
         break;
     }
     
     return errors;
   }
 
-  String get confidenceIndicator {
+  String get confidenceLevel {
     switch (sessionType) {
       case SessionType.readingCoach:
         final confidence = data['confidence_level'] as String? ?? 'medium';
         return confidence;
-      case SessionType.wordDoctor:
-        final completionRate = data['completion_rate'] as double? ?? 0.5;
-        if (completionRate > 0.8) return 'high';
-        if (completionRate > 0.6) return 'medium';
-        return 'low';
       case SessionType.adaptiveStory:
         final comprehension = data['comprehension_score'] as double? ?? 0.5;
         if (comprehension > 0.8) return 'high';
         if (comprehension > 0.6) return 'medium';
         return 'low';
       case SessionType.phonicsGame:
-        final gameAccuracy = accuracy ?? 0.5;
-        if (gameAccuracy > 0.8) return 'high';
-        if (gameAccuracy > 0.6) return 'medium';
+        final score = data['final_score'] as double? ?? 0.5;
+        if (score > 0.8) return 'high';
+        if (score > 0.6) return 'medium';
+        return 'low';
+      case SessionType.soundItOut:
+        final accuracy = data['phoneme_accuracy'] as double? ?? 0.5;
+        if (accuracy > 0.8) return 'high';
+        if (accuracy > 0.6) return 'medium';
         return 'low';
       case SessionType.sentenceFixer:
-        final sentenceAccuracy = accuracy ?? 0.5;
-        if (sentenceAccuracy > 0.8) return 'high';
-        if (sentenceAccuracy > 0.6) return 'medium';
+        final accuracy = data['final_accuracy'] as double? ?? 0.5;
+        if (accuracy > 0.8) return 'high';
+        if (accuracy > 0.6) return 'medium';
         return 'low';
-      default:
-        return 'medium';
     }
   }
 
-  double get fluencyScore {
+  double get engagementScore {
     switch (sessionType) {
       case SessionType.readingCoach:
-        final wordsPerMinute = data['words_per_minute'] as double? ?? 100.0;
-        return (wordsPerMinute / 150.0).clamp(0.0, 1.0);
+        final wordsRead = data['words_read'] as int? ?? 0;
+        final targetWords = data['target_words'] as int? ?? 1;
+        return (wordsRead / targetWords).clamp(0.0, 1.0);
       case SessionType.adaptiveStory:
         final readingSpeed = data['reading_speed'] as double? ?? 100.0;
         return (readingSpeed / 150.0).clamp(0.0, 1.0);
-      case SessionType.readAloud:
-        final speed = data['reading_speed'] as double? ?? 100.0;
-        return (speed / 150.0).clamp(0.0, 1.0);
       default:
         return 0.5;
     }
@@ -174,7 +164,7 @@ class SessionLog {
     if (sessionType == SessionType.soundItOut || sessionType == SessionType.phonicsGame) {
       return 'auditory';
     }
-    if (sessionType == SessionType.readingCoach || sessionType == SessionType.readAloud) {
+    if (sessionType == SessionType.readingCoach) {
       return 'kinesthetic';
     }
     
@@ -184,52 +174,45 @@ class SessionLog {
     if (visualElements && audioElements) return 'multimodal';
     if (visualElements) return 'visual';
     if (audioElements) return 'auditory';
-    return 'visual';
+    
+    return 'neutral';
   }
 
-  bool get isCompleted {
-    return data['status'] == 'completed' || 
-           data['completion_rate'] != null ||
-           accuracy != null;
-  }
-
-  String get sessionDescription {
+  String get summaryText {
     switch (sessionType) {
       case SessionType.readingCoach:
         final wordsRead = data['words_read'] as int? ?? 0;
-        final accuracyPercent = ((accuracy ?? 0.0) * 100).round();
+        final accuracy = data['final_accuracy'] as double? ?? 0.0;
+        final accuracyPercent = (accuracy * 100).round();
         
-        // Debug logging for session description
-        if (wordsRead == 0 || accuracyPercent == 0) {
-          developer.log('🐛 SessionDescription Debug: words_read=$wordsRead, accuracy=$accuracy, data keys=${data.keys}', name: 'dyslexic_ai.session_debug');
+        if (wordsRead == 0) {
+          return 'No words read';
         }
         
         return 'Read $wordsRead words with $accuracyPercent% accuracy';
-      case SessionType.wordDoctor:
-        final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
-        return 'Analyzed $wordsAnalyzed words';
       case SessionType.adaptiveStory:
         final questionsAnswered = data['questions_answered'] as int? ?? 0;
         final questionsTotal = data['questions_total'] as int? ?? 0;
         final questionsCorrect = data['questions_correct'] as int? ?? 0;
         
-        // Debug logging for session description
-        developer.log('🐛 AdaptiveStory SessionDescription Debug:', name: 'dyslexic_ai.session_debug');
-        developer.log('   questions_answered: $questionsAnswered', name: 'dyslexic_ai.session_debug');
-        developer.log('   questions_total: $questionsTotal', name: 'dyslexic_ai.session_debug');
-        developer.log('   questions_correct: $questionsCorrect', name: 'dyslexic_ai.session_debug');
-        developer.log('   data keys: ${data.keys.toList()}', name: 'dyslexic_ai.session_debug');
+        if (questionsTotal == 0) {
+          return 'No questions answered';
+        }
         
-        return 'Answered $questionsAnswered story questions';
+        final percentage = ((questionsCorrect / questionsTotal) * 100).round();
+        return 'Answered $questionsCorrect/$questionsTotal questions ($percentage%)';
       case SessionType.phonicsGame:
-        final roundsCompleted = data['rounds_completed'] as int? ?? 0;
-        return 'Completed $roundsCompleted phonics rounds';
+        final score = data['final_score'] as double? ?? 0.0;
+        final percentage = (score * 100).round();
+        return 'Final score: $percentage%';
+      case SessionType.soundItOut:
+        final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
+        return 'Analyzed $wordsAnalyzed phonetic patterns';
       case SessionType.sentenceFixer:
-        final sentencesCompleted = data['sentences_completed'] as int? ?? 0;
-        final sentencesCorrect = data['sentences_correct'] as int? ?? 0;
-        return 'Fixed $sentencesCorrect/$sentencesCompleted sentences';
-      default:
-        return 'Completed ${feature.toLowerCase()} session';
+        final sentencesFixed = data['sentences_fixed'] as int? ?? 0;
+        final accuracy = data['final_accuracy'] as double? ?? 0.0;
+        final accuracyPercent = (accuracy * 100).round();
+        return 'Fixed $sentencesFixed sentences with $accuracyPercent% accuracy';
     }
   }
 
@@ -295,7 +278,7 @@ class SessionLogSummary {
   String get dominantConfidenceLevel {
     final confidenceCounts = <String, int>{};
     for (final log in logs) {
-      final confidence = log.confidenceIndicator;
+      final confidence = log.confidenceLevel;
       confidenceCounts[confidence] = (confidenceCounts[confidence] ?? 0) + 1;
     }
     
@@ -306,10 +289,10 @@ class SessionLogSummary {
         .key;
   }
 
-  double get averageFluencyScore {
-    final fluencyScores = logs.map((log) => log.fluencyScore).toList();
-    if (fluencyScores.isEmpty) return 0.5;
-    return fluencyScores.reduce((a, b) => a + b) / fluencyScores.length;
+  double get averageEngagementScore {
+    final engagementScores = logs.map((log) => log.engagementScore).toList();
+    if (engagementScores.isEmpty) return 0.5;
+    return engagementScores.reduce((a, b) => a + b) / engagementScores.length;
   }
 
   String get preferredLearningStyle {

@@ -30,20 +30,6 @@ class TextSimplifierService {
     try {
       developer.log('🔄 Starting text simplification for $readingLevel level', name: 'dyslexic_ai.text_simplifier');
       
-      // Start session logging
-      await _sessionLoggingService.startSession(
-        sessionType: SessionType.textSimplifier,
-        featureName: 'Text Simplifier',
-        initialData: {
-          'original_text_length': originalText.length,
-          'reading_level': readingLevel,
-          'explain_changes': explainChanges,
-          'define_key_terms': defineKeyTerms,
-          'add_visuals': addVisuals,
-          'is_regenerate': isRegenerateRequest,
-        },
-      );
-
       final aiService = getAIInferenceService();
       if (aiService == null) {
         throw Exception('AI service not available. Please ensure the model is loaded.');
@@ -69,35 +55,11 @@ class TextSimplifierService {
 
       final simplifiedText = _parseSimplificationResponse(response);
       
-      // Log successful completion
-      _sessionLoggingService.updateSessionData({
-        'simplified_text_length': simplifiedText.length,
-        'simplification_ratio': simplifiedText.length / originalText.length,
-        'completion_status': 'success',
-      });
-
-      await _sessionLoggingService.completeSession(
-        finalAccuracy: 1.0,
-        completionStatus: 'success',
-      );
-
       developer.log('✅ Text simplification completed successfully', name: 'dyslexic_ai.text_simplifier');
       return simplifiedText;
 
     } catch (e) {
       developer.log('❌ Text simplification failed: $e', name: 'dyslexic_ai.text_simplifier');
-      
-      // Log failed completion
-      _sessionLoggingService.updateSessionData({
-        'completion_status': 'failed',
-        'error_message': e.toString(),
-      });
-
-      await _sessionLoggingService.completeSession(
-        finalAccuracy: 0.0,
-        completionStatus: 'failed',
-      );
-
       rethrow;
     }
   }
