@@ -252,10 +252,19 @@ abstract class _SessionLogStore with Store {
     if (logsJson != null) {
       try {
         final logsList = json.decode(logsJson) as List<dynamic>;
-        sessionLogs = logsList
-            .map((item) => SessionLog.fromJson(item as Map<String, dynamic>))
-            .toList();
-        developer.log('📊 Loaded ${sessionLogs.length} session logs from storage', name: 'dyslexic_ai.sessions');
+        final parsed = <SessionLog>[];
+        for (final item in logsList) {
+          try {
+            final log = SessionLog.fromJson(item as Map<String, dynamic>);
+            parsed.add(log);
+          } catch (e) {
+            developer.log('⚠️ Skipping invalid session log entry: $e', name: 'dyslexic_ai.sessions');
+          }
+        }
+        sessionLogs = parsed;
+        developer.log('📊 Loaded ${sessionLogs.length} valid session logs from storage', name: 'dyslexic_ai.sessions');
+        // Persist cleaned logs to remove stale invalid records
+        await _saveSessionLogsToStorage();
       } catch (e) {
         developer.log('❌ Failed to parse stored session logs: $e', name: 'dyslexic_ai.sessions');
         throw Exception('Invalid stored session logs format');

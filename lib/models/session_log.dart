@@ -174,7 +174,7 @@ class SessionLog {
     if (visualElements && audioElements) return 'multimodal';
     if (visualElements) return 'visual';
     if (audioElements) return 'auditory';
-    
+
     return 'neutral';
   }
 

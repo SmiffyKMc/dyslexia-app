@@ -148,15 +148,6 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
           if (mounted) {
             developer.log('Model initialization completed successfully', name: 'dyslexic_ai.init');
             
-            // Warmup session for better performance
-            try {
-              final sessionManager = getGlobalSessionManager();
-              await sessionManager.warmupSession();
-              developer.log('Session warmup completed successfully', name: 'dyslexic_ai.init');
-            } catch (e) {
-              developer.log('Session warmup failed (non-critical): $e', name: 'dyslexic_ai.init');
-            }
-            
             setState(() {
               _isModelReady = true;
               _loadingProgress = 1.0;

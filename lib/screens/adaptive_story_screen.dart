@@ -37,11 +37,11 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
         children: [
           // Error state - needs Observer for errorMessage
           Observer(
-            builder: (context) {
+        builder: (context) {
               if (_store.errorMessage == null) {
                 return const SizedBox.shrink();
               }
-              return _buildErrorState();
+            return _buildErrorState();
             },
           ),
           
@@ -62,18 +62,18 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
             builder: (context) {
               if (_store.errorMessage != null || _store.isLoading) {
                 return const SizedBox.shrink();
-              }
-              
-              if (!_store.hasCurrentStory) {
-                return Expanded(child: _buildStorySelectionScreen());
-              }
+          }
 
-              if (_store.storyCompleted) {
+          if (!_store.hasCurrentStory) {
+                return Expanded(child: _buildStorySelectionScreen());
+          }
+
+          if (_store.storyCompleted) {
                 return Expanded(child: _buildCompletionSummaryScreen());
-              }
+          }
 
               return Expanded(child: _buildStoryReadingScreen());
-            },
+        },
           ),
         ],
       ),

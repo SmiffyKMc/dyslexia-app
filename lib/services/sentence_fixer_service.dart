@@ -280,10 +280,7 @@ class SentenceFixerService {
   }
 
   String _buildSentenceGenerationPrompt(String difficulty, int count, LearnerProfile profile, {int attempt = 1}) {
-    final errorFocus = profile.phonemeConfusions.isNotEmpty 
-        ? profile.phonemeConfusions.take(2).join(', ')
-        : 'common spelling errors';
-    
+    // Keep minimal, spelling focus only
     String attemptInstructions = '';
     if (attempt > 1) {
       attemptInstructions = '''
@@ -296,60 +293,27 @@ class SentenceFixerService {
     }
     
     return '''
-Create $count sentences for sentence error detection practice, $difficulty level.
-
-CRITICAL: You must SELF-VALIDATE each sentence before returning it.$attemptInstructions
-
-STEP 1 - Generate sentences with intentional errors:
-- Create NORMAL sentences with 1-2 intentional errors
-- Each sentence must make sense when read aloud
-- Errors should be realistic mistakes people make
-- Keep sentences 5-8 words long
-- Focus on errors related to: $errorFocus
-
-STEP 2 - SELF-VALIDATE each sentence:
-For each sentence, ask yourself:
-1. "Does the word at errorPosition actually contain an error?"
-2. "Is my correction valid for that specific word?"
-3. "Would a human recognize this as a mistake?"
-
-SELF-VALIDATION EXAMPLES:
-
-❌ INVALID: "He didnt finish his work" with errorPositions: [3] and corrections: ["didn't"]
-WHY INVALID: Position 3 is "his" - that's correct! The error is at position 1 "didnt"
-✅ CORRECTED: "He didnt finish his work" with errorPositions: [1] and corrections: ["didn't"]
-
-❌ INVALID: "Their dog ran fast" with errorPositions: [0] and corrections: ["They're"] 
-WHY INVALID: "Their" is correct possessive form here
-✅ ALTERNATIVE: "Thier dog ran fast" with errorPositions: [0] and corrections: ["Their"]
-
-❌ INVALID: "I am going to school" with errorPositions: [1] and corrections: ["was"]
-WHY INVALID: "am" is grammatically correct here
-✅ ALTERNATIVE: "I seen the movie" with errorPositions: [1] and corrections: ["saw"]
-
-VALIDATION PROCESS:
-1. Generate sentence
-2. Check: Is the word at errorPosition actually wrong?
-3. Check: Does the correction fix that specific word?
-4. If validation fails, regenerate the sentence
-5. Only return sentences that pass validation
-
-RESPONSE FORMAT:
-Return a JSON array where each sentence has been self-validated:
+Create $count beginner practice sentences (5-8 words) each containing ONE obvious spelling mistake.  
+Return JSON only, e.g.
 
 [
   {
-    "words": ["word1", "word2", "error_word", "word4"],
-    "errorPositions": [2],
-    "corrections": ["correct_word"],
+    "words": ["Thier", "dog", "ran", "fast"],
+    "errorPositions": [0],
+    "corrections": ["Their"],
     "errorTypes": ["spelling"],
-    "hint": "explanation of the error",
-    "category": "error_type",
+    "hint": "'Thier' is misspelled.",
+    "category": "spelling",
     "validation_passed": true
   }
 ]
 
-Now create $count sentences, self-validate each one, and return only those that pass validation:''';
+Rules:
+- Sentence must read naturally when spoken.
+- errorPositions must point to the incorrect word.
+- corrections fixes ONLY that word.
+- Set validation_passed=true only after double-checking.
+$attemptInstructions''';
   }
 
   List<SentenceWithErrors> _parseAISentenceResponse(String response, String difficulty) {

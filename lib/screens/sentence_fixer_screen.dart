@@ -50,7 +50,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
           children: [
             // Loading state - needs Observer for isLoading
             Observer(
-              builder: (context) {
+          builder: (context) {
                 if (!_store.isLoading) {
                   return const SizedBox.shrink();
                 }
@@ -97,7 +97,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
                   return const SizedBox.shrink();
                 }
                 return Expanded(child: _buildGameScreen());
-              },
+          },
             ),
           ],
         ),

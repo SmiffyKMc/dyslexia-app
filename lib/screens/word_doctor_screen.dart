@@ -73,27 +73,27 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
           // Results section - separate Observer for analysis results
           Expanded(
             child: Observer(
-              builder: (_) => SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_store.errorMessage != null) _buildErrorMessage(),
-                    if (_store.isAnalyzing) _buildLoadingIndicator(),
-                    if (_store.hasCurrentAnalysis) ...[
-                      _buildAnalysisCard(),
-                      const SizedBox(height: 16),
-                      _buildSyllablesCard(),
-                      const SizedBox(height: 16),
-                      _buildMnemonicCard(),
-                      const SizedBox(height: 16),
-                      _buildExampleSentenceCard(),
-                      const SizedBox(height: 16),
-                      _buildActionButtons(),
-                    ],
-                  ],
-                ),
-              ),
+        builder: (_) => SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_store.errorMessage != null) _buildErrorMessage(),
+              if (_store.isAnalyzing) _buildLoadingIndicator(),
+              if (_store.hasCurrentAnalysis) ...[
+                _buildAnalysisCard(),
+                const SizedBox(height: 16),
+                _buildSyllablesCard(),
+                const SizedBox(height: 16),
+                _buildMnemonicCard(),
+                const SizedBox(height: 16),
+                _buildExampleSentenceCard(),
+                const SizedBox(height: 16),
+                _buildActionButtons(),
+              ],
+            ],
+          ),
+        ),
             ),
           ),
         ],
@@ -106,36 +106,36 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
       color: DyslexiaTheme.primaryBackground,
       child: Card(
         margin: const EdgeInsets.all(16),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Enter a word to analyze',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+            const Text(
+              'Enter a word to analyze',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _wordController,
-                decoration: InputDecoration(
-                  hintText: 'Type a word here...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _wordController,
+              decoration: InputDecoration(
+                hintText: 'Type a word here...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
                   ),
                   suffixIcon: IconButton(
                     icon: const Icon(Icons.search),
                     onPressed: _onSubmit,
                   ),
-                ),
+            ),
                 onSubmitted: (_) => _onSubmit(),
-              ),
-              const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _onSubmit,
                 style: ElevatedButton.styleFrom(
@@ -145,39 +145,39 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: const Text(
+                      ),
+                      child: const Text(
                   'Analyze Word',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                                    fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+            const SizedBox(height: 12),
+            const Text(
+              'Or scan a word from an image:',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'Or scan a word from an image:',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 8),
+            ),
+            const SizedBox(height: 8),
               ElevatedButton.icon(
                 onPressed: () => _store.scanWordFromGallery(),
                 icon: const Icon(Icons.photo_library),
                 label: const Text('Select Image'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
         ),
       ),
     );

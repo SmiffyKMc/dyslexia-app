@@ -6,6 +6,7 @@ import '../services/gemma_profile_update_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
+import 'dart:developer' as developer;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,6 +27,14 @@ class _HomeScreenState extends State<HomeScreen> {
     _profileStore = getIt<LearnerProfileStore>();
     _sessionLogStore = getIt<SessionLogStore>();
     _profileUpdateService = getIt<GemmaProfileUpdateService>();
+
+    // Warm up AI session after first frame to avoid jank during launch
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sessionManager = getGlobalSessionManager();
+      sessionManager.warmupSession().catchError((e) {
+        developer.log('Session warm-up failed: $e', name: 'dyslexic_ai.home');
+      });
+    });
   }
 
   @override

@@ -174,13 +174,28 @@ class ModelDownloadService {
       developer.log('🚀 Initializing model for inference...', name: 'dyslexic_ai.model_download');
       
       try {
-        final inferenceModel = await _gemmaPlugin.createModel(
-          modelType: ModelType.gemmaIt,
-          preferredBackend: PreferredBackend.gpu,  // Following flutter_gemma recommendation for multimodal
-          maxTokens: 2048,          // Reduced for memory efficiency on mobile
-          supportImage: true,       // Enable vision capabilities
-          maxNumImages: 1,          // Allow one image per message
-        );
+        Future<InferenceModel?> _createModelWithFallback() async {
+          try {
+            return await _gemmaPlugin.createModel(
+              modelType: ModelType.gemmaIt,
+              preferredBackend: PreferredBackend.gpu, // Try GPU first
+              maxTokens: 2048,
+              supportImage: true,
+              maxNumImages: 1,
+            );
+          } catch (gpuError) {
+            developer.log('GPU backend failed, falling back to CPU: $gpuError', name: 'dyslexic_ai.model_download');
+            return await _gemmaPlugin.createModel(
+              modelType: ModelType.gemmaIt,
+              preferredBackend: PreferredBackend.cpu, // CPU fallback
+              maxTokens: 2048,
+              supportImage: true,
+              maxNumImages: 1,
+            );
+          }
+        }
+
+        final inferenceModel = await _createModelWithFallback();
         if (inferenceModel != null) {
           developer.log('✅ Model initialized successfully for inference', name: 'dyslexic_ai.model_download');
           

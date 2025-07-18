@@ -53,7 +53,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   void _selectImageFromGallery() {
-    _store.pickImageFromGallery();
+                _store.pickImageFromGallery();
   }
 
   @override
@@ -102,17 +102,17 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             
             // Main content - only show when not loading
             Observer(
-              builder: (context) {
-                if (_store.isLoading) {
+          builder: (context) {
+            if (_store.isLoading) {
                   return const SizedBox.shrink();
-                }
-                
+            }
+
                 return Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+          padding: const EdgeInsets.all(16),
+          child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                         // Error message - needs Observer for errorMessage
                         Observer(
                           builder: (context) {
@@ -120,30 +120,30 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                               return const SizedBox.shrink();
                             }
                             return Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red[50],
-                                border: Border.all(color: Colors.red[200]!),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.error, color: Colors.red[600]),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _store.errorMessage!,
-                                      style: TextStyle(color: Colors.red[600]),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: _store.clearError,
-                                    icon: const Icon(Icons.close),
-                                    iconSize: 16,
-                                  ),
-                                ],
-                              ),
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        border: Border.all(color: Colors.red[200]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error, color: Colors.red[600]),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _store.errorMessage!,
+                              style: TextStyle(color: Colors.red[600]),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: _store.clearError,
+                            icon: const Icon(Icons.close),
+                            iconSize: 16,
+                          ),
+                        ],
+                      ),
                             );
                           },
                         ),
@@ -156,14 +156,14 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                         ),
                         
                         // Static text selection section - no Observer needed
-                        _buildTextSelection(),
-                        const SizedBox(height: 24),
+                  _buildTextSelection(),
+                  const SizedBox(height: 24),
                         
                         // Current text display - needs Observer for currentText
                         Observer(
                           builder: (context) => _buildCurrentText(),
                         ),
-                        const SizedBox(height: 24),
+                  const SizedBox(height: 24),
                         
                         // Reading controls - needs Observer for multiple states
                         Observer(
@@ -178,19 +178,19 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                             }
                             return Column(
                               children: [
+                    const SizedBox(height: 24),
+                    _buildSessionResults(),
                                 const SizedBox(height: 24),
-                                _buildSessionResults(),
-                                const SizedBox(height: 24),
-                                _buildPracticeWords(),
-                              ],
+                    _buildPracticeWords(),
+                  ],
                             );
                           },
                         ),
-                      ],
+                ],
                     ),
-                  ),
-                );
-              },
+              ),
+            );
+          },
             ),
           ],
         ),
@@ -200,12 +200,12 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
 
   Widget _buildTextSelection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+            const Text(
           'Enter text to read',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
         const SizedBox(height: 16),
         TextField(
           controller: _textController,
@@ -222,23 +222,23 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             _store.setCurrentText(text);
           },
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
                 onPressed: _showStorySelectorModal,
-                icon: const Icon(Icons.library_books),
-                label: const Text('Choose Story'),
-              ),
-            ),
+                    icon: const Icon(Icons.library_books),
+                    label: const Text('Choose Story'),
+                  ),
+                ),
             const SizedBox(width: 12),
             Expanded(
-              child: OutlinedButton.icon(
+          child: OutlinedButton.icon(
                 onPressed: _selectImageFromGallery,
                 icon: const Icon(Icons.photo_library),
                 label: const Text('Scan Image'),
-              ),
+          ),
             ),
           ],
         ),

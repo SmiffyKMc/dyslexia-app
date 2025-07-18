@@ -55,7 +55,16 @@ class GlobalSessionManager {
   Future<void> warmupSession() async {
     if (_session == null) {
       developer.log('Warming up session...', name: 'dyslexic_ai.session');
-      await getSession();
+      final s = await getSession();
+      try {
+        // Trigger delegate compilation with a tiny prompt
+        await s.addQueryChunk(const Message(text: 'hello'));
+        final stream = s.getResponseAsync();
+        await stream.first.timeout(const Duration(seconds: 5));
+        developer.log('Warm-up inference completed', name: 'dyslexic_ai.session');
+      } catch (_) {
+        // Ignore – this is best-effort
+      }
     }
   }
   
