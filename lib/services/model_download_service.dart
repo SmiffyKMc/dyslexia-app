@@ -178,13 +178,13 @@ class ModelDownloadService {
           try {
             return await _gemmaPlugin.createModel(
               modelType: ModelType.gemmaIt,
-              preferredBackend: PreferredBackend.gpu, // Try GPU first
+              preferredBackend: PreferredBackend.gpu, // Try GPU first as before
               maxTokens: 2048,
               supportImage: true,
               maxNumImages: 1,
             );
-          } catch (gpuError) {
-            developer.log('GPU backend failed, falling back to CPU: $gpuError', name: 'dyslexic_ai.model_download');
+          } catch (error) {
+            developer.log('GPU backend failed, falling back to CPU: $error', name: 'dyslexic_ai.model_download');
             return await _gemmaPlugin.createModel(
               modelType: ModelType.gemmaIt,
               preferredBackend: PreferredBackend.cpu, // CPU fallback
@@ -229,13 +229,13 @@ class ModelDownloadService {
     DownloadErrorCallback? onError,
     DownloadSuccessCallback? onSuccess,
   }) async {
-    developer.log('🚀 Starting model download process...', name: 'dyslexic_ai.model_download');
-    
-    downloadError = null;
-    downloadProgress = 0.0;
-    onProgress?.call(0.0);
-    
     try {
+      developer.log('🚀 Starting model download process...', name: 'dyslexic_ai.model_download');
+      
+      downloadError = null;
+      downloadProgress = 0.0;
+      onProgress?.call(0.0);
+
       // Check if model is already available
       if (await isModelAvailable()) {
         developer.log('✅ Model already available, loading existing model...', name: 'dyslexic_ai.model_download');

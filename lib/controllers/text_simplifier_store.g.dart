@@ -428,6 +428,39 @@ mixin _$TextSimplifierStore on _TextSimplifierStore, Store {
   }
 
   @override
+  void clearWordDefinitions() {
+    final _$actionInfo = _$_TextSimplifierStoreActionController.startAction(
+        name: '_TextSimplifierStore.clearWordDefinitions');
+    try {
+      return super.clearWordDefinitions();
+    } finally {
+      _$_TextSimplifierStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void clearSimplificationHistory() {
+    final _$actionInfo = _$_TextSimplifierStoreActionController.startAction(
+        name: '_TextSimplifierStore.clearSimplificationHistory');
+    try {
+      return super.clearSimplificationHistory();
+    } finally {
+      _$_TextSimplifierStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
+  void clearCachedData() {
+    final _$actionInfo = _$_TextSimplifierStoreActionController.startAction(
+        name: '_TextSimplifierStore.clearCachedData');
+    try {
+      return super.clearCachedData();
+    } finally {
+      _$_TextSimplifierStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 originalText: ${originalText},

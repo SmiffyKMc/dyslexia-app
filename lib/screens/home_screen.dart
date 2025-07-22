@@ -27,14 +27,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _profileStore = getIt<LearnerProfileStore>();
     _sessionLogStore = getIt<SessionLogStore>();
     _profileUpdateService = getIt<GemmaProfileUpdateService>();
-
-    // Warm up AI session after first frame to avoid jank during launch
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final sessionManager = getGlobalSessionManager();
-      sessionManager.warmupSession().catchError((e) {
-        developer.log('Session warm-up failed: $e', name: 'dyslexic_ai.home');
-      });
-    });
   }
 
   @override
@@ -437,44 +429,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAIActivityIndicator() {
-    return Observer(
-      builder: (context) {
-        if (!_profileUpdateService.isBackgroundProcessingActive) {
-          return const SizedBox.shrink();
-        }
-        
-        return Container(
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+    return RepaintBoundary(
+      child: Observer(
+        builder: (context) {
+          if (!_profileUpdateService.isBackgroundProcessingActive) {
+            return const SizedBox.shrink();
+          }
+          
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'AI Learning',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 6),
+                Text(
+                  'AI Learning',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

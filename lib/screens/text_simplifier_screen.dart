@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import '../controllers/text_simplifier_store.dart';
 import '../services/text_simplifier_service.dart';
 import '../services/text_to_speech_service.dart';
@@ -26,6 +27,8 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   
   final TextEditingController _textController = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
+  final StringBuffer _partialBuffer = StringBuffer();
+  StreamSubscription<String>? _simplifySub;
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   void dispose() {
     _textController.dispose();
     _inputFocusNode.dispose();
+    _simplifySub?.cancel();
     super.dispose();
   }
 
@@ -203,34 +207,40 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   }
 
   Future<void> _handleSimplify() async {
-    // Sync text to store only when button is pressed
     final textToSimplify = _textController.text.trim();
     if (textToSimplify.isEmpty) return;
-    
+
     _store.setOriginalText(textToSimplify);
     _inputFocusNode.unfocus();
-    
+
     if (!_store.canSimplify) return;
-    
+
+    _partialBuffer.clear();
+    _simplifySub?.cancel();
     _store.setIsSimplifying(true);
-    
+
     try {
-      final simplifiedText = await _service.simplifyText(
+      final stream = _service.simplifyTextStream(
         originalText: _store.originalText,
         readingLevel: _store.selectedReadingLevel,
         explainChanges: _store.explainChanges,
         defineKeyTerms: _store.defineKeyTerms,
         addVisuals: _store.addVisuals,
-        isRegenerateRequest: false,
       );
-      
-      _store.setSimplifiedText(simplifiedText);
-      
-      // Clear cached data for memory optimization
-      _store.clearCachedData();
+
+      _simplifySub = stream.listen((chunk) {
+        _partialBuffer.write(chunk);
+        setState(() {});
+      }, onError: (e) {
+        _store.setErrorMessage('Failed to simplify text: $e');
+        _store.setIsSimplifying(false);
+      }, onDone: () {
+        _store.setSimplifiedText(_partialBuffer.toString());
+        _store.setIsSimplifying(false);
+        _partialBuffer.clear();
+      });
     } catch (e) {
       _store.setErrorMessage('Failed to simplify text: $e');
-    } finally {
       _store.setIsSimplifying(false);
     }
   }
@@ -471,31 +481,33 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   Widget _buildLoadingIndicator() {
     return Container(
       width: double.infinity,
-      height: 200,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: DyslexiaTheme.primaryBackground,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.3)),
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: DyslexiaTheme.primaryAccent,
-              strokeWidth: 2,
+      child: _partialBuffer.isEmpty
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: DyslexiaTheme.primaryAccent,
+                  strokeWidth: 2,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Simplifying text...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey,
+                      ),
+                ),
+              ],
+            )
+          : Text(
+              _partialBuffer.toString(),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Simplifying text...',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

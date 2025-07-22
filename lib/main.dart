@@ -12,10 +12,7 @@ import 'screens/phonics_game_screen.dart';
 
 
 import 'screens/text_simplifier_screen.dart';
-import 'screens/sound_it_out_screen.dart';
-
 import 'screens/sentence_fixer_screen.dart';
-
 
 import 'screens/model_loading_screen.dart';
 import 'screens/text_simplifier_example.dart';
@@ -73,16 +70,8 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
     developer.log('App lifecycle state changed: $state', name: 'dyslexic_ai.main');
     _profileUpdateService.handleAppLifecycleChange(state);
     
-    // Handle session lifecycle based on app state
-    if (state == AppLifecycleState.resumed) {
-      // Warmup session when app resumes for better performance
-      _sessionManager.warmupSession().catchError((e) {
-        developer.log('Session warmup failed: $e', name: 'dyslexic_ai.main');
-      });
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      // Optional: Could invalidate session when app goes to background to save memory
-      // _sessionManager.invalidateSession();
-    }
+    // Note: Removed session warmup on app resume as it creates unnecessary sessions
+    // Sessions are created on-demand when needed for better resource management
   }
 
   @override
@@ -109,8 +98,6 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
 
 
             '/text_simplifier': (context) => const TextSimplifierScreen(),
-            '/sound_it_out': (context) => const SoundItOutScreen(),
-
             '/sentence_fixer': (context) => const SentenceFixerScreen(),
       
       

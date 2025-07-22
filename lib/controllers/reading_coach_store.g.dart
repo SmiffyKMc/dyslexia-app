@@ -189,6 +189,22 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
     });
   }
 
+  late final _$isGeneratingStoryAtom =
+      Atom(name: '_ReadingCoachStore.isGeneratingStory', context: context);
+
+  @override
+  bool get isGeneratingStory {
+    _$isGeneratingStoryAtom.reportRead();
+    return super.isGeneratingStory;
+  }
+
+  @override
+  set isGeneratingStory(bool value) {
+    _$isGeneratingStoryAtom.reportWrite(value, super.isGeneratingStory, () {
+      super.isGeneratingStory = value;
+    });
+  }
+
   late final _$liveFeedbackAtom =
       Atom(name: '_ReadingCoachStore.liveFeedback', context: context);
 
@@ -243,6 +259,15 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   @override
   Future<void> initialize() {
     return _$initializeAsyncAction.run(() => super.initialize());
+  }
+
+  late final _$generateAIStoryAsyncAction =
+      AsyncAction('_ReadingCoachStore.generateAIStory', context: context);
+
+  @override
+  Future<void> generateAIStory(dynamic Function(String) onTextUpdate) {
+    return _$generateAIStoryAsyncAction
+        .run(() => super.generateAIStory(onTextUpdate));
   }
 
   late final _$pickImageFromGalleryAsyncAction =
@@ -441,6 +466,7 @@ silenceSeconds: ${silenceSeconds},
 isAnalyzing: ${isAnalyzing},
 isLoading: ${isLoading},
 errorMessage: ${errorMessage},
+isGeneratingStory: ${isGeneratingStory},
 liveFeedback: ${liveFeedback},
 practiceWords: ${practiceWords},
 presetStories: ${presetStories},

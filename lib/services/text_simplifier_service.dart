@@ -64,6 +64,33 @@ class TextSimplifierService {
     }
   }
 
+  /// Streaming version that yields tokens as they arrive for smoother UI updates
+  Stream<String> simplifyTextStream({
+    required String originalText,
+    required String readingLevel,
+    bool explainChanges = false,
+    bool defineKeyTerms = false,
+    bool addVisuals = false,
+  }) async* {
+    final aiService = getAIInferenceService();
+    if (aiService == null) {
+      throw Exception('AI service not available. Please ensure the model is loaded.');
+    }
+
+    final prompt = _buildSimplificationPrompt(
+      originalText: originalText,
+      readingLevel: readingLevel,
+      explainChanges: explainChanges,
+      defineKeyTerms: defineKeyTerms,
+      addVisuals: addVisuals,
+    );
+
+    final stream = await aiService.generateResponseStream(prompt);
+    await for (final chunk in stream) {
+      yield chunk;
+    }
+  }
+
   Future<String> defineWord(String word) async {
     try {
       developer.log('📚 Defining word: $word', name: 'dyslexic_ai.text_simplifier');

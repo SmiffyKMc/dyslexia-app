@@ -54,15 +54,6 @@ class ToolsScreen extends StatelessWidget {
                     '/text_simplifier',
                     Colors.teal,
                   ),
-                  _buildToolCard(
-                    context,
-                    'Sound It Out',
-                    'Phonetic sound practice',
-                    Icons.volume_up_outlined,
-                    '/sound_it_out',
-                    Colors.red,
-                  ),
-
                 ],
               ),
             ],

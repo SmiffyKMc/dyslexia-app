@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'inference_metrics.dart';
 
 class InferenceTrace {
   final Stopwatch _sw = Stopwatch()..start();
@@ -10,6 +11,7 @@ class InferenceTrace {
 
   void done(int tokens) {
     _sw.stop();
+    InferenceMetrics.lastLatencyMs.value = _sw.elapsedMilliseconds;
     developer.log(
       '🧠 END   $promptSnippet [${_sw.elapsedMilliseconds} ms, $tokens tokens]',
       name: 'ai.trace',

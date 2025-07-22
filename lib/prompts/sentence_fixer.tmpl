@@ -1,0 +1,18 @@
+Create {{count}} beginner practice sentences (5-8 words) each containing ONE obvious spelling mistake.
+Return JSON exactly in this schema (no prose):
+[
+  {
+    "words": ["mistke", "example"],
+    "errorPositions": [0],
+    "corrections": ["mistake"],
+    "errorTypes": ["spelling"],
+    "hint": "explain the error",
+    "category": "spelling",
+    "validation_passed": true
+  }
+]
+Rules:
+- Sentence must sound natural.
+- errorPositions point to incorrect word.
+- corrections fix only that word.
+- Double-check and set validation_passed=true. 

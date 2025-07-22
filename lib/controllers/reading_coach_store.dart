@@ -12,7 +12,9 @@ import '../services/ocr_service.dart';
 import '../services/preset_stories_service.dart';
 import '../services/reading_analysis_service.dart';
 import '../services/session_logging_service.dart';
+import '../services/story_service.dart';
 import '../utils/service_locator.dart';
+import '../controllers/learner_profile_store.dart';
 
 part 'reading_coach_store.g.dart';
 
@@ -70,6 +72,9 @@ abstract class _ReadingCoachStore with Store {
 
   @observable
   String? errorMessage;
+
+  @observable
+  bool isGeneratingStory = false;
 
   @observable
   List<String> liveFeedback = [];
@@ -138,7 +143,7 @@ abstract class _ReadingCoachStore with Store {
 
   @action
   void setCurrentText(String text) {
-    currentText = text.trim();
+    currentText = text;
     errorMessage = null;
   }
 
@@ -147,6 +152,52 @@ abstract class _ReadingCoachStore with Store {
     setCurrentText(story.content);
   }
 
+  @action
+  Future<void> generateAIStory(Function(String) onTextUpdate) async {
+    if (isGeneratingStory) return;
+    
+    final profileStore = getIt<LearnerProfileStore>();
+    final profile = profileStore.currentProfile;
+    
+    if (profile == null) {
+      errorMessage = 'No learner profile available for story generation';
+      return;
+    }
+    
+    isGeneratingStory = true;
+    errorMessage = null;
+    setCurrentText(''); // Clear current text
+    
+    try {
+      final storyService = getIt<StoryService>();
+      final stream = storyService.generateStoryWithChatStream(profile);
+      
+      final buffer = StringBuffer();
+      await for (final chunk in stream) {
+        buffer.write(chunk);
+        final currentText = buffer.toString();
+        
+        developer.log('📖 Setting text (${currentText.length} chars): "${currentText.length > 100 ? currentText.substring(0, 100) + '...' : currentText}"', 
+            name: 'dyslexic_ai.reading_coach');
+        
+        setCurrentText(currentText);
+        onTextUpdate(currentText); // Update UI immediately
+      }
+      
+      developer.log('✅ AI story generation completed', name: 'dyslexic_ai.reading_coach');
+      
+      final finalText = currentText;
+      developer.log('📚 Final story: ${finalText.length} chars, ${finalText.split(RegExp(r'\s+')).length} words', 
+          name: 'dyslexic_ai.reading_coach');
+      
+    } catch (e) {
+      developer.log('❌ AI story generation failed: $e', name: 'dyslexic_ai.reading_coach');
+      errorMessage = 'Failed to generate story: $e';
+      setCurrentText(''); // Clear on error
+    } finally {
+      isGeneratingStory = false;
+    }
+  }
 
 
   @action

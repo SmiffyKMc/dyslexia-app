@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:developer' as developer;
 import '../models/sentence_fixer.dart';
 import '../models/learner_profile.dart';
+import '../utils/prompt_loader.dart';
 import '../utils/service_locator.dart';
 
 class SentenceFixerService {
@@ -246,7 +247,11 @@ class SentenceFixerService {
     // Try up to 3 times to get valid sentences
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        final prompt = _buildSentenceGenerationPrompt(difficulty, count, profile, attempt: attempt);
+        final tmpl = await PromptLoader.load('sentence_fixer.tmpl');
+        final prompt = PromptLoader.fill(tmpl, {
+          'count': '$count',
+          'difficulty': difficulty,
+        });
         developer.log('📝 AI generation attempt $attempt: $prompt', 
             name: 'dyslexic_ai.sentence_fixer');
         
@@ -277,43 +282,6 @@ class SentenceFixerService {
     }
     
     return [];
-  }
-
-  String _buildSentenceGenerationPrompt(String difficulty, int count, LearnerProfile profile, {int attempt = 1}) {
-    // Keep minimal, spelling focus only
-    String attemptInstructions = '';
-    if (attempt > 1) {
-      attemptInstructions = '''
-      
-⚠️ RETRY ATTEMPT $attempt: Previous attempts failed validation. Be extra careful with:
-- Verifying error positions point to actual mistakes
-- Ensuring corrections match the words they're fixing
-- Double-checking that marked errors are actually wrong
-''';
-    }
-    
-    return '''
-Create $count beginner practice sentences (5-8 words) each containing ONE obvious spelling mistake.  
-Return JSON only, e.g.
-
-[
-  {
-    "words": ["Thier", "dog", "ran", "fast"],
-    "errorPositions": [0],
-    "corrections": ["Their"],
-    "errorTypes": ["spelling"],
-    "hint": "'Thier' is misspelled.",
-    "category": "spelling",
-    "validation_passed": true
-  }
-]
-
-Rules:
-- Sentence must read naturally when spoken.
-- errorPositions must point to the incorrect word.
-- corrections fixes ONLY that word.
-- Set validation_passed=true only after double-checking.
-$attemptInstructions''';
   }
 
   List<SentenceWithErrors> _parseAISentenceResponse(String response, String difficulty) {

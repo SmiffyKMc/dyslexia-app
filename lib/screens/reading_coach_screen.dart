@@ -47,9 +47,21 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
           _store.selectPresetStory(story);
           _textController.text = story.content;
         },
+        onAIStoryRequested: () {
+          // Close the modal and start streaming story generation
+          Navigator.of(context).pop();
+          _startAIStoryGeneration();
+        },
         learnerProfile: _profileStore.currentProfile,
       ),
     );
+  }
+
+  void _startAIStoryGeneration() {
+    _store.generateAIStory((text) {
+      // Update text field as story streams in
+      _textController.text = text;
+    });
   }
 
   void _selectImageFromGallery() {
@@ -221,6 +233,35 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
           onChanged: (text) {
             _store.setCurrentText(text);
           },
+        ),
+        const SizedBox(height: 8),
+        Observer(
+          builder: (_) => _store.isGeneratingStory
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'AI Generating Story...',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.purple[600],
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : const SizedBox(height: 8),
         ),
             const SizedBox(height: 16),
             Row(

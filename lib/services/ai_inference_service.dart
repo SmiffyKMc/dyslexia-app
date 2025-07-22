@@ -5,11 +5,12 @@ import 'dart:async';
 import 'dart:math' as math;
 import '../utils/inference_trace.dart';
 import 'global_session_manager.dart';
+import '../utils/inference_metrics.dart';
 
 // Session/context management constants
 const int _maxContextTokens = 2048;
-const int _outputTokenCap = 256; // we rarely need more than this per request
-const int _rolloverThreshold = _maxContextTokens - _outputTokenCap; // 1792 headroom
+const int _outputTokenCap = 128; // Reduced from 256 - most responses are shorter
+const int _rolloverThreshold = _maxContextTokens - _outputTokenCap; // 1920 headroom (increased from 1792)
 
 /// Simplified AI inference service following flutter_gemma best practices
 class AIInferenceService {
@@ -26,10 +27,16 @@ class AIInferenceService {
   }
 
   Future<void> _ensureHeadroom(int nextInputTokens, {bool forceFreshSession = false}) async {
-    if (forceFreshSession || (_contextTokens + nextInputTokens + _outputTokenCap >= _rolloverThreshold)) {
-      developer.log('💡 Rolling over session (contextTokens=$_contextTokens, nextInput=$nextInputTokens)', name: 'dyslexic_ai.inference');
+    final projectedTotal = _contextTokens + nextInputTokens + _outputTokenCap;
+    developer.log('🔢 Token check: current=$_contextTokens, input=$nextInputTokens, projected=$projectedTotal, threshold=$_rolloverThreshold', 
+        name: 'dyslexic_ai.inference');
+    
+    if (forceFreshSession || (projectedTotal >= _rolloverThreshold)) {
+      developer.log('💡 Rolling over session (reason: ${forceFreshSession ? 'forced' : 'threshold exceeded'})', 
+          name: 'dyslexic_ai.inference');
       await _sessionManager.invalidateSession();
       _contextTokens = 0;
+      InferenceMetrics.contextTokens.value = 0;
     }
   }
 
@@ -57,6 +64,11 @@ class AIInferenceService {
       final response = buffer.toString();
       trace.done(tokens);
       _contextTokens += inputTokens + tokens;
+      InferenceMetrics.contextTokens.value = _contextTokens;
+      
+      developer.log('✅ Response complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+          name: 'dyslexic_ai.inference');
+      
       return _cleanAIResponse(response);
 
     } catch (e) {
@@ -82,6 +94,7 @@ class AIInferenceService {
           }
           fbTrace.done(tokens);
           _contextTokens += fbInput + tokens;
+          InferenceMetrics.contextTokens.value = _contextTokens;
           return _cleanAIResponse(buffer.toString());
         } catch (fallbackError) {
           developer.log('Fallback also failed: $fallbackError', name: 'dyslexic_ai.inference');
@@ -90,6 +103,7 @@ class AIInferenceService {
 
       await _sessionManager.invalidateSession();
       _contextTokens = 0;
+      InferenceMetrics.contextTokens.value = 0;
       rethrow;
     }
   }
@@ -118,6 +132,7 @@ class AIInferenceService {
       }, onDone: () {
         trace.done(tokens);
         _contextTokens += inputTokens + tokens;
+        InferenceMetrics.contextTokens.value = _contextTokens;
         controller.close();
       }, cancelOnError: true);
 
@@ -128,7 +143,87 @@ class AIInferenceService {
       developer.log('Error in generateResponseStream: $e', name: 'dyslexic_ai.inference');
       await _sessionManager.invalidateSession();
       _contextTokens = 0;
+      InferenceMetrics.contextTokens.value = 0;
       rethrow;
+    }
+  }
+
+  /// Generate response using chat-style inference (maintains context)
+  Future<String> generateChatResponse(String prompt, {bool isBackgroundTask = false}) async {
+    final trace = InferenceTrace(prompt.substring(0, math.min(80, prompt.length)));
+
+    final inputTokens = _estimateTokens(prompt);
+    await _ensureHeadroom(inputTokens);
+    try {
+      final session = await _sessionManager.getSession();
+      await session.addQueryChunk(Message(text: prompt));
+
+      // Use streaming but buffer for complete response
+      final stream = session.getResponseAsync();
+      final buffer = StringBuffer();
+      int tokens = 0;
+      await for (final chunk in stream) {
+        if (chunk.trim().isNotEmpty) {
+          tokens += chunk.split(RegExp(r'\s+')).length;
+        }
+        buffer.write(chunk);
+      }
+
+      final response = buffer.toString();
+      trace.done(tokens);
+      _contextTokens += inputTokens + tokens;
+      InferenceMetrics.contextTokens.value = _contextTokens;
+      
+      developer.log('✅ Chat response complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+          name: 'dyslexic_ai.inference');
+      
+      return _cleanAIResponse(response);
+
+    } catch (e) {
+      developer.log('Error in generateChatResponse: $e', name: 'dyslexic_ai.inference');
+      throw Exception('Chat inference failed: $e');
+    }
+  }
+
+  /// Generate streaming response using chat-style inference (maintains context)
+  Future<Stream<String>> generateChatResponseStream(String prompt) async {
+    final inputTokens = _estimateTokens(prompt);
+    await _ensureHeadroom(inputTokens);
+    
+    try {
+      final session = await _sessionManager.getSession();
+      await session.addQueryChunk(Message(text: prompt));
+      
+      final controller = StreamController<String>();
+      final stream = session.getResponseAsync();
+      int tokens = 0;
+      
+      stream.listen((chunk) {
+        if (chunk.trim().isNotEmpty) {
+          tokens += chunk.split(RegExp(r'\s+')).length;
+        }
+        
+        // Log streaming chunks for debugging
+        developer.log('📝 Stream chunk: "${chunk.replaceAll('\n', '\\n')}"', name: 'dyslexic_ai.chat_stream');
+        
+        controller.add(_cleanAIResponse(chunk));
+      }, onError: (e) {
+        developer.log('Error in generateChatResponseStream: $e', name: 'dyslexic_ai.inference');
+        controller.addError(Exception('Chat streaming failed: $e'));
+      }, onDone: () {
+        _contextTokens += inputTokens + tokens;
+        InferenceMetrics.contextTokens.value = _contextTokens;
+        
+        developer.log('✅ Chat stream complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+            name: 'dyslexic_ai.inference');
+        
+        controller.close();
+      });
+      
+      return controller.stream;
+    } catch (e) {
+      developer.log('Error in generateChatResponseStream: $e', name: 'dyslexic_ai.inference');
+      throw Exception('Chat streaming failed: $e');
     }
   }
 
@@ -153,8 +248,7 @@ Provide only the simplified version.
   String _cleanAIResponse(String response) {
     return response
         .replaceAll('<end_of_turn>', '')
-        .replaceAll('<start_of_turn>', '')
-        .trim();
+        .replaceAll('<start_of_turn>', '');
   }
 
   /// Dispose of the service

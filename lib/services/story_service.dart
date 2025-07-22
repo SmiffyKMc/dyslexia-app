@@ -1,6 +1,7 @@
 import '../models/story.dart';
 import '../models/learner_profile.dart';
 import '../utils/service_locator.dart';
+import '../utils/prompt_loader.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
@@ -32,7 +33,7 @@ class StoryService {
       final response = await aiService.generateResponse(prompt);
       
       // Parse response into Story object
-      final story = _parseStoryResponse(response, targetPhonemes, difficulty);
+      final story = parseStoryResponse(response, targetPhonemes, difficulty);
       
       if (story != null) {
         developer.log('✅ Successfully generated AI story: ${story.title}', name: 'dyslexic_ai.story_ai');
@@ -45,6 +46,59 @@ class StoryService {
       developer.log('❌ AI story generation failed: $e', name: 'dyslexic_ai.story_ai');
       return null;
     }
+  }
+
+  /// Streaming version for real-time story generation
+  Stream<String> generateStoryWithAIStream(LearnerProfile profile) async* {
+    final aiService = getAIInferenceService();
+    if (aiService == null) {
+      throw Exception('AI service not available');
+    }
+    
+    final targetPhonemes = _extractTargetPhonemes(profile);
+    final difficulty = _mapProfileToDifficulty(profile);
+    final storyLength = _getStoryLength(difficulty);
+    
+    final prompt = _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
+    
+    final stream = await aiService.generateResponseStream(prompt);
+    await for (final chunk in stream) {
+      yield chunk;
+    }
+  }
+
+  /// Chat-style streaming story generation for better performance
+  Stream<String> generateStoryWithChatStream(LearnerProfile profile) async* {
+    final aiService = getAIInferenceService();
+    if (aiService == null) {
+      throw Exception('AI service not available');
+    }
+    
+    final prompt = await _buildSimpleStoryPrompt(profile);
+    developer.log('🎯 Using simple story prompt (${prompt.length} chars)', name: 'dyslexic_ai.story_ai');
+    
+    final stream = await aiService.generateChatResponseStream(prompt);
+    await for (final chunk in stream) {
+      yield chunk;
+    }
+  }
+
+  /// Build simple story-only prompt using profile information
+  Future<String> _buildSimpleStoryPrompt(LearnerProfile profile) async {
+    final template = await PromptLoader.load('story_only.tmpl');
+    
+    final targetPhonemes = _extractTargetPhonemes(profile);
+    final difficulty = _mapProfileToDifficulty(profile);
+    final sentenceCount = _getStoryLength(difficulty);
+    
+    return PromptLoader.fill(template, {
+      'difficulty': difficulty,
+      'confidence': profile.confidence,
+      'accuracy': profile.decodingAccuracy,
+      'focus_areas': profile.focus,
+      'target_phonemes': targetPhonemes.join(', '),
+      'sentence_count': sentenceCount.toString(),
+    });
   }
 
   List<String> _extractTargetPhonemes(LearnerProfile profile) {
@@ -157,7 +211,7 @@ Output MUST be valid JSON in exactly this format:
 Generate the story now:''';
   }
 
-  Story? _parseStoryResponse(String response, List<String> targetPhonemes, String difficulty) {
+  Story? parseStoryResponse(String response, List<String> targetPhonemes, String difficulty) {
     try {
       // Extract JSON from response
       final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(response);

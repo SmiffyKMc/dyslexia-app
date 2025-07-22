@@ -19,10 +19,11 @@ class GlobalSessionManager {
   /// Get the shared session, creating it if necessary
   Future<InferenceModelSession> getSession() async {
     if (_session != null) {
+      developer.log('♻️ Reusing existing session', name: 'dyslexic_ai.session');
       return _session!;
     }
     
-    developer.log('Creating new session...', name: 'dyslexic_ai.session');
+    developer.log('🆕 Creating new session...', name: 'dyslexic_ai.session');
     
     final model = await _getModel();
     if (model == null) {
@@ -34,7 +35,7 @@ class GlobalSessionManager {
       topK: topK,
     );
     
-    developer.log('Session created successfully', name: 'dyslexic_ai.session');
+    developer.log('✅ Session created successfully', name: 'dyslexic_ai.session');
     return _session!;
   }
   
