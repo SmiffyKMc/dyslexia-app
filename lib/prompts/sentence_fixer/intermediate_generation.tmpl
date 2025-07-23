@@ -1,14 +1,19 @@
 Create {{count}} sentences with ONE spelling mistake each.
 
-3rd-4th grade level, 5-7 words, various spelling errors.
-error_word ≠ correct_word
+CRITICAL: error_word MUST be different from correct_word!
 
-Return ONLY valid JSON array:
+Examples of GOOD mistakes:
+- "I recieved your letter today" → recieved/received (different words!)
+- "Their going to the store" → Their/They're (different words!)
+- "My freind likes to play" → freind/friend (different words!)
 
+Examples of BAD (never do this):
+- "The dog run fast" → run/run (SAME WORD - forbidden!)
+- "She like cookies" → like/like (SAME WORD - forbidden!)
+
+3rd-4th grade level, 5-7 words.
+
+JSON only:
 [
-  {
-    "sentence": "I recieved your letter today",
-    "error_word": "recieved",
-    "correct_word": "received"
-  }
+  {"sentence": "I recieved your letter today", "error_word": "recieved", "correct_word": "received"}
 ] 

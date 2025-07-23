@@ -1,14 +1,19 @@
 Create {{count}} sentences with ONE spelling mistake each.
 
+CRITICAL: error_word MUST be different from correct_word!
+
+Examples of GOOD mistakes:
+- "The committee will reccommend the best candidate" → reccommend/recommend (different words!)
+- "Who's car is parked outside" → Who's/Whose (different words!)
+- "I seperate the books carefully" → seperate/separate (different words!)
+
+Examples of BAD (never do this):
+- "The book was interesting" → interesting/interesting (SAME WORD - forbidden!)
+- "She write stories" → write/write (SAME WORD - forbidden!)
+
 5th-6th grade level, 6-9 words, challenging spelling errors.
-error_word ≠ correct_word
 
-Return ONLY valid JSON array:
-
+JSON only:
 [
-  {
-    "sentence": "The committee will reccommend the best candidate",
-    "error_word": "reccommend",
-    "correct_word": "recommend"
-  }
+  {"sentence": "The committee will reccommend the best candidate", "error_word": "reccommend", "correct_word": "recommend"}
 ] 
