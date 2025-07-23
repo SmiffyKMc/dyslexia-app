@@ -25,6 +25,14 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Disable Impeller to avoid GPU conflicts with TensorFlow Lite -->
+            <meta-data
+              android:name="io.flutter.embedding.android.EnableImpeller"
+              android:value="false" />
+            <!-- Alternative approach to disable Impeller -->
+            <meta-data
+              android:name="io.flutter.renderer"
+              android:value="skia" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

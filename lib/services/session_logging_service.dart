@@ -38,7 +38,7 @@ class SessionLoggingService {
 
     _sessionLogStore.startSession(sessionType, featureName, data);
     
-    _sessionTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _sessionTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       _updateSessionHeartbeat();
     });
   }

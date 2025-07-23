@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import '../utils/inference_trace.dart';
 import 'global_session_manager.dart';
 import '../utils/inference_metrics.dart';
+import '../utils/service_locator.dart';
 
 // Session/context management constants
 const int _maxContextTokens = 2048;

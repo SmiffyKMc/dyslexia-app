@@ -18,6 +18,7 @@ import '../controllers/phonics_game_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/text_simplifier_store.dart';
+import '../controllers/sentence_fixer_store.dart';
 import '../services/story_service.dart';
 import '../services/phonics_sounds_service.dart';
 import '../services/model_download_service.dart';
@@ -95,6 +96,8 @@ Future<void> setupLocator() async {
   getIt.registerFactory<PhonicsGameStore>(() => PhonicsGameStore());
   
   getIt.registerFactory<TextSimplifierStore>(() => TextSimplifierStore());
+  
+  getIt.registerFactory<SentenceFixerStore>(() => SentenceFixerStore());
 }
 
 /// Helper function to get the GlobalSessionManager

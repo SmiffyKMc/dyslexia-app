@@ -18,7 +18,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
   @override
   void initState() {
     super.initState();
-    _store = SentenceFixerStore();
+    _store = getIt<SentenceFixerStore>();
     _profileStore = getIt<LearnerProfileStore>();
   }
 
@@ -393,6 +393,47 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
               backgroundColor: Colors.grey[300],
               valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
             ),
+            // Add streaming progress indicator
+            Observer(
+              builder: (context) => _store.isStreamingInProgress
+                  ? Column(
+                      children: [
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _store.streamingStatusText,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue[600],
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${_store.sentencesGenerated}/${_store.totalSentencesToGenerate}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue[600],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
@@ -606,54 +647,67 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            if (feedback.correctSelections.isNotEmpty) ...[
-              _buildFeedbackItem(
-                Icons.check_circle,
-                Colors.green,
-                'Correct (${feedback.correctSelections.length})',
-                'You found these errors!',
+            
+            // Show detailed feedback with correct answers
+            if (_store.detailedFeedback != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Results:',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _store.detailedFeedback!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
               ),
             ],
-            if (feedback.incorrectSelections.isNotEmpty) ...[
-              _buildFeedbackItem(
-                Icons.cancel,
-                Colors.red,
-                'Incorrect (${feedback.incorrectSelections.length})',
-                'These words are actually correct.',
-              ),
-            ],
-            if (feedback.missedErrors.isNotEmpty) ...[
-              _buildFeedbackItem(
-                Icons.help,
-                Colors.orange,
-                'Missed (${feedback.missedErrors.length})',
-                'You missed these errors.',
-              ),
-            ],
+            
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.blue.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[300]!),
+                border: Border.all(color: Colors.blue[200]!),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Corrected sentence:',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[600],
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.auto_fix_high, size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Corrected sentence:',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
                   Text(
                     feedback.correctedSentence,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w500,
+                      color: Colors.blue[800],
                     ),
                   ),
                 ],
@@ -879,7 +933,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
   void _startGame(String difficulty) {
     _store.startNewSession(
       difficulty: difficulty,
-      sentenceCount: 8,
+      // Remove hardcoded sentenceCount - let store determine based on difficulty
       profile: _profileStore.currentProfile,
     );
   }
