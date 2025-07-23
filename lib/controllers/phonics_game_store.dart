@@ -161,7 +161,7 @@ class PhonicsGameStore with ChangeNotifier {
     final confidenceLevel = recentAccuracy > 0.8 ? 'high' : 
                           recentAccuracy > 0.6 ? 'medium' : 
                           recentAccuracy > 0.4 ? 'building' : 'low';
-    _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'phonics_game_performance');
+    _sessionLogging.logConfidenceLevel(confidenceLevel, reason: 'phonics_game_performance');
     
     notifyListeners();
   }

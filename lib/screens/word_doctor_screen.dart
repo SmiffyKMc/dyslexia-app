@@ -3,6 +3,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/word_doctor_store.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
+import '../utils/input_validation_helper.dart';
 
 class WordDoctorScreen extends StatefulWidget {
   const WordDoctorScreen({super.key});
@@ -19,9 +20,20 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
   void initState() {
     super.initState();
     _store = getIt<WordDoctorStore>();
-    _wordController.addListener(() {
-      _store.setInputWord(_wordController.text);
-    });
+  }
+
+  void _onSubmit() {
+    final wordToAnalyze = _wordController.text.trim();
+    if (wordToAnalyze.isEmpty) {
+      InputValidationHelper.showInputError(
+        context,
+        'Please enter a word to analyze. Type any word in the text field above.',
+      );
+      return;
+    }
+    
+    _store.setInputWord(wordToAnalyze);
+    _store.analyzeCurrentWord();
   }
 
   @override
@@ -53,14 +65,19 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
           ),
         ],
       ),
-      body: Observer(
+      body: Column(
+        children: [
+          // Input section - no Observer wrapper needed
+          _buildWordInput(),
+          
+          // Results section - separate Observer for analysis results
+          Expanded(
+            child: Observer(
         builder: (_) => SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildWordInput(),
-              const SizedBox(height: 20),
               if (_store.errorMessage != null) _buildErrorMessage(),
               if (_store.isAnalyzing) _buildLoadingIndicator(),
               if (_store.hasCurrentAnalysis) ...[
@@ -77,12 +94,18 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
             ],
           ),
         ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildWordInput() {
-    return Card(
+    return Container(
+      color: DyslexiaTheme.primaryBackground,
+      child: Card(
+        margin: const EdgeInsets.all(16),
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -100,27 +123,21 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _wordController,
-              style: const TextStyle(
-                fontSize: 16,
-              ),
               decoration: InputDecoration(
                 hintText: 'Type a word here...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   ),
-                suffixIcon: Observer(
-                  builder: (_) => IconButton(
+                  suffixIcon: IconButton(
                     icon: const Icon(Icons.search),
-                    onPressed: _store.canAnalyze ? _store.analyzeCurrentWord : null,
+                    onPressed: _onSubmit,
                   ),
             ),
-              ),
-              onSubmitted: (_) => _store.analyzeCurrentWord(),
+                onSubmitted: (_) => _onSubmit(),
                     ),
                     const SizedBox(height: 12),
-            Observer(
-              builder: (_) => ElevatedButton(
-                onPressed: _store.canAnalyze ? _store.analyzeCurrentWord : null,
+              ElevatedButton(
+                onPressed: _onSubmit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DyslexiaTheme.primaryAccent,
                   foregroundColor: Colors.white,
@@ -134,7 +151,6 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                   style: TextStyle(
                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                  ),
                         ),
                       ),
                     ),
@@ -147,31 +163,21 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            Observer(
-              builder: (_) => ElevatedButton.icon(
-                onPressed: _store.canScanImage ? () => _store.scanWordFromGallery() : null,
-                icon: _store.isScanning
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    : const Icon(Icons.photo_library),
-                label: Text(_store.isScanning ? 'Scanning...' : 'Select Image'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              ElevatedButton.icon(
+                onPressed: () => _store.scanWordFromGallery(),
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Select Image'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ),
-                  ],
         ),
       ),
     );

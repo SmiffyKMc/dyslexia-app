@@ -6,6 +6,7 @@ import '../services/gemma_profile_update_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
+import 'dart:developer' as developer;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -38,31 +39,41 @@ class _HomeScreenState extends State<HomeScreen> {
           onScaleStart: (_) => _profileUpdateService.markUserActive(),
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: Observer(
-              builder: (context) {
-                // Debug today's progress when UI rebuilds
-                if (_sessionLogStore.todaysSessionCount == 0 && _sessionLogStore.sessionLogs.isNotEmpty) {
-                  SessionDebugHelper.debugTodaysProgress();
-                }
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Static header - no Observer needed
+                _buildHeader(context),
+                const SizedBox(height: 16),
                 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(context),
-                    const SizedBox(height: 16),
-                    _buildLearnerProfile(context),
-                    const SizedBox(height: 16),
-                    _buildTodaysProgress(context),
-                    const SizedBox(height: 16),
-                    _buildPersonalizedSuggestions(context),
-                    const SizedBox(height: 16),
-                    _buildQuickTools(context),
-                    const SizedBox(height: 16),
-                    _buildRecentActivity(),
-                    const SizedBox(height: 16), // Extra bottom padding
-                  ],
-                );
-              },
+                // Profile section - only rebuilds when profile changes
+                Observer(
+                  builder: (context) => _buildLearnerProfile(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Progress section - only rebuilds when session data changes
+                Observer(
+                  builder: (context) => _buildTodaysProgress(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Suggestions section - only rebuilds when profile changes
+                Observer(
+                  builder: (context) => _buildPersonalizedSuggestions(context),
+                ),
+                const SizedBox(height: 16),
+                
+                // Static tools - no Observer needed
+                _buildQuickTools(context),
+                const SizedBox(height: 16),
+                
+                // Recent activity - only rebuilds when session logs change
+                Observer(
+                  builder: (context) => _buildRecentActivity(),
+                ),
+                const SizedBox(height: 16), // Extra bottom padding
+              ],
             ),
           ),
         ),
@@ -96,7 +107,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        _buildAIActivityIndicator(),
+        // AI Activity indicator still needs Observer for background processing state
+        Observer(
+          builder: (context) => _buildAIActivityIndicator(),
+        ),
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),
@@ -415,44 +429,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildAIActivityIndicator() {
-    return Observer(
-      builder: (context) {
-        if (!_profileUpdateService.isBackgroundProcessingActive) {
-          return const SizedBox.shrink();
-        }
-        
-        return Container(
-          margin: const EdgeInsets.only(right: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 12,
-                height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+    return RepaintBoundary(
+      child: Observer(
+        builder: (context) {
+          if (!_profileUpdateService.isBackgroundProcessingActive) {
+            return const SizedBox.shrink();
+          }
+          
+          return Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'AI Learning',
-                style: TextStyle(
-                  color: Colors.blue,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(width: 6),
+                Text(
+                  'AI Learning',
+                  style: TextStyle(
+                    color: Colors.blue,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -769,7 +785,7 @@ class _HomeScreenState extends State<HomeScreen> {
         else
           ...recentSessions.map((session) => _buildActivityItem(
             _getSessionIcon(session.sessionType),
-            session.sessionDescription,
+            session.summaryText,
             _formatSessionTime(session.timestamp),
           )),
       ],
@@ -780,17 +796,13 @@ class _HomeScreenState extends State<HomeScreen> {
     switch (sessionType) {
       case SessionType.readingCoach:
         return Icons.mic_outlined;
-      case SessionType.wordDoctor:
-        return Icons.search_outlined;
       case SessionType.adaptiveStory:
         return Icons.menu_book_outlined;
       case SessionType.phonicsGame:
         return Icons.games_outlined;
-      case SessionType.textSimplifier:
-        return Icons.text_fields;
       case SessionType.soundItOut:
         return Icons.volume_up;
-      default:
+      case SessionType.sentenceFixer:
         return Icons.school;
     }
   }

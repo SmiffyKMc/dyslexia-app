@@ -38,7 +38,7 @@ class SessionLoggingService {
 
     _sessionLogStore.startSession(sessionType, featureName, data);
     
-    _sessionTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    _sessionTimer = Timer.periodic(const Duration(minutes: 2), (timer) {
       _updateSessionHeartbeat();
     });
   }
@@ -175,7 +175,7 @@ class SessionLoggingService {
     });
   }
 
-  void logConfidenceIndicator(String level, {String? reason}) {
+  void logConfidenceLevel(String level, {String? reason}) {
     developer.log('📝 Logging confidence: $level', name: 'dyslexic_ai.session_logging');
     
     updateSessionData({

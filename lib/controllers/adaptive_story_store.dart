@@ -256,17 +256,17 @@ abstract class _AdaptiveStoryStore with Store {
       // Update confidence based on accuracy
       final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
       if (currentAccuracy >= 80) {
-        _sessionLogging.logConfidenceIndicator(
+        _sessionLogging.logConfidenceLevel(
           'high',
           reason: 'High accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
         );
       } else if (currentAccuracy >= 60) {
-        _sessionLogging.logConfidenceIndicator(
+        _sessionLogging.logConfidenceLevel(
           'medium',
           reason: 'Moderate accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
         );
       } else {
-        _sessionLogging.logConfidenceIndicator(
+        _sessionLogging.logConfidenceLevel(
           'low',
           reason: 'Lower accuracy in story comprehension (${currentAccuracy.toStringAsFixed(1)}%)',
         );

@@ -28,8 +28,7 @@ class SessionDebugHelper {
       developer.log('🐛 correct_words: ${session.data['correct_words']}', name: 'dyslexic_ai.debug');
     }
     
-    developer.log('🐛 Session Description: "${session.sessionDescription}"', name: 'dyslexic_ai.debug');
-    developer.log('🐛 Is Completed: ${session.isCompleted}', name: 'dyslexic_ai.debug');
+    developer.log('🐛 Session Description: "${session.summaryText}"', name: 'dyslexic_ai.debug');
     developer.log('🐛 === END SESSION DEBUG ===', name: 'dyslexic_ai.debug');
   }
   
@@ -85,16 +84,12 @@ class SessionDebugHelper {
       issues.add('Duration is zero');
     }
     
-    if (!session.isCompleted) {
-      issues.add('Session not marked as completed');
-    }
-    
     if (issues.isEmpty) {
       developer.log('🐛 ✅ Session validation passed', name: 'dyslexic_ai.debug');
     } else {
       developer.log('🐛 ❌ Session validation failed:', name: 'dyslexic_ai.debug');
       for (final issue in issues) {
-        developer.log('🐛   - $issue', name: 'dyslexic_ai.debug');
+        developer.log('🐛     - $issue', name: 'dyslexic_ai.debug');
       }
     }
     
@@ -175,7 +170,7 @@ class SessionDebugHelper {
     
     for (int i = 0; i < recentLogs.length; i++) {
       final log = recentLogs[i];
-      developer.log('🐛 Recent Session $i: ${log.sessionDescription}', name: 'dyslexic_ai.debug');
+      developer.log('🐛 Recent Session $i: ${log.summaryText}', name: 'dyslexic_ai.debug');
       developer.log('🐛   Accuracy: ${log.accuracy}, Type: ${log.sessionType}', name: 'dyslexic_ai.debug');
       developer.log('🐛   Data keys: ${log.data.keys.toList()}', name: 'dyslexic_ai.debug');
     }

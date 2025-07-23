@@ -48,6 +48,18 @@ abstract class _SentenceFixerStore with Store {
   @observable
   SentenceFixerStats stats = SentenceFixerStats.empty();
 
+  @observable
+  bool isGeneratingSentences = false;
+
+  @observable
+  int sentencesGenerated = 0;
+
+  @observable
+  int totalSentencesToGenerate = 0;
+
+  @observable
+  String? detailedFeedback;
+
   @computed
   bool get hasCurrentSession => currentSession != null;
 
@@ -84,8 +96,146 @@ abstract class _SentenceFixerStore with Store {
   @computed
   int get currentStreak => currentSession?.streak ?? 0;
 
+  @computed
+  bool get isStreamingInProgress => isGeneratingSentences && sentencesGenerated < totalSentencesToGenerate;
+
+  @computed
+  String get streamingStatusText {
+    if (!isGeneratingSentences) return '';
+    if (sentencesGenerated == 0) return 'Preparing first sentence...';
+    return 'Generating sentence ${sentencesGenerated + 1}/$totalSentencesToGenerate...';
+  }
+
+  @computed
+  double get streamingProgress {
+    if (totalSentencesToGenerate == 0) return 0.0;
+    return sentencesGenerated / totalSentencesToGenerate;
+  }
+
   @action
   Future<void> startNewSession({
+    required String difficulty,
+    int? sentenceCount, // Make optional to use difficulty-based counts
+    LearnerProfile? profile,
+  }) async {
+    // Use streaming version for better UX
+    await startNewSessionStreaming(
+      difficulty: difficulty,
+      sentenceCount: sentenceCount,
+      profile: profile,
+    );
+  }
+
+  @action
+  Future<void> startNewSessionStreaming({
+    required String difficulty,
+    int? sentenceCount, // Make optional so we can set based on difficulty
+    LearnerProfile? profile,
+  }) async {
+    try {
+      // Set sentence count based on difficulty
+      final count = sentenceCount ?? _getSentenceCountForDifficulty(difficulty);
+      
+      isLoading = true;
+      isGeneratingSentences = true;
+      sentencesGenerated = 0;
+      totalSentencesToGenerate = count;
+      errorMessage = null;
+      
+      developer.log('🎯 Starting reliable AI-powered Sentence Fixer session: $difficulty ($count sentences)', 
+          name: 'dyslexic_ai.sentence_fixer');
+
+      final sentencesList = <SentenceWithErrors>[];
+      
+      // Stream sentences one by one
+      final stream = _sentenceFixerService.generateSentencePackStream(
+        difficulty: difficulty,
+        count: count,
+        profile: profile,
+      );
+
+      bool isFirstSentence = true;
+      
+      await for (final sentence in stream) {
+        sentencesList.add(sentence);
+        sentencesGenerated = sentencesList.length;
+        
+        developer.log('📥 Received sentence $sentencesGenerated/$count: "${sentence.words.join(' ')}"', 
+            name: 'dyslexic_ai.sentence_fixer');
+
+        if (isFirstSentence) {
+          // Create session with first sentence immediately
+          currentSession = SentenceFixerSession(
+            status: SentenceFixerStatus.playing,
+            totalSentences: count, // Expected total
+            currentSentenceIndex: 0,
+            attempts: [],
+            totalScore: 0,
+            streak: 0,
+            difficulty: difficulty,
+            sentences: [sentence], // Start with just the first sentence
+          );
+
+          // Initialize UI state for first sentence
+          _initializeWordSelection();
+          _startSentenceTimer();
+          
+          // Log session start
+          _sessionLoggingService.startSession(
+            sessionType: SessionType.sentenceFixer,
+            featureName: 'Sentence Fixer',
+            initialData: {
+              'difficulty': difficulty,
+              'total_sentences': count,
+              'streaming_mode': true,
+            },
+          );
+
+          isLoading = false; // User can start playing immediately
+          isFirstSentence = false;
+          
+          developer.log('⚡ First sentence ready - user can start playing!', 
+              name: 'dyslexic_ai.sentence_fixer');
+        } else {
+          // Add subsequent sentences to the session
+          if (currentSession != null) {
+            currentSession = currentSession!.copyWith(
+              sentences: [...sentencesList],
+            );
+            
+            developer.log('📝 Added sentence $sentencesGenerated to session queue', 
+                name: 'dyslexic_ai.sentence_fixer');
+          }
+        }
+      }
+
+      // All sentences generated
+      isGeneratingSentences = false;
+      
+      if (currentSession != null && sentencesList.isNotEmpty) {
+        // Update session with final sentence list
+        currentSession = currentSession!.copyWith(
+          sentences: sentencesList,
+        );
+        
+        developer.log('✅ All ${sentencesList.length} sentences generated and ready', 
+            name: 'dyslexic_ai.sentence_fixer');
+      } else {
+        throw Exception('No sentences could be generated for this difficulty level');
+      }
+      
+    } catch (e) {
+      isLoading = false;
+      isGeneratingSentences = false;
+      errorMessage = 'Failed to start session: $e';
+      developer.log('❌ Failed to start streaming Sentence Fixer session: $e', 
+          name: 'dyslexic_ai.sentence_fixer');
+    }
+  }
+
+  /// Legacy method for compatibility - now redirects to streaming version
+  @action
+  Future<void> startNewSessionLegacy({
     required String difficulty,
     int sentenceCount = 8,
     LearnerProfile? profile,
@@ -156,19 +306,7 @@ abstract class _SentenceFixerStore with Store {
       newSelectedWords[position] = !newSelectedWords[position];
       selectedWords = newSelectedWords.asObservable();
       
-      developer.log('Word at position $position ${selectedWords[position] ? "selected" : "deselected"}', 
-          name: 'dyslexic_ai.sentence_fixer');
-      
-      // Log user action
-      _sessionLoggingService.logUserAction(
-        action: 'word_selection',
-        metadata: {
-          'position': position,
-          'word': currentSentence!.words[position],
-          'selected': selectedWords[position],
-          'selected_count': selectedWordsCount,
-        },
-      );
+      // Only log selection changes, not every click (removed excessive session logging)
     }
   }
 
@@ -190,6 +328,12 @@ abstract class _SentenceFixerStore with Store {
     currentFeedback = _sentenceFixerService.validateSelections(
       currentSentence!,
       selectedPositions,
+    );
+
+    // Generate detailed feedback with correct answers
+    detailedFeedback = _sentenceFixerService.generateDetailedFeedback(
+      currentSentence!,
+      currentFeedback!,
     );
 
     // Create attempt record
@@ -248,6 +392,7 @@ abstract class _SentenceFixerStore with Store {
       _startSentenceTimer();
       showFeedback = false;
       currentFeedback = null;
+      detailedFeedback = null;
       
       developer.log('Moved to sentence ${nextIndex + 1}/${currentSession!.totalSentences}', 
           name: 'dyslexic_ai.sentence_fixer');
@@ -264,6 +409,7 @@ abstract class _SentenceFixerStore with Store {
     _initializeWordSelection();
     showFeedback = false;
     currentFeedback = null;
+    detailedFeedback = null;
     _startSentenceTimer();
     
     developer.log('Retrying current sentence', name: 'dyslexic_ai.sentence_fixer');
@@ -407,5 +553,18 @@ abstract class _SentenceFixerStore with Store {
   void dispose() {
     _sessionTimer?.cancel();
     developer.log('SentenceFixerStore disposed', name: 'dyslexic_ai.sentence_fixer');
+  }
+
+  int _getSentenceCountForDifficulty(String difficulty) {
+    switch (difficulty) {
+      case 'beginner':
+        return 5;
+      case 'intermediate':
+        return 6;
+      case 'advanced':
+        return 8;
+      default:
+        return 5; // Default to beginner
+    }
   }
 } 

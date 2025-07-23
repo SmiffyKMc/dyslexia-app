@@ -173,14 +173,47 @@ class ModelDownloadService {
       // Now initialize the model for inference
       developer.log('🚀 Initializing model for inference...', name: 'dyslexic_ai.model_download');
       
+      // Log device information for GPU debugging
+      if (Platform.isAndroid) {
+        developer.log('📱 Platform: Android', name: 'dyslexic_ai.model_download');
+      } else if (Platform.isIOS) {
+        developer.log('📱 Platform: iOS', name: 'dyslexic_ai.model_download');
+      }
+      
       try {
-        final inferenceModel = await _gemmaPlugin.createModel(
-          modelType: ModelType.gemmaIt,
-          preferredBackend: PreferredBackend.gpu,  // Following flutter_gemma recommendation for multimodal
-          maxTokens: 2048,          // Reduced for memory efficiency on mobile
-          supportImage: true,       // Enable vision capabilities
-          maxNumImages: 1,          // Allow one image per message
-        );
+        Future<InferenceModel?> _createModelWithFallback() async {
+          try {
+            developer.log('🎮 Attempting GPU delegate initialization...', name: 'dyslexic_ai.model_download');
+            final gpuModel = await _gemmaPlugin.createModel(
+              modelType: ModelType.gemmaIt,
+              preferredBackend: PreferredBackend.gpu,
+              maxTokens: 2048,
+              supportImage: true,
+              maxNumImages: 1,
+            );
+            developer.log('✅ GPU delegate initialized successfully!', name: 'dyslexic_ai.model_download');
+            return gpuModel;
+          } catch (error) {
+            developer.log('❌ GPU backend failed: $error', name: 'dyslexic_ai.model_download');
+            developer.log('🔄 Falling back to CPU backend...', name: 'dyslexic_ai.model_download');
+            try {
+              final cpuModel = await _gemmaPlugin.createModel(
+                modelType: ModelType.gemmaIt,
+                preferredBackend: PreferredBackend.cpu,
+                maxTokens: 2048,
+                supportImage: true,
+                maxNumImages: 1,
+              );
+              developer.log('✅ CPU delegate initialized successfully', name: 'dyslexic_ai.model_download');
+              return cpuModel;
+            } catch (cpuError) {
+              developer.log('❌ CPU backend also failed: $cpuError', name: 'dyslexic_ai.model_download');
+              return null;
+            }
+          }
+        }
+
+        final inferenceModel = await _createModelWithFallback();
         if (inferenceModel != null) {
           developer.log('✅ Model initialized successfully for inference', name: 'dyslexic_ai.model_download');
           
@@ -214,13 +247,13 @@ class ModelDownloadService {
     DownloadErrorCallback? onError,
     DownloadSuccessCallback? onSuccess,
   }) async {
-    developer.log('🚀 Starting model download process...', name: 'dyslexic_ai.model_download');
-    
-    downloadError = null;
-    downloadProgress = 0.0;
-    onProgress?.call(0.0);
-    
     try {
+      developer.log('🚀 Starting model download process...', name: 'dyslexic_ai.model_download');
+      
+      downloadError = null;
+      downloadProgress = 0.0;
+      onProgress?.call(0.0);
+
       // Check if model is already available
       if (await isModelAvailable()) {
         developer.log('✅ Model already available, loading existing model...', name: 'dyslexic_ai.model_download');

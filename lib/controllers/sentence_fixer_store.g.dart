@@ -86,6 +86,27 @@ mixin _$SentenceFixerStore on _SentenceFixerStore, Store {
       (_$currentStreakComputed ??= Computed<int>(() => super.currentStreak,
               name: '_SentenceFixerStore.currentStreak'))
           .value;
+  Computed<bool>? _$isStreamingInProgressComputed;
+
+  @override
+  bool get isStreamingInProgress => (_$isStreamingInProgressComputed ??=
+          Computed<bool>(() => super.isStreamingInProgress,
+              name: '_SentenceFixerStore.isStreamingInProgress'))
+      .value;
+  Computed<String>? _$streamingStatusTextComputed;
+
+  @override
+  String get streamingStatusText => (_$streamingStatusTextComputed ??=
+          Computed<String>(() => super.streamingStatusText,
+              name: '_SentenceFixerStore.streamingStatusText'))
+      .value;
+  Computed<double>? _$streamingProgressComputed;
+
+  @override
+  double get streamingProgress => (_$streamingProgressComputed ??=
+          Computed<double>(() => super.streamingProgress,
+              name: '_SentenceFixerStore.streamingProgress'))
+      .value;
 
   late final _$currentSessionAtom =
       Atom(name: '_SentenceFixerStore.currentSession', context: context);
@@ -216,18 +237,116 @@ mixin _$SentenceFixerStore on _SentenceFixerStore, Store {
     });
   }
 
+  late final _$isGeneratingSentencesAtom =
+      Atom(name: '_SentenceFixerStore.isGeneratingSentences', context: context);
+
+  @override
+  bool get isGeneratingSentences {
+    _$isGeneratingSentencesAtom.reportRead();
+    return super.isGeneratingSentences;
+  }
+
+  @override
+  set isGeneratingSentences(bool value) {
+    _$isGeneratingSentencesAtom.reportWrite(value, super.isGeneratingSentences,
+        () {
+      super.isGeneratingSentences = value;
+    });
+  }
+
+  late final _$sentencesGeneratedAtom =
+      Atom(name: '_SentenceFixerStore.sentencesGenerated', context: context);
+
+  @override
+  int get sentencesGenerated {
+    _$sentencesGeneratedAtom.reportRead();
+    return super.sentencesGenerated;
+  }
+
+  @override
+  set sentencesGenerated(int value) {
+    _$sentencesGeneratedAtom.reportWrite(value, super.sentencesGenerated, () {
+      super.sentencesGenerated = value;
+    });
+  }
+
+  late final _$totalSentencesToGenerateAtom = Atom(
+      name: '_SentenceFixerStore.totalSentencesToGenerate', context: context);
+
+  @override
+  int get totalSentencesToGenerate {
+    _$totalSentencesToGenerateAtom.reportRead();
+    return super.totalSentencesToGenerate;
+  }
+
+  @override
+  set totalSentencesToGenerate(int value) {
+    _$totalSentencesToGenerateAtom
+        .reportWrite(value, super.totalSentencesToGenerate, () {
+      super.totalSentencesToGenerate = value;
+    });
+  }
+
+  late final _$detailedFeedbackAtom =
+      Atom(name: '_SentenceFixerStore.detailedFeedback', context: context);
+
+  @override
+  String? get detailedFeedback {
+    _$detailedFeedbackAtom.reportRead();
+    return super.detailedFeedback;
+  }
+
+  @override
+  set detailedFeedback(String? value) {
+    _$detailedFeedbackAtom.reportWrite(value, super.detailedFeedback, () {
+      super.detailedFeedback = value;
+    });
+  }
+
   late final _$startNewSessionAsyncAction =
       AsyncAction('_SentenceFixerStore.startNewSession', context: context);
 
   @override
   Future<void> startNewSession(
       {required String difficulty,
-      int sentenceCount = 8,
+      int? sentenceCount,
       LearnerProfile? profile}) {
     return _$startNewSessionAsyncAction.run(() => super.startNewSession(
         difficulty: difficulty,
         sentenceCount: sentenceCount,
         profile: profile));
+  }
+
+  late final _$startNewSessionStreamingAsyncAction = AsyncAction(
+      '_SentenceFixerStore.startNewSessionStreaming',
+      context: context);
+
+  @override
+  Future<void> startNewSessionStreaming(
+      {required String difficulty,
+      int? sentenceCount,
+      LearnerProfile? profile}) {
+    return _$startNewSessionStreamingAsyncAction.run(() => super
+        .startNewSessionStreaming(
+            difficulty: difficulty,
+            sentenceCount: sentenceCount,
+            profile: profile));
+  }
+
+  late final _$startNewSessionLegacyAsyncAction = AsyncAction(
+      '_SentenceFixerStore.startNewSessionLegacy',
+      context: context);
+
+  @override
+  Future<void> startNewSessionLegacy(
+      {required String difficulty,
+      int sentenceCount = 8,
+      LearnerProfile? profile}) {
+    return _$startNewSessionLegacyAsyncAction.run(() => super
+        .startNewSessionLegacy(
+            difficulty: difficulty,
+            sentenceCount: sentenceCount,
+            profile: profile));
   }
 
   late final _$_SentenceFixerStoreActionController =
@@ -343,6 +462,10 @@ isLoading: ${isLoading},
 errorMessage: ${errorMessage},
 timeSpentOnCurrentSentence: ${timeSpentOnCurrentSentence},
 stats: ${stats},
+isGeneratingSentences: ${isGeneratingSentences},
+sentencesGenerated: ${sentencesGenerated},
+totalSentencesToGenerate: ${totalSentencesToGenerate},
+detailedFeedback: ${detailedFeedback},
 hasCurrentSession: ${hasCurrentSession},
 hasCurrentSentence: ${hasCurrentSentence},
 currentSentence: ${currentSentence},
@@ -353,7 +476,10 @@ progressPercentage: ${progressPercentage},
 currentSentenceNumber: ${currentSentenceNumber},
 totalSentences: ${totalSentences},
 currentScore: ${currentScore},
-currentStreak: ${currentStreak}
+currentStreak: ${currentStreak},
+isStreamingInProgress: ${isStreamingInProgress},
+streamingStatusText: ${streamingStatusText},
+streamingProgress: ${streamingProgress}
     ''';
   }
 }

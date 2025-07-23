@@ -4,13 +4,10 @@ import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/word_analysis.dart';
-import '../models/session_log.dart';
 import '../services/word_analysis_service.dart';
 import '../services/personal_dictionary_service.dart';
 import '../services/text_to_speech_service.dart';
-import '../services/session_logging_service.dart';
 import '../services/ocr_service.dart';
-import '../utils/service_locator.dart';
 
 part 'word_doctor_store.g.dart';
 
@@ -22,7 +19,6 @@ abstract class _WordDoctorStore with Store {
   final TextToSpeechService _ttsService;
   final OcrService _ocrService;
   final ImagePicker _imagePicker = ImagePicker();
-  late final SessionLoggingService _sessionLogging;
 
   _WordDoctorStore({
     required WordAnalysisService analysisService,
@@ -33,7 +29,6 @@ abstract class _WordDoctorStore with Store {
         _dictionaryService = dictionaryService,
         _ttsService = ttsService,
         _ocrService = ocrService {
-    _sessionLogging = getIt<SessionLoggingService>();
     _initialize();
   }
 
@@ -101,78 +96,25 @@ abstract class _WordDoctorStore with Store {
     final wordToAnalyze = inputWord.trim();
     print('🔍 Starting analysis for: "$wordToAnalyze"');
 
-    // Clear any pending TTS requests from previous analysis
-    await _ttsService.clearQueue();
-
     isAnalyzing = true;
     errorMessage = null;
 
-    // Start session logging
-    await _sessionLogging.startSession(
-      sessionType: SessionType.wordDoctor,
-      featureName: 'Word Doctor',
-      initialData: {
-        'word': wordToAnalyze,
-        'word_length': wordToAnalyze.length,
-        'analysis_started': DateTime.now().toIso8601String(),
-      },
-    );
-
     try {
+      // Just do the basic word analysis - no session logging or complex async operations
       final analysis = await _analysisService.analyzeWord(wordToAnalyze);
       
+      // Simple dictionary check
       final isSaved = await _dictionaryService.isWordSaved(wordToAnalyze);
       currentAnalysis = analysis.copyWith(isSaved: isSaved);
       
-      // Log word analysis results
-      _sessionLogging.logWordAnalysis(
-        word: analysis.word,
-        syllables: analysis.syllables,
-        phonemes: analysis.phonemes,
-        wasCorrect: true, // Word was successfully analyzed
-      );
-
-      // Log learning style usage (visual aids used for breakdown)
-      _sessionLogging.logLearningStyleUsage(
-        usedVisualAids: true,
-        usedAudioSupport: false,
-        preferredMode: 'visual',
-      );
-
-      // Determine confidence based on word complexity
-      final confidenceLevel = _getConfidenceLevel(analysis);
-      _sessionLogging.logConfidenceIndicator(confidenceLevel, reason: 'word_complexity');
-      
+      // Simple recent words update
       await _dictionaryService.addToRecentWords(currentAnalysis!);
       await _loadRecentWords();
-      
-             // Complete session successfully
-       await _sessionLogging.completeSession(
-         finalAccuracy: 1.0, // Successfully analyzed
-         completionStatus: 'completed',
-         additionalData: {
-           'syllable_count': analysis.syllables.length,
-           'phoneme_count': analysis.phonemes.length,
-           'word_saved': isSaved,
-           'difficulty_level': _calculateDifficultyLevel(analysis),
-           'analysis_status': 'completed',
-         },
-       );
       
       print('🔍 Analysis completed successfully');
     } catch (e) {
       print('❌ Analysis failed: $e');
       errorMessage = 'Failed to analyze word: $e';
-      
-      // Complete session with error
-      await _sessionLogging.completeSession(
-        finalAccuracy: 0.0,
-        completionStatus: 'failed',
-        additionalData: {
-          'error_message': e.toString(),
-          'analysis_status': 'failed',
-        },
-      );
     } finally {
       isAnalyzing = false;
     }
@@ -194,31 +136,10 @@ abstract class _WordDoctorStore with Store {
   Future<void> speakSyllable(String syllable) async {
     print('🔊 Speaking syllable: "$syllable"');
     
-    // Debounce rapid TTS calls
-    final requestKey = 'syllable:$syllable';
-    if (_lastTtsRequest == requestKey) {
-      print('🔊 Debouncing syllable TTS call');
-      return;
-    }
-    
-    _lastTtsRequest = requestKey;
-    _ttsDebounceTimer?.cancel();
-    _ttsDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _lastTtsRequest = null;
-    });
-    
     try {
       await _ttsService.speakWord(syllable);
-      
-      // Log audio support usage
-      _sessionLogging.logLearningStyleUsage(
-        usedVisualAids: false,
-        usedAudioSupport: true,
-        preferredMode: 'audio',
-      );
     } catch (e) {
       print('❌ Failed to speak syllable: $e');
-      errorMessage = 'Failed to speak syllable';
     }
   }
 
@@ -226,42 +147,21 @@ abstract class _WordDoctorStore with Store {
   Future<void> speakWord(String word) async {
     print('🔊 Speaking word: "$word"');
     
-    // Debounce rapid TTS calls
-    final requestKey = 'word:$word';
-    if (_lastTtsRequest == requestKey) {
-      print('🔊 Debouncing word TTS call');
-      return;
-    }
-    
-    _lastTtsRequest = requestKey;
-    _ttsDebounceTimer?.cancel();
-    _ttsDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-      _lastTtsRequest = null;
-    });
-    
     try {
       await _ttsService.speakWord(word);
-      
-      // Log audio support usage
-      _sessionLogging.logLearningStyleUsage(
-        usedVisualAids: false,
-        usedAudioSupport: true,
-        preferredMode: 'audio',
-      );
     } catch (e) {
       print('❌ Failed to speak word: $e');
-      errorMessage = 'Failed to speak word';
     }
   }
 
   @action
   Future<void> speakExampleSentence(String sentence) async {
-    print('🔊 Speaking sentence');
+    print('🔊 Speaking example sentence');
+    
     try {
       await _ttsService.speak(sentence);
     } catch (e) {
       print('❌ Failed to speak sentence: $e');
-      errorMessage = 'Failed to speak sentence';
     }
   }
 
@@ -462,13 +362,6 @@ abstract class _WordDoctorStore with Store {
           // Set the input word and trigger analysis
           setInputWord(extractedWord);
           
-          // Log OCR usage
-          _sessionLogging.logOCRUsage(
-            extractedTextLength: result.text.length,
-            confidence: result.confidence ?? 0.0,
-            wasSuccessful: true,
-          );
-          
           // Auto-analyze the scanned word
           await analyzeCurrentWord();
         } else {
@@ -478,13 +371,6 @@ abstract class _WordDoctorStore with Store {
       } else {
         errorMessage = result.error ?? 'Unable to read text from image. Please ensure the text is clear and well-lit.';
         print('❌ OCR failed: ${result.error}');
-        
-        // Log failed OCR usage
-        _sessionLogging.logOCRUsage(
-          extractedTextLength: 0,
-          confidence: 0.0,
-          wasSuccessful: false,
-        );
       }
     } catch (e) {
       print('❌ OCR processing failed: $e');
@@ -505,11 +391,6 @@ abstract class _WordDoctorStore with Store {
 
   void dispose() {
     _ttsDebounceTimer?.cancel();
-    // Cancel any active session logging
-    if (_sessionLogging.hasActiveSession) {
-      _sessionLogging.cancelSession(reason: 'word_doctor_disposed');
-    }
-    
     _ttsService.dispose();
   }
 } 

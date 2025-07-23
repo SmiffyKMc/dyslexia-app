@@ -17,11 +17,14 @@ import '../controllers/adaptive_story_store.dart';
 import '../controllers/phonics_game_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../controllers/session_log_store.dart';
+import '../controllers/text_simplifier_store.dart';
+import '../controllers/sentence_fixer_store.dart';
 import '../services/story_service.dart';
 import '../services/phonics_sounds_service.dart';
 import '../services/model_download_service.dart';
 import '../services/session_logging_service.dart';
 import '../services/gemma_profile_update_service.dart';
+import '../services/text_simplifier_service.dart';
 import 'dart:developer' as developer;
 
 final getIt = GetIt.instance;
@@ -61,6 +64,10 @@ Future<void> setupLocator() async {
       () => SessionLoggingService());
   getIt.registerLazySingleton<GemmaProfileUpdateService>(
       () => GemmaProfileUpdateService());
+  
+  // Register text simplifier service
+  getIt.registerLazySingleton<TextSimplifierService>(
+      () => TextSimplifierService());
 
   // Initialize font preference service
   await getIt<FontPreferenceService>().init();
@@ -68,6 +75,9 @@ Future<void> setupLocator() async {
   // Initialize learner profiler stores
   await getIt<SessionLogStore>().initialize();
   await getIt<LearnerProfileStore>().initialize();
+  
+  // Initialize text simplifier service
+  getIt<TextSimplifierService>().initialize();
 
   getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore());
 
@@ -84,6 +94,10 @@ Future<void> setupLocator() async {
       ));
 
   getIt.registerFactory<PhonicsGameStore>(() => PhonicsGameStore());
+  
+  getIt.registerFactory<TextSimplifierStore>(() => TextSimplifierStore());
+  
+  getIt.registerFactory<SentenceFixerStore>(() => SentenceFixerStore());
 }
 
 /// Helper function to get the GlobalSessionManager

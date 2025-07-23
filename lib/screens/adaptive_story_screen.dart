@@ -33,26 +33,49 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
       appBar: AppBar(
         title: const Text('Adaptive Story Mode'),
       ),
-      body: Observer(
+      body: Column(
+        children: [
+          // Error state - needs Observer for errorMessage
+          Observer(
         builder: (context) {
-          if (_store.errorMessage != null) {
+              if (_store.errorMessage == null) {
+                return const SizedBox.shrink();
+              }
             return _buildErrorState();
-          }
-
-          if (_store.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            },
+          ),
+          
+          // Loading state - needs Observer for isLoading
+          Observer(
+            builder: (context) {
+              if (!_store.isLoading) {
+                return const SizedBox.shrink();
+              }
+              return const Expanded(
+                child: Center(child: CircularProgressIndicator()),
+              );
+            },
+          ),
+          
+          // Main content - needs Observer for story states
+          Observer(
+            builder: (context) {
+              if (_store.errorMessage != null || _store.isLoading) {
+                return const SizedBox.shrink();
           }
 
           if (!_store.hasCurrentStory) {
-            return _buildStorySelectionScreen();
+                return Expanded(child: _buildStorySelectionScreen());
           }
 
           if (_store.storyCompleted) {
-            return _buildCompletionSummaryScreen();
+                return Expanded(child: _buildCompletionSummaryScreen());
           }
 
-          return _buildStoryReadingScreen();
+              return Expanded(child: _buildStoryReadingScreen());
         },
+          ),
+        ],
       ),
     );
   }

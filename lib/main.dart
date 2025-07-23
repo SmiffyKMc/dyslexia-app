@@ -3,21 +3,17 @@ import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 import 'screens/learn_screen.dart';
 import 'screens/tools_screen.dart';
-import 'screens/progress_screen.dart';
+
 import 'screens/settings_screen.dart';
 import 'screens/reading_coach_screen.dart';
 import 'screens/word_doctor_screen.dart';
 import 'screens/adaptive_story_screen.dart';
 import 'screens/phonics_game_screen.dart';
-import 'screens/word_confusion_screen.dart';
-import 'screens/thought_to_word_screen.dart';
-import 'screens/text_simplifier_screen.dart';
-import 'screens/sound_it_out_screen.dart';
-import 'screens/build_sentence_screen.dart';
-import 'screens/sentence_fixer_screen.dart';
-import 'screens/read_aloud_screen.dart';
 
-import 'screens/visual_dictionary_screen.dart';
+
+import 'screens/text_simplifier_screen.dart';
+import 'screens/sentence_fixer_screen.dart';
+
 import 'screens/model_loading_screen.dart';
 import 'screens/text_simplifier_example.dart';
 import 'utils/theme.dart';
@@ -74,16 +70,8 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
     developer.log('App lifecycle state changed: $state', name: 'dyslexic_ai.main');
     _profileUpdateService.handleAppLifecycleChange(state);
     
-    // Handle session lifecycle based on app state
-    if (state == AppLifecycleState.resumed) {
-      // Warmup session when app resumes for better performance
-      _sessionManager.warmupSession().catchError((e) {
-        developer.log('Session warmup failed: $e', name: 'dyslexic_ai.main');
-      });
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      // Optional: Could invalidate session when app goes to background to save memory
-      // _sessionManager.invalidateSession();
-    }
+    // Note: Removed session warmup on app resume as it creates unnecessary sessions
+    // Sessions are created on-demand when needed for better resource management
   }
 
   @override
@@ -101,21 +89,18 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
             '/home': (context) => const HomeScreen(),
             '/learn': (context) => const LearnScreen(),
             '/tools': (context) => const ToolsScreen(),
-            '/progress': (context) => const ProgressScreen(),
+      
             '/settings': (context) => const SettingsScreen(),
             '/reading_coach': (context) => const ReadingCoachScreen(),
             '/word_doctor': (context) => const WordDoctorScreen(),
             '/adaptive_story': (context) => const AdaptiveStoryScreen(),
             '/phonics_game': (context) => const PhonicsGameScreen(),
-            '/word_confusion': (context) => const WordConfusionScreen(),
-            '/thought_to_word': (context) => const ThoughtToWordScreen(),
+
+
             '/text_simplifier': (context) => const TextSimplifierScreen(),
-            '/sound_it_out': (context) => const SoundItOutScreen(),
-            '/build_sentence': (context) => const BuildSentenceScreen(),
             '/sentence_fixer': (context) => const SentenceFixerScreen(),
-            '/read_aloud': (context) => const ReadAloudScreen(),
       
-            '/visual_dictionary': (context) => const VisualDictionaryScreen(),
+      
             '/text_simplifier_example': (context) => const TextSimplifierExample(),
           },
         );
@@ -172,7 +157,6 @@ class _MainAppState extends State<MainApp> {
           HomeScreen(),
           LearnScreen(),
           ToolsScreen(),
-          ProgressScreen(),
           SettingsScreen(),
         ],
       ),
@@ -192,10 +176,6 @@ class _MainAppState extends State<MainApp> {
           BottomNavigationBarItem(
             icon: Icon(Icons.build),
             label: 'Tools',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: 'Progress',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

@@ -4,80 +4,156 @@ import '../models/story.dart';
 import '../models/learner_profile.dart';
 import '../services/story_service.dart';
 import '../utils/service_locator.dart';
+import 'dart:async';
 
-class StorySelectorModal extends StatelessWidget {
+class StorySelectorModal extends StatefulWidget {
   final List<PresetStory> stories;
   final Function(PresetStory) onStorySelected;
+  final VoidCallback? onAIStoryRequested;
   final LearnerProfile? learnerProfile;
 
   const StorySelectorModal({
     super.key,
     required this.stories,
     required this.onStorySelected,
+    this.onAIStoryRequested,
     this.learnerProfile,
   });
 
+  @override
+  State<StorySelectorModal> createState() => _StorySelectorModalState();
+}
+
+class _StorySelectorModalState extends State<StorySelectorModal> {
+  final StringBuffer _storyBuffer = StringBuffer();
+  StreamSubscription<String>? _storySub;
+
+  @override
+  void dispose() {
+    _storySub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _generateAIStory(BuildContext context) async {
-    if (learnerProfile == null) return;
+    if (widget.learnerProfile == null) return;
     
     final messenger = ScaffoldMessenger.of(context);
     
+    _storyBuffer.clear();
+    _storySub?.cancel();
+    
     try {
-      // Show loading indicator
+      // Show streaming dialog with proper StatefulBuilder
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, dialogSetState) => AlertDialog(
+            title: const Text('Generating Story...'),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 200,
+              child: _storyBuffer.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Starting story generation...'),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Text(
+                        _storyBuffer.toString(),
+                        style: const TextStyle(fontSize: 16, height: 1.4),
+                      ),
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  _storySub?.cancel();
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
         ),
       );
       
-      // Generate AI story
       final storyService = getIt<StoryService>();
-      final aiStory = await storyService.generateStoryWithAI(learnerProfile!);
+      final stream = storyService.generateStoryWithAIStream(widget.learnerProfile!);
       
-      // Hide loading indicator
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      
-      if (aiStory != null) {
-        // Convert AI story to PresetStory for compatibility
-        final presetStory = PresetStory(
-          id: aiStory.id,
-          title: '🤖 ${aiStory.title}',
-          content: aiStory.parts.first.content,
-          difficulty: _mapDifficultyToString(aiStory.difficulty),
-          tags: aiStory.learningPatterns,
-        );
+      _storySub = stream.listen((chunk) {
+        _storyBuffer.write(chunk);
         
-        // Close modal and return AI story
+        // Force dialog rebuild with the updated content
+        if (context.mounted) {
+          // Use a microtask to avoid build conflicts
+          Future.microtask(() {
+            if (context.mounted) {
+              (context as Element).markNeedsBuild();
+            }
+          });
+        }
+      }, onError: (e) {
         if (context.mounted) {
           Navigator.of(context).pop();
-          onStorySelected(presetStory);
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Error generating story: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
         }
-      } else {
-        // Show error message
+      }, onDone: () async {
+        // Parse the complete story and close dialog
+        if (context.mounted) {
+          Navigator.of(context).pop();
+          
+          // Try to parse as structured story, fallback to simple text
+          final storyService = getIt<StoryService>();
+          final aiStory = storyService.parseStoryResponse(_storyBuffer.toString(), [], 'intermediate');
+          
+          if (aiStory != null) {
+            final presetStory = PresetStory(
+              id: aiStory.id,
+              title: '🤖 ${aiStory.title}',
+              content: aiStory.parts.first.content,
+              difficulty: _mapDifficultyToString(aiStory.difficulty),
+              tags: aiStory.learningPatterns,
+            );
+            
+            Navigator.of(context).pop();
+            widget.onStorySelected(presetStory);
+          } else {
+            // Fallback: use raw text as story content
+            final presetStory = PresetStory(
+              id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
+              title: '🤖 Generated Story',
+              content: _storyBuffer.toString(),
+              difficulty: 'intermediate',
+              tags: ['ai-generated'],
+            );
+            
+            Navigator.of(context).pop();
+            widget.onStorySelected(presetStory);
+          }
+        }
+      });
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Failed to generate AI story. Please try again.'),
+          SnackBar(
+            content: Text('Error generating story: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
-    } catch (e) {
-      // Hide loading indicator if still showing
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Error generating story: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 
@@ -119,11 +195,11 @@ class StorySelectorModal extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          if (learnerProfile != null)
+          if (widget.learnerProfile != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: ElevatedButton.icon(
-                onPressed: () => _generateAIStory(context),
+                onPressed: widget.onAIStoryRequested ?? () => _generateAIStory(context),
                 icon: const Icon(Icons.auto_awesome),
                 label: const Text('Generate AI Story'),
                 style: ElevatedButton.styleFrom(
@@ -137,14 +213,14 @@ class StorySelectorModal extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              itemCount: stories.length,
+              itemCount: widget.stories.length,
               itemBuilder: (context, index) {
-                final story = stories[index];
+                final story = widget.stories[index];
                 return _StoryCard(
                   story: story,
                   onTap: () {
                     Navigator.of(context).pop();
-                    onStorySelected(story);
+                    widget.onStorySelected(story);
                   },
                 );
               },

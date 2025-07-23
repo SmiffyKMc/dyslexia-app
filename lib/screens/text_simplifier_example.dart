@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 import '../services/ai_inference_service.dart';
 import '../utils/service_locator.dart';
+import '../utils/input_validation_helper.dart';
 
 class TextSimplifierExample extends StatefulWidget {
   const TextSimplifierExample({super.key});
@@ -22,9 +22,10 @@ class _TextSimplifierExampleState extends State<TextSimplifierExample> {
 
   Future<void> _simplifyText() async {
     if (_inputController.text.trim().isEmpty) {
-      setState(() {
-        _error = 'Please enter some text to simplify';
-      });
+      InputValidationHelper.showInputError(
+        context,
+        'Please enter some text to simplify. Type text in the field above.',
+      );
       return;
     }
 
