@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma/flutter_gemma_interface.dart';
 
 /// Simplified global session manager following flutter_gemma best practices
 class GlobalSessionManager {

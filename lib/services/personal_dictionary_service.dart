@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'dart:developer' as developer;
 import '../models/word_analysis.dart';
 
 class PersonalDictionaryService {
@@ -11,7 +12,6 @@ class PersonalDictionaryService {
   Future<void> initialize() async {
     _savedWordsBox = await Hive.openBox<Map>(_savedWordsBoxName);
     _recentWordsBox = await Hive.openBox<Map>(_recentWordsBoxName);
-    print('📚 Personal Dictionary Service initialized');
   }
 
   Future<bool> saveWord(WordAnalysis analysis) async {
@@ -21,10 +21,8 @@ class PersonalDictionaryService {
       final savedAnalysis = analysis.copyWith(isSaved: true);
       await _savedWordsBox!.put(analysis.word, savedAnalysis.toJson());
       
-      print('💾 Saved word to personal dictionary: "${analysis.word}"');
       return true;
     } catch (e) {
-      print('❌ Failed to save word: $e');
       return false;
     }
   }
@@ -34,10 +32,8 @@ class PersonalDictionaryService {
       if (_savedWordsBox == null) await initialize();
       
       await _savedWordsBox!.delete(word);
-      print('🗑️ Removed word from personal dictionary: "$word"');
       return true;
     } catch (e) {
-      print('❌ Failed to remove word: $e');
       return false;
     }
   }
@@ -52,15 +48,13 @@ class PersonalDictionaryService {
           final analysis = WordAnalysis.fromJson(Map<String, dynamic>.from(entry));
           savedWords.add(analysis);
         } catch (e) {
-          print('⚠️ Failed to parse saved word: $e');
+          developer.log('Error parsing saved word: $e', name: 'dyslexic_ai.dictionary');
         }
       }
       
       savedWords.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
-      print('📚 Retrieved ${savedWords.length} saved words');
       return savedWords;
     } catch (e) {
-      print('❌ Failed to get saved words: $e');
       return [];
     }
   }
@@ -70,7 +64,6 @@ class PersonalDictionaryService {
       if (_savedWordsBox == null) await initialize();
       return _savedWordsBox!.containsKey(word);
     } catch (e) {
-      print('❌ Failed to check if word is saved: $e');
       return false;
     }
   }
@@ -89,9 +82,8 @@ class PersonalDictionaryService {
         }
       }
       
-      print('📝 Added to recent words: "${analysis.word}"');
     } catch (e) {
-      print('❌ Failed to add to recent words: $e');
+      developer.log('Error saving word: $e', name: 'dyslexic_ai.dictionary');
     }
   }
 
@@ -105,15 +97,13 @@ class PersonalDictionaryService {
           final analysis = WordAnalysis.fromJson(Map<String, dynamic>.from(entry));
           recentWords.add(analysis);
         } catch (e) {
-          print('⚠️ Failed to parse recent word: $e');
+          developer.log('Error parsing recent word: $e', name: 'dyslexic_ai.dictionary');
         }
       }
       
       recentWords.sort((a, b) => b.analyzedAt.compareTo(a.analyzedAt));
-      print('📝 Retrieved ${recentWords.length} recent words');
       return recentWords;
     } catch (e) {
-      print('❌ Failed to get recent words: $e');
       return [];
     }
   }
@@ -122,9 +112,8 @@ class PersonalDictionaryService {
     try {
       if (_recentWordsBox == null) await initialize();
       await _recentWordsBox!.clear();
-      print('🗑️ Cleared recent words');
     } catch (e) {
-      print('❌ Failed to clear recent words: $e');
+      developer.log('Error clearing recent words: $e', name: 'dyslexic_ai.dictionary');
     }
   }
 
@@ -138,7 +127,6 @@ class PersonalDictionaryService {
       }
       return null;
     } catch (e) {
-      print('❌ Failed to get saved word: $e');
       return null;
     }
   }

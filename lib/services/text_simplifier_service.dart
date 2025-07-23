@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import '../models/learner_profile.dart';
 import '../utils/service_locator.dart';
+import '../utils/prompt_loader.dart';
 import '../controllers/learner_profile_store.dart';
-import '../services/session_logging_service.dart';
-import '../models/session_log.dart';
+
 
 class TextSimplifierService {
   static final TextSimplifierService _instance = TextSimplifierService._internal();
@@ -12,11 +12,9 @@ class TextSimplifierService {
   TextSimplifierService._internal();
 
   late final LearnerProfileStore _profileStore;
-  late final SessionLoggingService _sessionLoggingService;
 
   void initialize() {
     _profileStore = getIt<LearnerProfileStore>();
-    _sessionLoggingService = getIt<SessionLoggingService>();
   }
 
   Future<String> simplifyText({
@@ -36,7 +34,7 @@ class TextSimplifierService {
       }
 
       // Build prompt based on parameters
-      final prompt = _buildSimplificationPrompt(
+      final prompt = await _buildSimplificationPrompt(
         originalText: originalText,
         readingLevel: readingLevel,
         explainChanges: explainChanges,
@@ -77,7 +75,7 @@ class TextSimplifierService {
       throw Exception('AI service not available. Please ensure the model is loaded.');
     }
 
-    final prompt = _buildSimplificationPrompt(
+    final prompt = await _buildSimplificationPrompt(
       originalText: originalText,
       readingLevel: readingLevel,
       explainChanges: explainChanges,
@@ -100,7 +98,7 @@ class TextSimplifierService {
         throw Exception('AI service not available');
       }
 
-      final prompt = _buildDefinitionPrompt(word);
+      final prompt = await _buildDefinitionPrompt(word);
       final response = await aiService.generateResponse(prompt, isBackgroundTask: true);
       final definition = _parseDefinitionResponse(response);
 
@@ -113,80 +111,50 @@ class TextSimplifierService {
     }
   }
 
-  String _buildSimplificationPrompt({
+  Future<String> _buildSimplificationPrompt({
     required String originalText,
     required String readingLevel,
     bool explainChanges = false,
     bool defineKeyTerms = false,
     bool addVisuals = false,
     bool isRegenerateRequest = false,
-  }) {
-    final profile = _profileStore.currentProfile;
-    
-    // Get reading level description
-    final levelDescription = _getReadingLevelDescription(readingLevel);
-    
-    // Build base prompt
-    String prompt = '''
-You are helping someone with dyslexia understand complex text. Please rewrite the following text to be appropriate for a $levelDescription reader.
-
-REQUIREMENTS:
-- Use shorter sentences (maximum 15 words per sentence)
-- Replace complex words with simpler alternatives
-- Maintain the original meaning and key information
-- Use clear, direct language
-- Add paragraph breaks for better readability
-- Use active voice when possible
-- Avoid jargon and technical terms''';
-
-    // Add profile-specific adjustments
-    if (profile != null) {
-      prompt += _addProfileAdjustments(profile);
+  }) async {
+    try {
+      final profile = _profileStore.currentProfile;
+      
+      // Determine which add-on templates to include
+      final addOns = <String>[];
+      if (explainChanges) addOns.add('explain_changes.tmpl');
+      if (defineKeyTerms) addOns.add('define_terms.tmpl');
+      if (addVisuals) addOns.add('add_visuals.tmpl');
+      if (isRegenerateRequest) addOns.add('regeneration.tmpl');
+      
+      // Build standardized variables
+      final variables = <String, String>{
+        'reading_level': _getReadingLevelDescription(readingLevel),
+        'target_text': originalText,
+        'profile_adjustments': profile != null ? _addProfileAdjustments(profile) : '',
+      };
+      
+      // Build composite template
+      final prompt = await PromptLoader.buildComposite(
+        'text_simplifier',
+        'base.tmpl',
+        addOns,
+        variables,
+      );
+      
+      developer.log('✅ Built simplification prompt using ${addOns.length} add-ons', 
+          name: 'dyslexic_ai.text_simplifier');
+      
+      return prompt;
+    } catch (e) {
+      developer.log('❌ Failed to build simplification prompt: $e', 
+          name: 'dyslexic_ai.text_simplifier');
+      
+      // Fallback to basic prompt if template system fails
+      return _buildFallbackPrompt(originalText, readingLevel);
     }
-
-    // Add feature-specific instructions
-    if (explainChanges) {
-      prompt += '''
-
-EXPLAIN CHANGES:
-- At the end, provide a brief explanation of key changes made
-- Format as: "Key changes: [old word] → [new word], [complex sentence] → [simpler version]"''';
-    }
-
-    if (defineKeyTerms) {
-      prompt += '''
-
-DEFINE KEY TERMS:
-- Identify 3-5 important terms that might be difficult
-- Provide simple definitions after the simplified text
-- Format as: "Key terms: [term] - [simple definition]"''';
-    }
-
-    if (addVisuals) {
-      prompt += '''
-
-VISUAL SUGGESTIONS:
-- Suggest simple visual aids that would help understanding
-- Format as: "Visual aids: [description of helpful images/diagrams]"''';
-    }
-
-    if (isRegenerateRequest) {
-      prompt += '''
-
-REGENERATION REQUEST:
-- Create a different version with alternative word choices
-- Use different sentence structures while maintaining simplicity
-- Keep the same meaning but vary the presentation''';
-    }
-
-    prompt += '''
-
-ORIGINAL TEXT:
-$originalText
-
-Please provide only the simplified version (and requested additions) without any additional commentary.''';
-
-    return prompt;
   }
 
   String _getReadingLevelDescription(String readingLevel) {
@@ -245,8 +213,20 @@ PROFILE ADJUSTMENTS:''';
     return adjustments;
   }
 
-  String _buildDefinitionPrompt(String word) {
-    return '''
+  Future<String> _buildDefinitionPrompt(String word) async {
+    try {
+      final variables = <String, String>{
+        'word_target': word,
+      };
+      
+      return await PromptLoader.load('word_analysis', 'definition.tmpl')
+        .then((template) => PromptLoader.fill(template, variables));
+    } catch (e) {
+      developer.log('❌ Failed to build definition prompt: $e', 
+          name: 'dyslexic_ai.text_simplifier');
+      
+      // Fallback to basic definition prompt
+      return '''
 Provide a simple definition for the word "$word" that would be appropriate for someone with dyslexia.
 
 REQUIREMENTS:
@@ -256,6 +236,29 @@ REQUIREMENTS:
 - Include the word in a simple example sentence
 
 Format: [simple definition] Example: [simple sentence using the word]''';
+    }
+  }
+
+  /// Fallback prompt builder for when template system fails
+  String _buildFallbackPrompt(String originalText, String readingLevel) {
+    final levelDescription = _getReadingLevelDescription(readingLevel);
+    
+    return '''
+You are helping someone with dyslexia understand complex text. Please rewrite the following text to be appropriate for a $levelDescription reader.
+
+REQUIREMENTS:
+- Use shorter sentences (maximum 15 words per sentence)
+- Replace complex words with simpler alternatives
+- Maintain the original meaning and key information
+- Use clear, direct language
+- Add paragraph breaks for better readability
+- Use active voice when possible
+- Avoid jargon and technical terms
+
+ORIGINAL TEXT:
+$originalText
+
+Please provide only the simplified version without any additional commentary.''';
   }
 
   String _parseSimplificationResponse(String response) {

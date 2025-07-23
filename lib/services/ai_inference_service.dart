@@ -4,9 +4,10 @@ import 'dart:developer' as developer;
 import 'dart:async';
 import 'dart:math' as math;
 import '../utils/inference_trace.dart';
+import '../utils/prompt_loader.dart';
 import 'global_session_manager.dart';
 import '../utils/inference_metrics.dart';
-import '../utils/service_locator.dart';
+
 
 // Session/context management constants
 const int _maxContextTokens = 2048;
@@ -67,7 +68,7 @@ class AIInferenceService {
       _contextTokens += inputTokens + tokens;
       InferenceMetrics.contextTokens.value = _contextTokens;
       
-      developer.log('✅ Response complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+      developer.log('✅ Response complete: $tokens output tokens, context now $_contextTokens/$_maxContextTokens', 
           name: 'dyslexic_ai.inference');
       
       return _cleanAIResponse(response);
@@ -175,7 +176,7 @@ class AIInferenceService {
       _contextTokens += inputTokens + tokens;
       InferenceMetrics.contextTokens.value = _contextTokens;
       
-      developer.log('✅ Chat response complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+      developer.log('✅ Chat response complete: $tokens output tokens, context now $_contextTokens/$_maxContextTokens', 
           name: 'dyslexic_ai.inference');
       
       return _cleanAIResponse(response);
@@ -215,7 +216,7 @@ class AIInferenceService {
         _contextTokens += inputTokens + tokens;
         InferenceMetrics.contextTokens.value = _contextTokens;
         
-        developer.log('✅ Chat stream complete: ${tokens} output tokens, context now $_contextTokens/$_maxContextTokens', 
+        developer.log('✅ Chat stream complete: $tokens output tokens, context now $_contextTokens/$_maxContextTokens', 
             name: 'dyslexic_ai.inference');
         
         controller.close();
@@ -230,7 +231,20 @@ class AIInferenceService {
 
   /// Legacy compatibility method
   Future<String> generateSentenceSimplification(String sentence) async {
-    final prompt = '''
+    try {
+      final variables = <String, String>{
+        'target_sentence': sentence,
+      };
+      
+      final template = await PromptLoader.load('shared', 'legacy_sentence_simplification.tmpl');
+      final prompt = PromptLoader.fill(template, variables);
+      
+      return await generateResponse(prompt);
+    } catch (e) {
+      developer.log('❌ Failed to load sentence simplification template: $e', name: 'dyslexic_ai.inference');
+      
+      // Fallback to hardcoded prompt
+      final prompt = '''
 You are helping someone with dyslexia understand complex sentences. Please rewrite the following sentence to be:
 - Shorter and clearer
 - Using simpler vocabulary
@@ -241,8 +255,9 @@ Original sentence: $sentence
 
 Provide only the simplified version.
 ''';
-    
-    return await generateResponse(prompt);
+      
+      return await generateResponse(prompt);
+    }
   }
   
   /// Clean AI response by removing special tokens

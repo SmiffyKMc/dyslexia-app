@@ -352,29 +352,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     }
   }
 
-  Future<void> _handleReadAloud() async {
-    if (!_store.hasSimplifiedText) return;
-    
-    try {
-      _store.setIsSpeaking(true);
-      await _ttsService.speak(_store.simplifiedText);
-    } catch (e) {
-      _showErrorSnackBar('Failed to read text aloud: $e');
-    } finally {
-      _store.setIsSpeaking(false);
-    }
-  }
 
-  Future<void> _handleCopyText() async {
-    if (!_store.hasSimplifiedText) return;
-    
-    try {
-      await Clipboard.setData(ClipboardData(text: _store.simplifiedText));
-      _showSuccessSnackBar('Text copied to clipboard');
-    } catch (e) {
-      _showErrorSnackBar('Failed to copy text: $e');
-    }
-  }
 
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -385,14 +363,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     );
   }
 
-  void _showSuccessSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
+
 
   void _showReadingLevelSelector() {
     showDialog(
@@ -707,37 +678,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      height: 200,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.auto_fix_high,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Your simplified text will appear here',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Future<void> _handleWordTap(String word) async {
     if (word.isEmpty) return;

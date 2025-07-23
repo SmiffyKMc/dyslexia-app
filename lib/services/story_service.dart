@@ -29,7 +29,7 @@ class StoryService {
       developer.log('🎯 Target phonemes: $targetPhonemes, Difficulty: $difficulty', name: 'dyslexic_ai.story_ai');
       
       // Generate story with Gemma 3n
-      final prompt = _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
+      final prompt = await _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
       final response = await aiService.generateResponse(prompt);
       
       // Parse response into Story object
@@ -59,7 +59,7 @@ class StoryService {
     final difficulty = _mapProfileToDifficulty(profile);
     final storyLength = _getStoryLength(difficulty);
     
-    final prompt = _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
+    final prompt = await _buildStoryPrompt(targetPhonemes, difficulty, storyLength);
     
     final stream = await aiService.generateResponseStream(prompt);
     await for (final chunk in stream) {
@@ -85,20 +85,73 @@ class StoryService {
 
   /// Build simple story-only prompt using profile information
   Future<String> _buildSimpleStoryPrompt(LearnerProfile profile) async {
-    final template = await PromptLoader.load('story_only.tmpl');
-    
+    try {
+      final targetPhonemes = _extractTargetPhonemes(profile);
+      final difficulty = _mapProfileToDifficulty(profile);
+      final sentenceCount = _getStoryLength(difficulty);
+      
+      final variables = <String, String>{
+        'difficulty_level': difficulty,
+        'user_confidence': profile.confidence,
+        'user_accuracy': profile.decodingAccuracy,
+        'user_focus_areas': profile.focus,
+        'phoneme_patterns': targetPhonemes.join(', '),
+        'sentence_count': sentenceCount.toString(),
+      };
+      
+      final template = await PromptLoader.load('story_generation', 'story_simple.tmpl');
+      return PromptLoader.fill(template, variables);
+    } catch (e) {
+      developer.log('❌ Failed to build simple story prompt: $e', name: 'dyslexic_ai.story_ai');
+      
+      // Fallback to basic prompt
+      return _buildFallbackSimpleStoryPrompt(profile);
+    }
+  }
+
+  /// Fallback simple story prompt for when template system fails
+  String _buildFallbackSimpleStoryPrompt(LearnerProfile profile) {
     final targetPhonemes = _extractTargetPhonemes(profile);
     final difficulty = _mapProfileToDifficulty(profile);
     final sentenceCount = _getStoryLength(difficulty);
     
-    return PromptLoader.fill(template, {
-      'difficulty': difficulty,
-      'confidence': profile.confidence,
-      'accuracy': profile.decodingAccuracy,
-      'focus_areas': profile.focus,
-      'target_phonemes': targetPhonemes.join(', '),
-      'sentence_count': sentenceCount.toString(),
-    });
+    return '''
+You are an expert storyteller creating educational stories for dyslexic learners.
+
+Create a $difficulty level story that helps practice ${profile.focus}.
+
+Learner Profile:
+- Reading Confidence: ${profile.confidence}
+- Decoding Accuracy: ${profile.decodingAccuracy} 
+- Focus Areas: ${profile.focus}
+
+Story Requirements:
+- $sentenceCount sentences long
+- Use simple, clear language appropriate for $difficulty readers
+- Include words with ${targetPhonemes.join(', ')} sound patterns
+- Create an engaging story that builds confidence
+- Use proper spacing and punctuation
+- NO JSON formatting - just return the story text
+
+Generate the story now:''';
+  }
+
+  /// Fallback story prompt for when template system fails
+  String _buildFallbackStoryPrompt(List<String> targetPhonemes, String difficulty, int sentenceCount) {
+    final phoneme1 = targetPhonemes.isNotEmpty ? targetPhonemes[0] : '-ox';
+    final phoneme2 = targetPhonemes.length > 1 ? targetPhonemes[1] : 'qu-';
+    
+    return '''
+You are an expert in creating educational stories for dyslexic learners. Create a short story that helps practice specific phonetic patterns.
+
+Requirements:
+- Create a $sentenceCount sentence story suitable for $difficulty readers
+- Include at least 4 words with the "$phoneme1" pattern
+- Include at least 3 words with the "$phoneme2" pattern  
+- Make the story engaging with simple characters and clear plot
+- Create exactly 4 questions about the story
+
+Return ONLY valid JSON format with title, content, difficulty, patterns, and questions array.''';
   }
 
   List<String> _extractTargetPhonemes(LearnerProfile profile) {
@@ -144,71 +197,26 @@ class StoryService {
     }
   }
 
-  String _buildStoryPrompt(List<String> targetPhonemes, String difficulty, int sentenceCount) {
-    final phoneme1 = targetPhonemes.isNotEmpty ? targetPhonemes[0] : '-ox';
-    final phoneme2 = targetPhonemes.length > 1 ? targetPhonemes[1] : 'qu-';
-    
-    return '''
-You are an expert in creating educational stories for dyslexic learners. Create a short story that helps practice specific phonetic patterns.
-
-Requirements:
-- Create a $sentenceCount sentence story suitable for $difficulty readers
-- Include at least 4 words with the "$phoneme1" pattern
-- Include at least 3 words with the "$phoneme2" pattern  
-- Make the story engaging with simple characters and clear plot
-- Create exactly 4 questions about the story
-
-Question types needed:
-1. Fill-in-blank question testing "$phoneme1" pattern
-2. Fill-in-blank question testing "$phoneme2" pattern  
-3. Comprehension question about the main character or setting
-4. Comprehension question about what happens in the story
-
-Output MUST be valid JSON in exactly this format:
-{
-  "title": "Story Title",
-  "content": "The complete story text...",
-  "difficulty": "$difficulty",
-  "patterns": ["$phoneme1", "$phoneme2"],
-  "questions": [
-    {
-      "id": "q1",
-      "type": "fill_in_blank",
-      "sentence": "Sentence with ____ blank",
-      "blank_position": 3,
-      "correct_answer": "word",
-      "options": ["word", "option2", "option3"],
-      "pattern": "$phoneme1",
-      "hint": "Helpful hint"
-    },
-    {
-      "id": "q2", 
-      "type": "fill_in_blank",
-      "sentence": "Another sentence with ____ blank",
-      "blank_position": 4,
-      "correct_answer": "word2",
-      "options": ["word2", "option2", "option3"],
-      "pattern": "$phoneme2",
-      "hint": "Helpful hint"
-    },
-    {
-      "id": "q3",
-      "type": "comprehension",
-      "question": "Who is the main character?",
-      "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"]
-    },
-    {
-      "id": "q4", 
-      "type": "comprehension",
-      "question": "What happened in the story?",
-      "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"]
+  Future<String> _buildStoryPrompt(List<String> targetPhonemes, String difficulty, int sentenceCount) async {
+    try {
+      final phoneme1 = targetPhonemes.isNotEmpty ? targetPhonemes[0] : '-ox';
+      final phoneme2 = targetPhonemes.length > 1 ? targetPhonemes[1] : 'qu-';
+      
+      final variables = <String, String>{
+        'sentence_count': sentenceCount.toString(),
+        'difficulty_level': difficulty,
+        'phoneme_pattern1': phoneme1,
+        'phoneme_pattern2': phoneme2,
+      };
+      
+      final template = await PromptLoader.load('story_generation', 'story_with_questions.tmpl');
+      return PromptLoader.fill(template, variables);
+    } catch (e) {
+      developer.log('❌ Failed to build story prompt: $e', name: 'dyslexic_ai.story_ai');
+      
+      // Fallback to basic prompt
+      return _buildFallbackStoryPrompt(targetPhonemes, difficulty, sentenceCount);
     }
-  ]
-}
-
-Generate the story now:''';
   }
 
   Story? parseStoryResponse(String response, List<String> targetPhonemes, String difficulty) {
@@ -530,7 +538,6 @@ Generate the story now:''';
   ];
 
   List<Story> getAllStories() {
-    print('📚 Loaded ${_stories.length} stories');
     
     // Validate question quality on first load (in debug mode)
     assert(() {
@@ -545,7 +552,6 @@ Generate the story now:''';
     try {
       return _stories.firstWhere((story) => story.id == id);
     } catch (e) {
-      print('❌ Story not found: $id');
       return null;
     }
   }
@@ -597,43 +603,25 @@ Generate the story now:''';
   }
   
   void validateAllQuestions() {
-    print('🔍 Validating question quality for all stories...');
     
-    int totalQuestions = 0;
     int problematicQuestions = 0;
     
     for (final story in _stories) {
-      print('📖 Validating story: ${story.title}');
       
       for (final part in story.parts) {
         for (final question in part.questions) {
-          totalQuestions++;
           final quality = question.validateQuality(part);
           
           if (quality.hasIssues) {
             problematicQuestions++;
-            print('⚠️ Question ${question.id} has issues:');
-            for (final issue in quality.issues) {
-              print('   - $issue');
-            }
-            print('   Question: "${question.sentence}"');
-            print('   Options: ${question.options}');
-            print('   Educational Value: ${quality.educationalValue}');
-            print('');
           }
         }
       }
     }
     
-    print('📊 Question Quality Report:');
-    print('   Total Questions: $totalQuestions');
-    print('   Problematic Questions: $problematicQuestions');
-    print('   Quality Score: ${((totalQuestions - problematicQuestions) / totalQuestions * 100).toStringAsFixed(1)}%');
     
     if (problematicQuestions > 0) {
-      print('❌ Found $problematicQuestions questions that need improvement');
     } else {
-      print('✅ All questions passed quality validation');
     }
   }
   

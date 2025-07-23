@@ -7,6 +7,7 @@ import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
+import '../utils/prompt_loader.dart';
 
 class GemmaProfileUpdateService {
   late final SessionLogStore _sessionLogStore;
@@ -219,8 +220,8 @@ class GemmaProfileUpdateService {
       }
 
       // Build main prompt and fallback prompt
-      final mainPrompt = _buildTier2ProfileUpdatePrompt(currentProfile, recentSessions);
-      final fallbackPrompt = _buildMinimalFallbackPrompt(currentProfile, recentSessions);
+      final mainPrompt = await _buildTier2ProfileUpdatePrompt(currentProfile, recentSessions);
+      final fallbackPrompt = await _buildMinimalFallbackPrompt(currentProfile, recentSessions);
       
       developer.log('Generated Tier 2 prompt for AI analysis ($taskType)', name: 'dyslexic_ai.profile_update');
 
@@ -293,21 +294,104 @@ class GemmaProfileUpdateService {
   }
 
   /// Ultra-compact profile update prompt (~300-400 tokens)
-  String _buildTier2ProfileUpdatePrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) {
-    // Ultra-simplified session data
+  Future<String> _buildTier2ProfileUpdatePrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) async {
+    try {
+      // Ultra-simplified session data
+      final sessionData = recentSessions.map((session) => 
+        '${session.feature}: ${((session.accuracy ?? 0.0) * 100).round()}% accuracy, errors: ${session.phonemeErrors.take(2).join(",")}'
+      ).join('\n');
+      
+      // Calculate average accuracy for tool recommendation
+      final avgAccuracy = recentSessions.isNotEmpty 
+          ? recentSessions.map((s) => s.accuracy ?? 0.0).reduce((a, b) => a + b) / recentSessions.length
+          : 0.0;
+      
+      // Simple tool recommendation based on accuracy
+      final suggestedTools = _getSimpleToolRecommendation(avgAccuracy, currentProfile.confidence);
+      
+      final variables = <String, String>{
+        'current_profile': 'Confidence: ${currentProfile.confidence}, Accuracy: ${currentProfile.decodingAccuracy}, Confusions: ${currentProfile.phonemeConfusions.take(2).join(', ')}',
+        'session_data': sessionData,
+        'suggested_tools': suggestedTools,
+      };
+      
+      final template = await PromptLoader.load('profile_analysis', 'full_update.tmpl');
+      return PromptLoader.fill(template, variables);
+    } catch (e) {
+      developer.log('❌ Failed to build profile update prompt: $e', name: 'dyslexic_ai.profile_update');
+      
+      // Fallback to basic prompt
+      return _buildFallbackProfilePrompt(currentProfile, recentSessions);
+    }
+  }
+  
+  /// Simple tool recommendation based on performance (learning activities only)
+  String _getSimpleToolRecommendation(double avgAccuracy, String confidence) {
+    if (avgAccuracy >= 0.85) {
+      return 'Sentence Fixer, Story Mode';
+    } else if (avgAccuracy >= 0.70) {
+      return 'Story Mode, Sentence Fixer, Reading Coach';
+    } else {
+      return 'Phonics Game, Reading Coach';
+    }
+  }
+  
+  /// Super minimal fallback prompt (~150 tokens)
+  Future<String> _buildMinimalFallbackPrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) async {
+    try {
+      final latestSession = recentSessions.isNotEmpty ? recentSessions.first : null;
+      
+      if (latestSession == null) {
+        final variables = <String, String>{
+          'current_profile': 'Profile with minimal data',
+          'current_accuracy': currentProfile.decodingAccuracy,
+          'current_confidence': currentProfile.confidence,
+          'current_phoneme_confusions': currentProfile.phonemeConfusions.take(2).toList().toString(),
+          'current_recommended_tool': currentProfile.recommendedTool,
+          'latest_session_data': 'No recent sessions available',
+          'session_advice': 'Continue current practice routine.',
+        };
+        
+        final template = await PromptLoader.load('profile_analysis', 'minimal_update.tmpl');
+        return PromptLoader.fill(template, variables);
+      }
+      
+      final accuracy = latestSession.accuracy ?? 0.0;
+      final accuracyPercent = (accuracy * 100).round();
+      
+      final variables = <String, String>{
+        'current_profile': 'Latest session analysis',
+        'current_accuracy': accuracy > 0.85 ? 'good' : 'developing',
+        'current_confidence': accuracy > 0.85 ? 'building' : 'low',
+        'current_phoneme_confusions': latestSession.phonemeErrors.take(2).toList().toString(),
+        'current_recommended_tool': latestSession.feature,
+        'latest_session_data': '${latestSession.feature} ($accuracyPercent% accuracy)',
+        'session_advice': accuracy > 0.8 ? 'Great progress!' : 'Keep practicing!',
+      };
+      
+      final template = await PromptLoader.load('profile_analysis', 'minimal_update.tmpl');
+      return PromptLoader.fill(template, variables);
+    } catch (e) {
+      developer.log('❌ Failed to build minimal profile prompt: $e', name: 'dyslexic_ai.profile_update');
+      
+      // Final fallback
+      return _buildHardcodedMinimalPrompt(currentProfile, recentSessions);
+    }
+  }
+
+  /// Fallback prompt if template loading fails
+  String _buildFallbackProfilePrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) {
     final sessionData = recentSessions.map((session) => 
       '${session.feature}: ${((session.accuracy ?? 0.0) * 100).round()}% accuracy, errors: ${session.phonemeErrors.take(2).join(",")}'
     ).join('\n');
-    
-    // Calculate average accuracy for tool recommendation
+
     final avgAccuracy = recentSessions.isNotEmpty 
         ? recentSessions.map((s) => s.accuracy ?? 0.0).reduce((a, b) => a + b) / recentSessions.length
         : 0.0;
-    
-    // Simple tool recommendation based on accuracy
+
     final suggestedTools = _getSimpleToolRecommendation(avgAccuracy, currentProfile.confidence);
-    
-    final prompt = '''
+
+    return '''
 Analyze dyslexia learning data and update profile. Focus on confidence, accuracy, phoneme errors, tool recommendation, and advice.
 
 CURRENT: Confidence: ${currentProfile.confidence}, Accuracy: ${currentProfile.decodingAccuracy}, Confusions: ${currentProfile.phonemeConfusions.take(2).join(', ')}
@@ -330,23 +414,10 @@ Return JSON:
   "recommendedTool": "tool name from suggestions",
   "advice": "specific next steps (max 200 chars)"
 }''';
+  }
 
-    return prompt;
-  }
-  
-  /// Simple tool recommendation based on performance (learning activities only)
-  String _getSimpleToolRecommendation(double avgAccuracy, String confidence) {
-    if (avgAccuracy >= 0.85) {
-      return 'Sentence Fixer, Story Mode';
-    } else if (avgAccuracy >= 0.70) {
-      return 'Story Mode, Sentence Fixer, Reading Coach';
-    } else {
-      return 'Phonics Game, Reading Coach';
-    }
-  }
-  
-  /// Super minimal fallback prompt (~150 tokens)
-  String _buildMinimalFallbackPrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) {
+  /// Hardcoded minimal fallback prompt
+  String _buildHardcodedMinimalPrompt(LearnerProfile currentProfile, List<SessionLog> recentSessions) {
     final latestSession = recentSessions.isNotEmpty ? recentSessions.first : null;
     
     if (latestSession == null) {

@@ -6,7 +6,7 @@ import '../services/gemma_profile_update_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
-import 'dart:developer' as developer;
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -133,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.green.withOpacity(0.3),
+                        color: Colors.green.withValues(alpha: 0.3),
                         blurRadius: 4,
                         spreadRadius: 1,
                       ),
@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context, value, child) {
                       return Container(
                         decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(value),
+                          color: Colors.green.withValues(alpha: value),
                           shape: BoxShape.circle,
                         ),
                       );
@@ -231,7 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(

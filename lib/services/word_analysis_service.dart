@@ -7,7 +7,6 @@ class WordAnalysisService {
   Future<WordAnalysis> analyzeWord(String word) async {
     await Future.delayed(const Duration(milliseconds: 800));
     
-    print('🔍 Analyzing word: "$word"');
     
     final normalizedWord = word.toLowerCase().trim();
     final syllables = _generateSyllables(normalizedWord);
@@ -24,7 +23,6 @@ class WordAnalysisService {
       analyzedAt: DateTime.now(),
     );
     
-    print('🔍 Analysis complete: ${syllables.join("-")} | ${phonemes.join(" ")}');
     
     return analysis;
   }

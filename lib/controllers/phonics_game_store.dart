@@ -137,8 +137,8 @@ class PhonicsGameStore with ChangeNotifier {
 
     _feedbackIsCorrect = isCorrect;
     _feedbackMessage = isCorrect 
-        ? 'Correct! "${word}" starts with /${currentRound!.soundSet.phoneme}/'
-        : 'Not quite. "${word}" doesn\'t start with /${currentRound!.soundSet.phoneme}/';
+        ? 'Correct! "$word" starts with /${currentRound!.soundSet.phoneme}/'
+        : 'Not quite. "$word" doesn\'t start with /${currentRound!.soundSet.phoneme}/';
     
     _showFeedback = true;
     _stopRoundTimer();

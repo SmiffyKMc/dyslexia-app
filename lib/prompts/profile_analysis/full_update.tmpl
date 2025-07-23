@@ -1,0 +1,22 @@
+Analyze dyslexia learning data and update profile. Focus on confidence, accuracy, phoneme errors, tool recommendation, and advice.
+
+CURRENT: {{current_profile}}
+
+RECENT SESSIONS:
+{{session_data}}
+
+RULES:
+- Accuracy 85%+ → upgrade confidence and accuracy levels
+- Accuracy <70% → focus on foundation skills
+- 3+ same phoneme errors → add to confusions
+- Tool variety: avoid repeating current recommended tool
+- Suggested tools: {{suggested_tools}}
+
+Return JSON:
+{
+  "decodingAccuracy": "needs work|developing|good|excellent",
+  "confidence": "low|building|medium|high", 
+  "phonemeConfusions": ["error1", "error2"],
+  "recommendedTool": "tool name from suggestions",
+  "advice": "specific next steps (max 200 chars)"
+} 

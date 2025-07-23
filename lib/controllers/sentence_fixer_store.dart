@@ -17,7 +17,6 @@ abstract class _SentenceFixerStore with Store {
   late final SessionLoggingService _sessionLoggingService;
   
   Timer? _sessionTimer;
-  DateTime? _currentSentenceStartTime;
 
   _SentenceFixerStore() {
     _sentenceFixerService = SentenceFixerService();
@@ -102,8 +101,7 @@ abstract class _SentenceFixerStore with Store {
   @computed
   String get streamingStatusText {
     if (!isGeneratingSentences) return '';
-    if (sentencesGenerated == 0) return 'Preparing first sentence...';
-    return 'Generating sentence ${sentencesGenerated + 1}/$totalSentencesToGenerate...';
+    return 'Generating sentences...';
   }
 
   @computed
@@ -145,90 +143,93 @@ abstract class _SentenceFixerStore with Store {
       developer.log('🎯 Starting reliable AI-powered Sentence Fixer session: $difficulty ($count sentences)', 
           name: 'dyslexic_ai.sentence_fixer');
 
-      final sentencesList = <SentenceWithErrors>[];
-      
-      // Stream sentences one by one
-      final stream = _sentenceFixerService.generateSentencePackStream(
+      // Create empty session immediately so UI can navigate
+      currentSession = SentenceFixerSession(
+        status: SentenceFixerStatus.playing,
+        totalSentences: count,
+        currentSentenceIndex: 0,
+        attempts: [],
+        totalScore: 0,
+        streak: 0,
         difficulty: difficulty,
-        count: count,
-        profile: profile,
+        sentences: [], // Start with empty list
       );
 
-      bool isFirstSentence = true;
+      // Log session start
+      _sessionLoggingService.startSession(
+        sessionType: SessionType.sentenceFixer,
+        featureName: 'Sentence Fixer',
+        initialData: {
+          'difficulty': difficulty,
+          'total_sentences': count,
+          'all_sentences_ready': false,
+        },
+      );
+
+      // Allow immediate navigation
+      isLoading = false;
       
-      await for (final sentence in stream) {
-        sentencesList.add(sentence);
-        sentencesGenerated = sentencesList.length;
-        
-        developer.log('📥 Received sentence $sentencesGenerated/$count: "${sentence.words.join(' ')}"', 
-            name: 'dyslexic_ai.sentence_fixer');
-
-        if (isFirstSentence) {
-          // Create session with first sentence immediately
-          currentSession = SentenceFixerSession(
-            status: SentenceFixerStatus.playing,
-            totalSentences: count, // Expected total
-            currentSentenceIndex: 0,
-            attempts: [],
-            totalScore: 0,
-            streak: 0,
-            difficulty: difficulty,
-            sentences: [sentence], // Start with just the first sentence
-          );
-
-          // Initialize UI state for first sentence
-          _initializeWordSelection();
-          _startSentenceTimer();
-          
-          // Log session start
-          _sessionLoggingService.startSession(
-            sessionType: SessionType.sentenceFixer,
-            featureName: 'Sentence Fixer',
-            initialData: {
-              'difficulty': difficulty,
-              'total_sentences': count,
-              'streaming_mode': true,
-            },
-          );
-
-          isLoading = false; // User can start playing immediately
-          isFirstSentence = false;
-          
-          developer.log('⚡ First sentence ready - user can start playing!', 
-              name: 'dyslexic_ai.sentence_fixer');
-        } else {
-          // Add subsequent sentences to the session
-          if (currentSession != null) {
-            currentSession = currentSession!.copyWith(
-              sentences: [...sentencesList],
-            );
-            
-            developer.log('📝 Added sentence $sentencesGenerated to session queue', 
-                name: 'dyslexic_ai.sentence_fixer');
-          }
-        }
-      }
-
-      // All sentences generated
-      isGeneratingSentences = false;
+      developer.log('🔄 Session created, generating sentences in background...', 
+          name: 'dyslexic_ai.sentence_fixer');
       
-      if (currentSession != null && sentencesList.isNotEmpty) {
-        // Update session with final sentence list
-        currentSession = currentSession!.copyWith(
-          sentences: sentencesList,
-        );
-        
-        developer.log('✅ All ${sentencesList.length} sentences generated and ready', 
-            name: 'dyslexic_ai.sentence_fixer');
-      } else {
-        throw Exception('No sentences could be generated for this difficulty level');
-      }
+      // Generate sentences in background (don't await)
+      _generateSentencesInBackground(difficulty, count, profile);
       
     } catch (e) {
       isLoading = false;
       isGeneratingSentences = false;
       errorMessage = 'Failed to start session: $e';
       developer.log('❌ Failed to start streaming Sentence Fixer session: $e', 
+          name: 'dyslexic_ai.sentence_fixer');
+    }
+  }
+
+  @action
+  Future<void> _generateSentencesInBackground(String difficulty, int count, LearnerProfile? profile) async {
+    try {
+      final sentencesList = <SentenceWithErrors>[];
+      
+      // Generate sentences one by one
+      final stream = _sentenceFixerService.generateSentencePackStream(
+        difficulty: difficulty,
+        count: count,
+        profile: profile,
+      );
+      
+      await for (final sentence in stream) {
+        sentencesList.add(sentence);
+        sentencesGenerated = sentencesList.length;
+        
+        // Update the current session with new sentences
+        if (currentSession != null) {
+          currentSession = currentSession!.copyWith(sentences: List.from(sentencesList));
+        }
+        
+        developer.log('📥 Generated sentence $sentencesGenerated/$count: "${sentence.words.join(' ')}"', 
+            name: 'dyslexic_ai.sentence_fixer');
+      }
+
+      // All sentences generated
+      isGeneratingSentences = false;
+      
+      if (sentencesList.isEmpty) {
+        errorMessage = 'No sentences could be generated for this difficulty level';
+        return;
+      }
+      
+      // Initialize UI for first sentence now that we have sentences
+      if (currentSession != null && sentencesList.isNotEmpty) {
+        _initializeWordSelection();
+        _startSentenceTimer();
+      }
+      
+      developer.log('✅ All ${sentencesList.length} sentences ready - generation complete!', 
+          name: 'dyslexic_ai.sentence_fixer');
+      
+    } catch (e) {
+      isGeneratingSentences = false;
+      errorMessage = 'Failed to generate sentences: $e';
+      developer.log('❌ Background sentence generation failed: $e', 
           name: 'dyslexic_ai.sentence_fixer');
     }
   }
@@ -501,7 +502,6 @@ abstract class _SentenceFixerStore with Store {
   }
 
   void _startSentenceTimer() {
-    _currentSentenceStartTime = DateTime.now();
     _sessionTimer?.cancel();
     _sessionTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       timeSpentOnCurrentSentence++;
@@ -551,6 +551,19 @@ abstract class _SentenceFixerStore with Store {
   }
 
   void dispose() {
+    // Only save session if user actually completed sentences (meaningful interaction)
+    if (_sessionLoggingService.hasActiveSession && currentSession != null) {
+      final sentencesCompleted = currentSession!.completedSentences;
+      
+      if (sentencesCompleted > 0) {
+        // User made meaningful progress - save as completed session
+        _completeSession();
+      } else {
+        // No sentences completed - just cancel without saving
+        _sessionLoggingService.cancelSession(reason: 'No interaction - sentence fixer opened but no sentences completed');
+      }
+    }
+    
     _sessionTimer?.cancel();
     developer.log('SentenceFixerStore disposed', name: 'dyslexic_ai.sentence_fixer');
   }

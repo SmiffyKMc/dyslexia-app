@@ -203,7 +203,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                          decoration: BoxDecoration(
-                       color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                       color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
                        borderRadius: BorderRadius.circular(12),
                      ),
                      child: Text(
@@ -243,9 +243,9 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,
@@ -289,8 +289,6 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
 
   Widget _buildProgressHeader() {
     final progress = _store.progressPercentage;
-    final currentPart = _store.currentPartIndex + 1;
-    final totalParts = _store.currentStory?.totalParts ?? 1;
     
     // Calculate question progress across entire story
     final totalQuestionsInStory = _store.currentStory?.parts.fold(0, (sum, part) => sum + part.questions.length) ?? 0;
@@ -300,7 +298,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-                 color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                 color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
       child: Column(
@@ -696,9 +694,9 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: DyslexiaTheme.successColor.withOpacity(0.1),
+                      color: DyslexiaTheme.successColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: DyslexiaTheme.successColor.withOpacity(0.3)),
+                      border: Border.all(color: DyslexiaTheme.successColor.withValues(alpha: 0.3)),
                     ),
                     child: Text(
                       word,
@@ -753,9 +751,9 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                    color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: DyslexiaTheme.primaryAccent.withOpacity(0.3)),
+                    border: Border.all(color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.3)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,7 +806,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                     ],
                   ),
                 );
-              }).toList(),
+              }),
           ],
         ),
       ),
@@ -838,9 +836,9 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: DyslexiaTheme.successColor.withOpacity(0.1),
+                      color: DyslexiaTheme.successColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: DyslexiaTheme.successColor.withOpacity(0.3)),
+                      border: Border.all(color: DyslexiaTheme.successColor.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       children: [
@@ -892,7 +890,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                                  color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -932,7 +930,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: DyslexiaTheme.successColor.withOpacity(0.1),
+                                  color: DyslexiaTheme.successColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -972,7 +970,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
+                                  color: Colors.orange.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Icon(
@@ -1032,9 +1030,9 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                                 return Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                   decoration: BoxDecoration(
-                                    color: DyslexiaTheme.successColor.withOpacity(0.1),
+                                    color: DyslexiaTheme.successColor.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: DyslexiaTheme.successColor.withOpacity(0.3)),
+                                    border: Border.all(color: DyslexiaTheme.successColor.withValues(alpha: 0.3)),
                                   ),
                                   child: Text(
                                     word,

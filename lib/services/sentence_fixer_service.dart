@@ -161,279 +161,83 @@ class SentenceFixerService {
     ),
   ];
 
-  /// Streaming version that yields sentences one by one for immediate UI feedback
+  /// Generate complete sentence pack without immediate yielding
   Stream<SentenceWithErrors> generateSentencePackStream({
     required String difficulty,
     required int count,
     LearnerProfile? profile,
   }) async* {
-    developer.log('🎯 Starting reliable streaming sentence generation: $difficulty, count=$count', 
+    developer.log('🎯 Starting complete sentence generation: $difficulty, count=$count', 
         name: 'dyslexic_ai.sentence_fixer');
     
-    // Phase 1: Yield first sentence immediately (from predefined for speed)
-    final firstSentence = _getFirstSentenceForDifficulty(difficulty);
-    developer.log('⚡ Yielding first sentence immediately: "${firstSentence.words.join(' ')}"', 
-        name: 'dyslexic_ai.sentence_fixer');
-    yield firstSentence;
-    
-    // Phase 2: Generate remaining sentences using reliable AI batch
-    final remainingCount = count - 1;
-    if (remainingCount <= 0) return;
+    // Generate ALL sentences first - no immediate yielding
+    final allSentences = <SentenceWithErrors>[];
     
     try {
-      developer.log('🤖 Generating ${remainingCount} sentences with reliable AI batch', 
+      developer.log('🤖 Generating complete sentence batch with AI...', 
           name: 'dyslexic_ai.sentence_fixer');
       
-      // Use reliable batch generation for consistent quality
+      // Use reliable batch generation for all sentences
       final aiSentences = await generateReliableBatch(
         difficulty: difficulty,
         profile: profile,
       );
       
-      // Yield AI sentences one by one
-      int yieldedCount = 0;
-      for (final sentence in aiSentences) {
-        if (yieldedCount >= remainingCount) break;
-        
-        developer.log('✅ Yielding reliable AI sentence ${yieldedCount + 1}: "${sentence.words.join(' ')}"', 
+      if (aiSentences.length >= count) {
+        // AI succeeded - use AI sentences
+        aiSentences.shuffle(_random);
+        allSentences.addAll(aiSentences.take(count));
+        developer.log('✅ Using ${count} AI-generated sentences', 
             name: 'dyslexic_ai.sentence_fixer');
-        yield sentence;
-        yieldedCount++;
-      }
-      
-      // Fill any remaining slots with predefined sentences
-      final predefinedNeeded = remainingCount - yieldedCount;
-      if (predefinedNeeded > 0) {
-        final predefinedSentences = _getFallbackSentences(difficulty);
-        for (int i = 0; i < predefinedNeeded && i < predefinedSentences.length; i++) {
-          developer.log('📝 Yielding fallback sentence: "${predefinedSentences[i].words.join(' ')}"', 
-              name: 'dyslexic_ai.sentence_fixer');
-          yield predefinedSentences[i];
-        }
+      } else {
+        // Hybrid: AI + fallback sentences
+        allSentences.addAll(aiSentences);
+        
+        final fallbackSentences = _getFallbackSentences(difficulty);
+        final neededFromFallback = count - aiSentences.length;
+        allSentences.addAll(fallbackSentences.take(neededFromFallback));
+        
+        // Shuffle the final mix
+        allSentences.shuffle(_random);
+        
+        developer.log('🔄 Using hybrid: ${aiSentences.length} AI + ${neededFromFallback} fallback sentences', 
+            name: 'dyslexic_ai.sentence_fixer');
       }
       
     } catch (e) {
-      developer.log('❌ Reliable generation failed, using fallback sentences: $e', 
+      developer.log('❌ AI generation failed, using fallback sentences: $e', 
           name: 'dyslexic_ai.sentence_fixer');
       
-      // Fallback to predefined sentences
+      // Fallback to predefined sentences only
       final fallbackSentences = _getFallbackSentences(difficulty);
-      for (int i = 0; i < remainingCount && i < fallbackSentences.length; i++) {
-        developer.log('📝 Yielding fallback sentence: "${fallbackSentences[i].words.join(' ')}"', 
-            name: 'dyslexic_ai.sentence_fixer');
-        yield fallbackSentences[i];
-      }
+      allSentences.addAll(fallbackSentences.take(count));
     }
     
-    developer.log('🎉 Reliable streaming sentence generation complete', 
+    // Now yield all sentences at once (after generation is complete)
+    for (int i = 0; i < allSentences.length; i++) {
+      developer.log('📥 Generated sentence ${i + 1}/$count: "${allSentences[i].words.join(' ')}"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      yield allSentences[i];
+    }
+    
+    developer.log('🎉 Sentence generation complete - all ${allSentences.length} sentences ready', 
         name: 'dyslexic_ai.sentence_fixer');
   }
 
-  /// Get the best first sentence for immediate display
+  /// Get a random first sentence for immediate display
   SentenceWithErrors _getFirstSentenceForDifficulty(String difficulty) {
     final predefined = _getPredefinedSentencesForDifficulty(difficulty);
     if (predefined.isNotEmpty) {
-      return predefined.first; // Use first predefined for consistency
+      return predefined[_random.nextInt(predefined.length)]; // Use random predefined for variety
     }
     
-    // Fallback to any predefined sentence
-    return _predefinedSentences.first;
+    // Fallback to any random predefined sentence
+    return _predefinedSentences[_random.nextInt(_predefinedSentences.length)];
   }
 
-  /// Generate a single AI sentence
-  Future<SentenceWithErrors?> _generateSingleAISentence({
-    required String difficulty,
-    LearnerProfile? profile,
-  }) async {
-    final aiService = getAIInferenceService();
-    if (aiService == null) {
-      return null;
-    }
-    
-    try {
-      final tmpl = await PromptLoader.load('sentence_fixer.tmpl');
-      final prompt = PromptLoader.fill(tmpl, {
-        'count': '1', // Generate only one sentence
-        'difficulty': difficulty,
-      });
-      
-      final response = await aiService.generateResponse(prompt);
-      final sentences = _parseAISentenceResponse(response, difficulty);
-      
-      return sentences.isNotEmpty ? sentences.first : null;
-    } catch (e) {
-      developer.log('❌ Single AI sentence generation failed: $e', 
-          name: 'dyslexic_ai.sentence_fixer');
-      return null;
-    }
-  }
 
-  /// Generate a single AI sentence using simple prompt (much faster)
-  Future<SentenceWithErrors?> _generateFastAISentence({
-    required String difficulty,
-    LearnerProfile? profile,
-  }) async {
-    final aiService = getAIInferenceService();
-    if (aiService == null) {
-      return null;
-    }
-    
-    try {
-      final tmpl = await PromptLoader.load('sentence_simple.tmpl');
-      final prompt = tmpl; // No variable substitution needed for simple template
-      
-      final response = await aiService.generateResponse(prompt);
-      final cleanSentence = response.trim().replaceAll('"', '');
-      
-      if (cleanSentence.isEmpty) {
-        return null;
-      }
-      
-      // Split into words and detect error position using spell check
-      final words = cleanSentence.split(' ');
-      final errorPosition = _detectErrorPosition(words);
-      
-      developer.log('🔍 AI generated: "$cleanSentence"', name: 'dyslexic_ai.sentence_fixer');
-      developer.log('🔍 Error position detected: $errorPosition', name: 'dyslexic_ai.sentence_fixer');
-      
-      if (errorPosition == -1) {
-        // No error detected, manually create one by misspelling a word
-        developer.log('🔧 No error detected, creating manual error', name: 'dyslexic_ai.sentence_fixer');
-        return _createErrorInSentence(words, difficulty);
-      }
-      
-      return SentenceWithErrors(
-        words: words,
-        errorPositions: [errorPosition],
-        corrections: [_suggestCorrection(words[errorPosition])],
-        difficulty: difficulty,
-        errorTypes: [ErrorType.spelling],
-        hint: _generateHint(words[errorPosition]),
-        category: 'spelling',
-      );
-      
-    } catch (e) {
-      developer.log('❌ Fast AI sentence generation failed: $e', 
-          name: 'dyslexic_ai.sentence_fixer');
-      return null;
-    }
-  }
   
-  /// Detect which word position has a spelling error
-  int _detectErrorPosition(List<String> words) {
-    final commonMisspellings = {
-      'runing': 'running',
-      'comming': 'coming', 
-      'geting': 'getting',
-      'siting': 'sitting',
-      'wriet': 'write',
-      'freind': 'friend',
-      'becaus': 'because',
-      'beleive': 'believe',
-      'tommorrow': 'tomorrow',
-      'thier': 'their',
-      'hapy': 'happy',
-      'alot': 'a lot',
-    };
-    
-    for (int i = 0; i < words.length; i++) {
-      final word = words[i].toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
-      if (commonMisspellings.containsKey(word)) {
-        return i;
-      }
-    }
-    
-    return -1; // No error detected
-  }
-  
-  /// Suggest correction for a misspelled word
-  String _suggestCorrection(String misspelledWord) {
-    final commonMisspellings = {
-      'runing': 'running',
-      'comming': 'coming',
-      'geting': 'getting', 
-      'siting': 'sitting',
-      'wriet': 'write',
-      'freind': 'friend',
-      'becaus': 'because',
-      'beleive': 'believe',
-      'tommorrow': 'tomorrow',
-      'thier': 'their',
-      'hapy': 'happy',
-      'alot': 'a lot',
-    };
-    
-    final cleanWord = misspelledWord.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
-    return commonMisspellings[cleanWord] ?? misspelledWord;
-  }
-  
-  /// Generate a helpful hint for the error
-  String _generateHint(String misspelledWord) {
-    final word = misspelledWord.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
-    
-    final hints = {
-      'runing': 'This word needs a double letter before adding -ing',
-      'comming': 'This word needs a double letter in the middle',
-      'geting': 'This word needs a double letter before adding -ing',
-      'siting': 'This word needs a double letter',
-      'wriet': 'The vowels in this word are in the wrong order',
-      'freind': 'Remember the rule: "i before e except after c"',
-      'becaus': 'This word is missing a letter at the end',
-      'beleive': 'Remember the rule: "i before e except after c"',
-      'tommorrow': 'This word has too many of one letter',
-      'thier': 'This word starts like "the" but with different letters',
-      'hapy': 'This word needs a double letter',
-      'alot': 'This should be written as two separate words',
-    };
-    
-    return hints[word] ?? 'Check the spelling of this word carefully';
-  }
-  
-  /// Create an error in a clean sentence by misspelling one word
-  SentenceWithErrors _createErrorInSentence(List<String> words, String difficulty) {
-    // Pick a word to misspell (avoid first/last words, prefer middle)
-    int targetIndex = words.length > 3 ? 1 + Random().nextInt(words.length - 2) : 0;
-    String targetWord = words[targetIndex].toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
-    
-    // Apply common misspelling patterns
-    String misspelled = _applyMisspellingPattern(targetWord);
-    
-    // Replace the word in the sentence
-    List<String> modifiedWords = List.from(words);
-    modifiedWords[targetIndex] = misspelled;
-    
-    return SentenceWithErrors(
-      words: modifiedWords,
-      errorPositions: [targetIndex],
-      corrections: [targetWord],
-      difficulty: difficulty,
-      errorTypes: [ErrorType.spelling],
-      hint: _generateHint(misspelled),
-      category: 'spelling',
-    );
-  }
-  
-  /// Apply common misspelling patterns to create realistic errors
-  String _applyMisspellingPattern(String word) {
-    final patterns = [
-      (String w) => w.replaceAll('ing', 'ing').replaceAll('nning', 'ning'), // running -> runing
-      (String w) => w.replaceAll('ie', 'ei'), // friend -> freind  
-      (String w) => w.replaceAll('pp', 'p'), // happy -> hapy
-      (String w) => w.replaceAll('tt', 't'), // sitting -> siting
-      (String w) => w.replaceAll('mm', 'm'), // tomorrow -> tommorow (reverse)
-    ];
-    
-    // Try each pattern and return first that creates a change
-    for (final pattern in patterns) {
-      String result = pattern(word);
-      if (result != word) {
-        return result;
-      }
-    }
-    
-    // Fallback: remove last letter if word is long enough
-    return word.length > 4 ? word.substring(0, word.length - 1) : word;
-  }
+
 
   /// Get predefined sentences filtered by difficulty
   List<SentenceWithErrors> _getPredefinedSentencesForDifficulty(String difficulty) {
@@ -529,7 +333,7 @@ class SentenceFixerService {
     // Try up to 3 times to get valid sentences
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
-        final tmpl = await PromptLoader.load('sentence_fixer.tmpl');
+        final tmpl = await PromptLoader.load('sentence_fixer', 'single_sentence.tmpl');
         final prompt = PromptLoader.fill(tmpl, {
           'count': '$count',
           'difficulty': difficulty,
@@ -953,20 +757,42 @@ class SentenceFixerService {
       developer.log('🎯 Generating reliable sentence batch for: $difficulty ($count sentences)', 
           name: 'dyslexic_ai.sentence_fixer');
       
-      final tmpl = await PromptLoader.load('sentence_batch.tmpl');
-      final prompt = PromptLoader.fill(tmpl, {'count': count.toString()});
+      // Use difficulty-specific prompt template
+      final templateName = _getTemplateForDifficulty(difficulty);
+      final tmpl = await PromptLoader.load('sentence_fixer', templateName);
+      
+      // Generate extra sentences to ensure we get enough valid ones
+      final generateCount = count + 2;
+      final prompt = PromptLoader.fill(tmpl, {'count': generateCount.toString()});
       
       final response = await aiService.generateResponse(prompt);
-      final sentences = _parseStructuredResponse(response, difficulty);
+      final aiSentences = _parseStructuredResponse(response, difficulty);
       
-      if (sentences.length >= count) {
-        developer.log('✅ Generated ${sentences.length} reliable sentences', 
+      developer.log('🔍 AI generated ${aiSentences.length} valid sentences out of $count requested', 
+          name: 'dyslexic_ai.sentence_fixer');
+      
+      if (aiSentences.length >= count) {
+        // AI succeeded - shuffle and use random AI sentences
+        aiSentences.shuffle(_random);
+        developer.log('✅ Using ${count} AI-generated sentences (shuffled from ${aiSentences.length})', 
             name: 'dyslexic_ai.sentence_fixer');
-        return sentences.take(count).toList();
+        return aiSentences.take(count).toList();
       } else {
-        developer.log('⚠️ Only got ${sentences.length} sentences, using fallback', 
+        // Hybrid approach: use valid AI sentences + reliable fallbacks
+        final fallbackSentences = _getFallbackSentences(difficulty);
+        final neededFromFallback = count - aiSentences.length;
+        
+        final finalSentences = <SentenceWithErrors>[];
+        finalSentences.addAll(aiSentences);
+        finalSentences.addAll(fallbackSentences.take(neededFromFallback));
+        
+        // Shuffle the final mix for variety
+        finalSentences.shuffle(_random);
+        
+        developer.log('🔄 Using hybrid: ${aiSentences.length} AI + ${neededFromFallback} fallback sentences (shuffled)', 
             name: 'dyslexic_ai.sentence_fixer');
-        return _getFallbackSentences(difficulty);
+        
+        return finalSentences.take(count).toList();
       }
       
     } catch (e) {
@@ -987,6 +813,35 @@ class SentenceFixerService {
         return 8;
       default:
         return 5; // Default to beginner
+    }
+  }
+  
+  /// Get appropriate template file for difficulty level
+  String _getTemplateForDifficulty(String difficulty) {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        return 'beginner_generation.tmpl';
+      case 'intermediate':
+        return 'intermediate_generation.tmpl';
+      case 'advanced':
+        return 'advanced_generation.tmpl';
+      default:
+        return 'beginner_generation.tmpl'; // Default to beginner
+    }
+  }
+  
+  /// Get validation limits based on difficulty level
+  /// Returns (minWords, maxWords, maxWordLength, maxLengthDiff, checkComplexWords)
+  (int, int, int, int, bool) _getValidationLimits(String difficulty) {
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        return (3, 6, 8, 2, true);   // Short sentences, simple words, strict limits
+      case 'intermediate':
+        return (4, 8, 12, 3, false); // Medium sentences, moderate words
+      case 'advanced':
+        return (5, 12, 15, 4, false); // Longer sentences, complex words allowed
+      default:
+        return (3, 6, 8, 2, true);   // Default to beginner
     }
   }
   
@@ -1015,7 +870,11 @@ class SentenceFixerService {
         jsonStr = jsonLines.join('\n');
       }
       
-      developer.log('🔍 Parsing JSON response: ${jsonStr.substring(0, min(200, jsonStr.length))}...', 
+      developer.log('🔍 Parsing JSON response: ${jsonStr.substring(0, min(500, jsonStr.length))}...', 
+          name: 'dyslexic_ai.sentence_fixer');
+      
+      // Log the raw response for debugging
+      developer.log('🔍 Raw AI response: ${response.substring(0, min(300, response.length))}...', 
           name: 'dyslexic_ai.sentence_fixer');
       
       final List<dynamic> jsonArray = json.decode(jsonStr);
@@ -1027,7 +886,8 @@ class SentenceFixerService {
           final errorWord = item['error_word']?.toString() ?? '';
           final correctWord = item['correct_word']?.toString() ?? '';
           
-          if (sentence.isNotEmpty && errorWord.isNotEmpty && correctWord.isNotEmpty) {
+          // Validate AI response quality based on difficulty
+          if (_validateAISentence(sentence, errorWord, correctWord, difficulty)) {
             final words = sentence.split(' ');
             final errorIndex = words.indexWhere((word) => 
                 word.toLowerCase().replaceAll(RegExp(r'[^\w]'), '') == 
@@ -1040,13 +900,19 @@ class SentenceFixerService {
                 corrections: [correctWord],
                 difficulty: difficulty,
                 errorTypes: [ErrorType.spelling],
-                hint: _generateHint(errorWord),
+                hint: 'Check the spelling of this word',
                 category: 'spelling',
               ));
               
-              developer.log('✅ Created sentence: "$sentence" (error: $errorWord → $correctWord)', 
+              developer.log('✅ Created valid sentence: "$sentence" (error: $errorWord → $correctWord)', 
+                  name: 'dyslexic_ai.sentence_fixer');
+            } else {
+              developer.log('❌ Error word "$errorWord" not found in sentence: "$sentence"', 
                   name: 'dyslexic_ai.sentence_fixer');
             }
+          } else {
+            developer.log('❌ Invalid AI sentence rejected: "$sentence" (error: $errorWord → $correctWord)', 
+                name: 'dyslexic_ai.sentence_fixer');
           }
         }
       }
@@ -1059,49 +925,195 @@ class SentenceFixerService {
     }
   }
   
-  /// Get reliable fallback sentences for when AI fails
-  List<SentenceWithErrors> _getFallbackSentences(String difficulty) {
-    final fallbackSentences = [
-      {
-        'words': ['The', 'dog', 'is', 'runing', 'in', 'the', 'park'],
-        'errorPos': 3,
-        'correction': 'running',
-        'errorWord': 'runing'
-      },
-      {
-        'words': ['My', 'freind', 'is', 'coming', 'over'],
-        'errorPos': 1,
-        'correction': 'friend',
-        'errorWord': 'freind'
-      },
-      {
-        'words': ['She', 'is', 'very', 'hapy', 'today'],
-        'errorPos': 3,
-        'correction': 'happy',
-        'errorWord': 'hapy'
-      },
-      {
-        'words': ['I', 'like', 'to', 'wriet', 'stories'],
-        'errorPos': 3,
-        'correction': 'write',
-        'errorWord': 'wriet'
-      },
-      {
-        'words': ['The', 'cat', 'is', 'siting', 'on', 'the', 'chair'],
-        'errorPos': 3,
-        'correction': 'sitting',
-        'errorWord': 'siting'
-      },
+  /// Validate AI-generated sentence based on difficulty level
+  bool _validateAISentence(String sentence, String errorWord, String correctWord, String difficulty) {
+    // Basic checks
+    if (sentence.isEmpty || errorWord.isEmpty || correctWord.isEmpty) {
+      return false;
+    }
+    
+    // Error word and correction must be different (strict check)
+    if (errorWord.toLowerCase().trim() == correctWord.toLowerCase().trim()) {
+      developer.log('❌ Error and correction are identical: "$errorWord"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Clean up words for comparison
+    final cleanErrorWord = errorWord.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
+    final cleanCorrectWord = correctWord.toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
+    
+    // Ensure it's actually a spelling mistake, not a grammar change
+    if (_isGrammarChange(cleanErrorWord, cleanCorrectWord)) {
+      developer.log('❌ Grammar change detected, not spelling error: "$errorWord" → "$correctWord"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Sentence must contain the error word
+    final words = sentence.split(' ');
+    final containsError = words.any((word) => 
+        word.toLowerCase().replaceAll(RegExp(r'[^\w]'), '') == cleanErrorWord);
+    
+    if (!containsError) {
+      developer.log('❌ Sentence does not contain error word: "$errorWord" in "$sentence"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Difficulty-specific validation
+    final (minWords, maxWords, maxWordLength, maxLengthDiff, checkComplexWords) = _getValidationLimits(difficulty);
+    
+    // Check sentence length based on difficulty
+    if (words.length < minWords || words.length > maxWords) {
+      developer.log('❌ Sentence length not appropriate for $difficulty: ${words.length} words', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Check word complexity based on difficulty
+    if (cleanErrorWord.length < 2 || cleanErrorWord.length > maxWordLength) {
+      developer.log('❌ Error word too complex for $difficulty: "$cleanErrorWord" (${cleanErrorWord.length} chars)', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Check for complex vocabulary (only for beginner level)
+    if (checkComplexWords && _hasComplexWords(sentence)) {
+      developer.log('❌ Sentence contains complex words not suitable for $difficulty: "$sentence"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    // Check length difference based on difficulty
+    final lengthDiff = (cleanErrorWord.length - cleanCorrectWord.length).abs();
+    if (lengthDiff > maxLengthDiff) {
+      developer.log('❌ Error and correction too different for $difficulty: "$cleanErrorWord" vs "$cleanCorrectWord"', 
+          name: 'dyslexic_ai.sentence_fixer');
+      return false;
+    }
+    
+    developer.log('✅ Sentence validation passed: "$sentence" (error: $errorWord → $correctWord)', 
+        name: 'dyslexic_ai.sentence_fixer');
+    return true;
+  }
+  
+  /// Check if this is a grammar change rather than spelling error
+  bool _isGrammarChange(String errorWord, String correctWord) {
+    // Plural changes: cat → cats, dog → dogs, box → boxes
+    if (correctWord == '${errorWord}s' || errorWord == '${correctWord}s') {
+      return true;
+    }
+    if (correctWord == '${errorWord}es' || errorWord == '${correctWord}es') {
+      return true;
+    }
+    
+    // Irregular plurals: child → children, mouse → mice, etc.
+    final irregularPlurals = {
+      'child': 'children', 'mouse': 'mice', 'foot': 'feet', 'tooth': 'teeth',
+      'man': 'men', 'woman': 'women', 'goose': 'geese'
+    };
+    if (irregularPlurals[errorWord] == correctWord || irregularPlurals[correctWord] == errorWord) {
+      return true;
+    }
+    
+    // Past tense changes: run → ran, play → played, go → went
+    if (correctWord.endsWith('ed') && !errorWord.endsWith('ed')) {
+      return true;
+    }
+    
+    // ing changes: run → running, play → playing
+    if (correctWord.endsWith('ing') && !errorWord.endsWith('ing')) {
+      return true;
+    }
+    
+    // Common tense changes: go → went, run → ran, see → saw
+    final tenseChanges = {
+      'go': 'went', 'run': 'ran', 'see': 'saw', 'come': 'came', 
+      'get': 'got', 'have': 'had', 'is': 'was', 'are': 'were'
+    };
+    if (tenseChanges[errorWord] == correctWord || tenseChanges[correctWord] == errorWord) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /// Check if sentence contains complex words unsuitable for beginners
+  bool _hasComplexWords(String sentence) {
+    final complexWords = [
+      'agile', 'cheetah', 'savanna', 'gazelle', 'torrential', 'majestic', 
+      'gracefully', 'chocolate', 'celebrate', 'birthdays', 'vibrant', 
+      'wildflowers', 'meadows', 'springtime', 'rewarding', 'scenic', 
+      'cottage', 'peaceful', 'retreat', 'bustle', 'throughout', 'entire'
     ];
     
-    return fallbackSentences.map((data) => SentenceWithErrors(
+    final words = sentence.toLowerCase().split(' ');
+    return words.any((word) => 
+        complexWords.contains(word.replaceAll(RegExp(r'[^\w]'), '')));
+  }
+  
+  /// Get fallback sentences appropriate for the difficulty level
+  List<SentenceWithErrors> _getFallbackSentences(String difficulty) {
+    List<Map<String, dynamic>> fallbackPool;
+    
+    switch (difficulty.toLowerCase()) {
+      case 'beginner':
+        // Very simple 1st grade sentences
+                 fallbackPool = [
+           {'words': ['I', 'can', 'se', 'mom'], 'errorPos': 2, 'correction': 'see', 'errorWord': 'se'},
+           {'words': ['The', 'cat', 'ran', 'hom'], 'errorPos': 3, 'correction': 'home', 'errorWord': 'hom'},
+           {'words': ['My', 'dog', 'is', 'bigg'], 'errorPos': 3, 'correction': 'big', 'errorWord': 'bigg'},
+           {'words': ['Dad', 'haz', 'a', 'hat'], 'errorPos': 1, 'correction': 'has', 'errorWord': 'haz'},
+           {'words': ['I', 'liek', 'to', 'play'], 'errorPos': 1, 'correction': 'like', 'errorWord': 'liek'},
+           {'words': ['The', 'sunn', 'is', 'hot'], 'errorPos': 1, 'correction': 'sun', 'errorWord': 'sunn'},
+           {'words': ['We', 'go', 'to', 'scool'], 'errorPos': 3, 'correction': 'school', 'errorWord': 'scool'},
+           {'words': ['My', 'carr', 'is', 'red'], 'errorPos': 1, 'correction': 'car', 'errorWord': 'carr'},
+         ];
+        break;
+        
+      case 'intermediate':
+        // 3rd-4th grade sentences
+        fallbackPool = [
+          {'words': ['I', 'ate', 'a', 'sandwhich', 'for', 'lunch'], 'errorPos': 3, 'correction': 'sandwich', 'errorWord': 'sandwhich'},
+          {'words': ['The', 'techer', 'helped', 'me', 'today'], 'errorPos': 1, 'correction': 'teacher', 'errorWord': 'techer'},
+          {'words': ['My', 'sisiter', 'likes', 'to', 'sing'], 'errorPos': 1, 'correction': 'sister', 'errorWord': 'sisiter'},
+          {'words': ['It', 'was', 'raning', 'all', 'day'], 'errorPos': 2, 'correction': 'raining', 'errorWord': 'raning'},
+          {'words': ['She', 'drank', 'choclate', 'milk', 'yesterday'], 'errorPos': 2, 'correction': 'chocolate', 'errorWord': 'choclate'},
+        ];
+        break;
+        
+      case 'advanced':
+        // 5th-6th grade sentences  
+        fallbackPool = [
+          {'words': ['The', 'elefant', 'ate', 'peanuts', 'at', 'the', 'zoo'], 'errorPos': 1, 'correction': 'elephant', 'errorWord': 'elefant'},
+          {'words': ['His', 'brothr', 'plays', 'football', 'well'], 'errorPos': 1, 'correction': 'brother', 'errorWord': 'brothr'},
+          {'words': ['We', 'viseted', 'grandma', 'last', 'weekend'], 'errorPos': 1, 'correction': 'visited', 'errorWord': 'viseted'},
+          {'words': ['The', 'buterfly', 'landed', 'on', 'the', 'flower'], 'errorPos': 1, 'correction': 'butterfly', 'errorWord': 'buterfly'},
+        ];
+        break;
+        
+      default:
+        // Default to beginner
+        fallbackPool = [
+          {'words': ['I', 'can', 'se', 'mom'], 'errorPos': 2, 'correction': 'see', 'errorWord': 'se'},
+          {'words': ['The', 'cat', 'ran', 'hom'], 'errorPos': 3, 'correction': 'home', 'errorWord': 'hom'},
+          {'words': ['My', 'dog', 'is', 'bigg'], 'errorPos': 3, 'correction': 'big', 'errorWord': 'bigg'},
+        ];
+    }
+    
+    // Randomly select sentences to provide variety
+    final shuffled = List.from(fallbackPool)..shuffle(_random);
+    final selectedSentences = shuffled.take(5).toList();
+    
+    return selectedSentences.map((data) => SentenceWithErrors(
       words: data['words'] as List<String>,
       errorPositions: [data['errorPos'] as int],
       corrections: [data['correction'] as String],
       difficulty: difficulty,
       errorTypes: [ErrorType.spelling],
-      hint: _generateHint(data['errorWord'] as String),
+      hint: 'Check the spelling of this word',
       category: 'spelling',
     )).toList();
   }
-} 
+}

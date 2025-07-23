@@ -48,17 +48,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Loading state - needs Observer for isLoading
-            Observer(
-          builder: (context) {
-                if (!_store.isLoading) {
-                  return const SizedBox.shrink();
-                }
-                return const Expanded(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              },
-            ),
+            
             
             // Error state - needs Observer for errorMessage
             Observer(
@@ -73,7 +63,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
             // Start screen - needs Observer for session state
             Observer(
               builder: (context) {
-                if (_store.isLoading || _store.errorMessage != null || _store.hasCurrentSession) {
+                if (_store.errorMessage != null || _store.hasCurrentSession) {
                   return const SizedBox.shrink();
                 }
                 return Expanded(child: _buildStartScreen());
@@ -184,6 +174,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
               fontWeight: FontWeight.bold,
             ),
           ),
+
           const SizedBox(height: 16),
           _buildDifficultyCard(
             'Beginner',
@@ -223,55 +214,57 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
   }
 
   Widget _buildDifficultyCard(String title, String subtitle, String description, Color color) {
-    return Card(
-      child: InkWell(
-        onTap: () => _startGame(title.toLowerCase()),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+    return Observer(
+      builder: (context) => Card(
+        child: InkWell(
+          onTap: _store.isLoading ? null : () => _startGame(title.toLowerCase()),
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.quiz,
+                    color: color,
+                    size: 24,
+                  ),
                 ),
-                child: Icon(
-                  Icons.quiz,
-                  color: color,
-                  size: 24,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        description,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      description,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[500],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
+                const Icon(Icons.arrow_forward_ios, size: 16),
+              ],
+            ),
           ),
         ),
       ),
@@ -343,10 +336,15 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Sentence ${_store.currentSentenceNumber} of ${_store.totalSentences}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                Observer(
+                  builder: (_) => Text(
+                    _store.isGeneratingSentences 
+                        ? _store.streamingStatusText
+                        : 'Sentence ${_store.currentSentenceNumber} of ${_store.totalSentences}',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: _store.isGeneratingSentences ? Colors.orange : null,
+                    ),
                   ),
                 ),
                 Row(
@@ -393,47 +391,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
               backgroundColor: Colors.grey[300],
               valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
             ),
-            // Add streaming progress indicator
-            Observer(
-              builder: (context) => _store.isStreamingInProgress
-                  ? Column(
-                      children: [
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _store.streamingStatusText,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blue[600],
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${_store.sentencesGenerated}/${_store.totalSentencesToGenerate}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue[600],
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    )
-                  : const SizedBox.shrink(),
-            ),
+
           ],
         ),
       ),
@@ -442,7 +400,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
 
   Widget _buildInstructionCard() {
     return Card(
-      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -496,7 +454,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
+                    color: Colors.blue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -563,7 +521,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
   Color _getWordButtonColor(int index, bool isSelected) {
     if (!_store.showFeedback) {
       return isSelected 
-          ? Theme.of(context).primaryColor.withOpacity(0.2)
+          ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
           : Colors.grey[50]!;
     }
 
@@ -572,11 +530,11 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
     if (feedback == null) return Colors.grey[50]!;
 
     if (feedback.correctSelections.contains(index)) {
-      return Colors.green.withOpacity(0.2);
+      return Colors.green.withValues(alpha: 0.2);
     } else if (feedback.incorrectSelections.contains(index)) {
-      return Colors.red.withOpacity(0.2);
+      return Colors.red.withValues(alpha: 0.2);
     } else if (feedback.missedErrors.contains(index)) {
-      return Colors.orange.withOpacity(0.2);
+      return Colors.orange.withValues(alpha: 0.2);
     }
 
     return Colors.grey[50]!;
@@ -607,7 +565,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
     if (feedback == null) return const SizedBox.shrink();
 
     return Card(
-      color: feedback.isSuccess ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+      color: feedback.isSuccess ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -682,7 +640,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
+                color: Colors.blue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.blue[200]!),
               ),
@@ -828,7 +786,7 @@ class _SentenceFixerScreenState extends State<SentenceFixerScreen> {
       child: Column(
         children: [
           Card(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.green.withValues(alpha: 0.1),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(

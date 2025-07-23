@@ -20,7 +20,6 @@ import 'utils/theme.dart';
 import 'utils/service_locator.dart';
 import 'services/font_preference_service.dart';
 import 'services/gemma_profile_update_service.dart';
-import 'services/global_session_manager.dart';
 import 'dart:developer' as developer;
 
 void main() async {
@@ -44,14 +43,12 @@ class DyslexiaAIApp extends StatefulWidget {
 
 class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserver {
   late final GemmaProfileUpdateService _profileUpdateService;
-  late final GlobalSessionManager _sessionManager;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _profileUpdateService = getIt<GemmaProfileUpdateService>();
-    _sessionManager = getGlobalSessionManager();
   }
 
   @override

@@ -319,7 +319,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: DyslexiaTheme.primaryAccent.withOpacity(0.1),
+                      color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
                       border: Border.all(color: DyslexiaTheme.primaryAccent),
                       borderRadius: BorderRadius.circular(8),
                     ),

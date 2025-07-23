@@ -23,10 +23,7 @@ void main() {
                  reason: 'Model file should be larger than 1GB. Size: ${(fileSizeBytes / (1024 * 1024 * 1024)).toStringAsFixed(2)}GB');
         }
         
-        print('✓ CDN URL is accessible');
-        print('✓ Status code: ${response.statusCode}');
         if (contentLength != null) {
-          print('✓ File size: ${(int.parse(contentLength) / (1024 * 1024 * 1024)).toStringAsFixed(2)}GB');
         }
         
       } catch (e) {

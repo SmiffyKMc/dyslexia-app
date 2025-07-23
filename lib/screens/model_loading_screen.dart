@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 
 import '../services/model_download_service.dart';
-import '../utils/service_locator.dart';
+
 import '../main.dart';
 
 class ModelLoadingScreen extends StatefulWidget {
@@ -200,7 +200,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
-    final iconColor = theme.colorScheme.primary.withOpacity(0.5);
+    final iconColor = theme.colorScheme.primary.withValues(alpha: 0.5);
 
     return Scaffold(
       body: Stack(
@@ -210,7 +210,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  theme.colorScheme.primary.withOpacity(0.1),
+                  theme.colorScheme.primary.withValues(alpha: 0.1),
                   theme.colorScheme.surface,
                   theme.colorScheme.surface,
                 ],
@@ -285,7 +285,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                         height: double.infinity,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: theme.colorScheme.primary.withOpacity(0.08),
+                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
                         ),
                       ),
                       ScaleTransition(
@@ -295,7 +295,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                           height: size.width * 0.4,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: theme.colorScheme.primary.withOpacity(0.15),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.15),
                           ),
                           child: Center(
                             child: Icon(
@@ -331,7 +331,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: _loadingError != null
                         ? theme.colorScheme.error
-                        : theme.colorScheme.onSurface.withOpacity(0.7),
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
                 
@@ -344,7 +344,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                         height: 40,
                         child: CircularProgressIndicator(
                           strokeWidth: 3,
-                          backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             theme.colorScheme.primary,
                           ),
@@ -354,7 +354,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                         width: size.width * 0.6,
                         child: LinearProgressIndicator(
                           value: _loadingProgress.clamp(0.0, 1.0),
-                          backgroundColor: theme.colorScheme.primary.withOpacity(0.2),
+                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
                           valueColor: AlwaysStoppedAnimation<Color>(
                             theme.colorScheme.primary,
                           ),

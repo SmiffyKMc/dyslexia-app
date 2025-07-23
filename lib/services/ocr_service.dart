@@ -89,7 +89,7 @@ If no text is found, return an empty response.
   /// Get OCR status for compatibility
   Future<String> getOCRStatus() async {
     try {
-      final session = await _sessionManager.getSession();
+      await _sessionManager.getSession();
       return 'OCR Ready';
     } catch (e) {
       return 'OCR Not Available - Model not loaded';

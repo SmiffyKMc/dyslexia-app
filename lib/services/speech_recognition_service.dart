@@ -140,9 +140,11 @@ class SpeechRecognitionService {
         onResult: _onResult,
         listenFor: const Duration(minutes: 10), // Longer duration, we'll handle auto-stop
         pauseFor: const Duration(seconds: 8), // Longer pause tolerance
-        partialResults: true,
-        cancelOnError: false,
-        listenMode: ListenMode.dictation,
+        listenOptions: SpeechListenOptions(
+          partialResults: true,
+          cancelOnError: false,
+          listenMode: ListenMode.dictation,
+        ),
       );
 
       _isListening = true;

@@ -23,11 +23,9 @@ class DyslexiaTheme {
         primary: primaryAccent,
         secondary: secondaryAccent,
         surface: cardBackground,
-        background: primaryBackground,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: textPrimary,
-        onBackground: textPrimary,
         brightness: Brightness.light,
       ),
       

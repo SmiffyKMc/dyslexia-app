@@ -181,7 +181,7 @@ class ModelDownloadService {
       }
       
       try {
-        Future<InferenceModel?> _createModelWithFallback() async {
+        Future<InferenceModel?> createModelWithFallback() async {
           try {
             developer.log('🎮 Attempting GPU delegate initialization...', name: 'dyslexic_ai.model_download');
             final gpuModel = await _gemmaPlugin.createModel(
@@ -213,7 +213,7 @@ class ModelDownloadService {
           }
         }
 
-        final inferenceModel = await _createModelWithFallback();
+        final inferenceModel = await createModelWithFallback();
         if (inferenceModel != null) {
           developer.log('✅ Model initialized successfully for inference', name: 'dyslexic_ai.model_download');
           

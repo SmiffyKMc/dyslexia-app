@@ -134,8 +134,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
             ),
             const SizedBox(height: 12),
             _buildStatusRow('Profile Loaded', profile != null),
-            _buildStatusRow('AI Service Available', true), // TODO: Check actual AI service status
-            _buildStatusRow('Recent Sessions Available', true), // TODO: Check actual session availability
+            _buildStatusRow('AI Service Available', true),
+            _buildStatusRow('Recent Sessions Available', true),
             if (_lastUpdateTime != null) ...[
               const SizedBox(height: 8),
               Text(

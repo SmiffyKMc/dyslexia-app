@@ -56,7 +56,7 @@ dependencies:
   uuid: ^4.3.3
   
   # Speech Recognition & Text-to-Speech
-  speech_to_text: ^6.6.2
+  speech_to_text: ^7.2.0
   flutter_tts: ^4.1.0
   
   # Image Processing & OCR
@@ -143,6 +143,12 @@ flutter:
     - assets/images/
     - assets/icons/
     - lib/prompts/
+    - lib/prompts/text_simplifier/
+    - lib/prompts/story_generation/
+    - lib/prompts/sentence_fixer/
+    - lib/prompts/profile_analysis/
+    - lib/prompts/word_analysis/
+    - lib/prompts/shared/
   
   # Dyslexia-friendly fonts
   fonts:

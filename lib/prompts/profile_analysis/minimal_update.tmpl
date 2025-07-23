@@ -1,0 +1,13 @@
+Update profile minimally based on latest session data.
+
+CURRENT: {{current_profile}}
+LATEST SESSION: {{latest_session_data}}
+
+Return JSON:
+{
+  "decodingAccuracy": "{{current_accuracy}}",
+  "confidence": "{{current_confidence}}",
+  "phonemeConfusions": {{current_phoneme_confusions}},
+  "recommendedTool": "{{current_recommended_tool}}",
+  "advice": "{{session_advice}}"
+} 

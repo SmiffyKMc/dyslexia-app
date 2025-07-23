@@ -75,7 +75,7 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor.withOpacity(0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -226,7 +226,7 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
             shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -269,10 +269,10 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
                     Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Theme.of(context).primaryColor.withOpacity(0.3),
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
                 ),
               ),
               child: Text(
@@ -426,7 +426,7 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
             width: 120,
             height: 120,
                 decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: Colors.green.withValues(alpha: 0.1),
               shape: BoxShape.circle,
                 ),
             child: const Icon(

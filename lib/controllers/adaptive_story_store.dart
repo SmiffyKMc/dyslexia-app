@@ -133,7 +133,6 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   Future<void> startStory(String storyId) async {
-    print('📖 Starting story: $storyId');
     isLoading = true;
     errorMessage = null;
 
@@ -173,9 +172,7 @@ abstract class _AdaptiveStoryStore with Store {
         },
       );
 
-      print('📖 Story started: ${story.title}');
     } catch (e) {
-      print('❌ Failed to start story: $e');
       errorMessage = 'Failed to start story: $e';
       
       // Complete session with error if logging was started
@@ -198,7 +195,6 @@ abstract class _AdaptiveStoryStore with Store {
   Future<void> answerQuestion(String answer) async {
     if (currentQuestion == null) return;
 
-    print('💭 Answering question: $answer');
     
     final question = currentQuestion!;
     final isCorrect = question.isCorrect(answer);
@@ -281,7 +277,6 @@ abstract class _AdaptiveStoryStore with Store {
       }
     }
 
-    print('💭 Answer recorded: ${isCorrect ? "✓ Correct" : "✗ Incorrect"}');
   }
 
   @action
@@ -314,28 +309,21 @@ abstract class _AdaptiveStoryStore with Store {
     showingFeedback = false;
     lastAnswer = null;
 
-    print('🔍 nextQuestion: currentQuestionIndex=$currentQuestionIndex, isOnLastQuestion=$isOnLastQuestion');
-    print('🔍 nextQuestion: currentPartIndex=$currentPartIndex, isOnLastPart=$isOnLastPart');
 
     if (isOnLastQuestion) {
       // Move to next part
-      print('🔍 Moving to next part...');
       await nextPart();
     } else {
       // Move to next question in current part
       currentQuestionIndex++;
-      print('➡️ Next question: ${currentQuestionIndex + 1}');
     }
   }
 
   @action
   Future<void> nextPart() async {
-    print('🔍 nextPart: currentPartIndex=$currentPartIndex, isOnLastPart=$isOnLastPart');
-    print('🔍 nextPart: story parts length=${currentStory?.parts.length}');
     
     if (isOnLastPart) {
       // Story completed
-      print('🔍 Story should be completed, calling completeStory...');
       await completeStory();
       return;
     }
@@ -345,18 +333,14 @@ abstract class _AdaptiveStoryStore with Store {
     showingFeedback = false;
     lastAnswer = null;
 
-    print('📄 Next part: ${currentPartIndex + 1}');
   }
 
   @action
   Future<void> completeStory() async {
-    print('🔍 completeStory called - progress: ${progress != null}');
     
     if (progress != null) {
       progress = progress!.copyWith(completedAt: DateTime.now());
       storyCompleted = true;
-      print('🎉 Story completed! Accuracy: ${progress!.accuracyPercentage.toStringAsFixed(1)}%');
-      print('🔍 storyCompleted set to: $storyCompleted');
       
       // Complete session logging
       if (_sessionLogging.hasActiveSession) {
@@ -407,7 +391,6 @@ abstract class _AdaptiveStoryStore with Store {
         );
         
         // Schedule intelligent background profile update after story completion
-        print('🧠 Scheduling background profile update after story completion');
         _profileUpdateService.scheduleBackgroundUpdate();
       }
     }
@@ -432,7 +415,6 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   Future<void> skipCurrentQuestion() async {
-    print('⏭️ Skipping question');
     await nextQuestion();
   }
 
@@ -440,7 +422,6 @@ abstract class _AdaptiveStoryStore with Store {
   Future<void> restartStory() async {
     if (currentStory == null) return;
     
-    print('🔄 Restarting story');
     await startStory(currentStory!.id);
   }
 
@@ -451,7 +432,6 @@ abstract class _AdaptiveStoryStore with Store {
       currentQuestionIndex = 0;
       showingFeedback = false;
       lastAnswer = null;
-      print('⬅️ Previous part: ${currentPartIndex + 1}');
     }
   }
 
@@ -459,11 +439,9 @@ abstract class _AdaptiveStoryStore with Store {
   Future<void> speakCurrentContent() async {
     if (currentPart == null) return;
     
-    print('🔊 Speaking current part content');
     try {
       await _ttsService.speak(currentPart!.content);
     } catch (e) {
-      print('❌ Failed to speak content: $e');
       errorMessage = 'Failed to speak content';
     }
   }
@@ -472,11 +450,9 @@ abstract class _AdaptiveStoryStore with Store {
   Future<void> speakQuestion() async {
     if (currentQuestion == null) return;
     
-    print('🔊 Speaking current question');
     try {
       await _ttsService.speak(currentQuestion!.sentenceWithBlank);
     } catch (e) {
-      print('❌ Failed to speak question: $e');
       errorMessage = 'Failed to speak question';
     }
   }
@@ -485,11 +461,9 @@ abstract class _AdaptiveStoryStore with Store {
   Future<void> speakCorrectAnswer() async {
     if (currentQuestion == null) return;
     
-    print('🔊 Speaking correct answer');
     try {
       await _ttsService.speak(currentQuestion!.sentence);
     } catch (e) {
-      print('❌ Failed to speak answer: $e');
       errorMessage = 'Failed to speak answer';
     }
   }
@@ -507,19 +481,27 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   void clearCurrentStory() {
-    // Complete session with cancellation if active
+    // Only save session if user actually answered questions (meaningful interaction)
     if (_sessionLogging.hasActiveSession) {
-      final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
-      _sessionLogging.completeSession(
-        finalAccuracy: currentAccuracy / 100,
-        completionStatus: 'cancelled',
-        additionalData: {
-          'story_cancelled': true,
-          'parts_completed': currentPartIndex,
-          'questions_answered': progress?.totalAnswersCount ?? 0,
-          'cancellation_time': DateTime.now().toIso8601String(),
-        },
-      );
+      final questionsAnswered = progress?.totalAnswersCount ?? 0;
+      
+      if (questionsAnswered > 0) {
+        // User made meaningful progress - save as completed session
+        final currentAccuracy = progress?.accuracyPercentage ?? 0.0;
+        _sessionLogging.completeSession(
+          finalAccuracy: currentAccuracy / 100,
+          completionStatus: 'cancelled',
+          additionalData: {
+            'story_cancelled': true,
+            'parts_completed': currentPartIndex,
+            'questions_answered': questionsAnswered,
+            'cancellation_time': DateTime.now().toIso8601String(),
+          },
+        );
+      } else {
+        // No questions answered - just cancel without saving
+        _sessionLogging.cancelSession(reason: 'No interaction - story opened but no questions answered');
+      }
     }
     
     currentStory = null;

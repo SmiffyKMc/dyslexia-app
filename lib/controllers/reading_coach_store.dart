@@ -177,7 +177,7 @@ abstract class _ReadingCoachStore with Store {
         buffer.write(chunk);
         final currentText = buffer.toString();
         
-        developer.log('📖 Setting text (${currentText.length} chars): "${currentText.length > 100 ? currentText.substring(0, 100) + '...' : currentText}"', 
+        developer.log('📖 Setting text (${currentText.length} chars): "${currentText.length > 100 ? '${currentText.substring(0, 100)}...' : currentText}"', 
             name: 'dyslexic_ai.reading_coach');
         
         setCurrentText(currentText);
@@ -482,7 +482,6 @@ abstract class _ReadingCoachStore with Store {
 
     // Complete session logging
     final accuracy = currentSession!.calculateAccuracy();
-    final duration = currentSession!.duration ?? const Duration(minutes: 1);
     final wordsRead = currentSession!.wordResults.length;
     
     _sessionLogging.completeSession(

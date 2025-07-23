@@ -1,5 +1,4 @@
-import 'dart:convert';
-import 'dart:developer' as developer;
+
 
 import 'package:uuid/uuid.dart';
 
@@ -191,7 +190,6 @@ class SessionLog {
         
         return 'Read $wordsRead words with $accuracyPercent% accuracy';
       case SessionType.adaptiveStory:
-        final questionsAnswered = data['questions_answered'] as int? ?? 0;
         final questionsTotal = data['questions_total'] as int? ?? 0;
         final questionsCorrect = data['questions_correct'] as int? ?? 0;
         
@@ -209,10 +207,10 @@ class SessionLog {
         final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
         return 'Analyzed $wordsAnalyzed phonetic patterns';
       case SessionType.sentenceFixer:
-        final sentencesFixed = data['sentences_fixed'] as int? ?? 0;
+        final sentencesCompleted = data['sentences_completed'] as int? ?? 0;
         final accuracy = data['final_accuracy'] as double? ?? 0.0;
         final accuracyPercent = (accuracy * 100).round();
-        return 'Fixed $sentencesFixed sentences with $accuracyPercent% accuracy';
+        return 'Fixed $sentencesCompleted sentences with $accuracyPercent% accuracy';
     }
   }
 

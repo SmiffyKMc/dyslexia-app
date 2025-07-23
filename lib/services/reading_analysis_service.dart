@@ -65,10 +65,8 @@ class ReadingAnalysisService {
         spokenIndex++;
       } else {
         // Check if the spoken word appears later in expected
-        bool foundMatch = false;
         for (int laterExpIndex = expIndex + 1; laterExpIndex < math.min(expIndex + 3, expected.length); laterExpIndex++) {
           if (_normalizeWord(expected[laterExpIndex]) == spokenWord) {
-            foundMatch = true;
             break;
           }
         }
