@@ -338,41 +338,32 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
             onTap: _store.showFeedback ? null : () => _store.selectAnswer(option.word),
             borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(8),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                    child: InkWell(
-                      onTap: () => _store.playWordPronunciation(option.word),
-                      borderRadius: BorderRadius.circular(8),
-                      child: const Icon(
-                        Icons.image_outlined,
-                        size: 30,
-                        color: Colors.grey,
-                      ),
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                    option.word,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
+              Flexible(
+                child: Text(
+                  option.word,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                  if (_store.showFeedback && isSelected && isCorrect)
-                    const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  if (_store.showFeedback && isSelected && !isCorrect)
-                    const Icon(Icons.cancel, color: Colors.red, size: 20),
-                ],
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              if (_store.showFeedback && isSelected) ...[
+                const SizedBox(height: 4),
+                Icon(
+                  isCorrect ? Icons.check_circle : Icons.cancel,
+                  color: isCorrect ? Colors.green : Colors.red,
+                  size: 16,
+                ),
+              ],
+            ],
+          ),
             ),
           ),
         );

@@ -4,7 +4,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:flutter_gemma/core/message.dart';
 import 'package:image/image.dart' as img;
-import 'global_session_manager.dart';
+import '../utils/service_locator.dart';
 
 /// OCR result data class
 class OCRResult {
@@ -23,10 +23,8 @@ class OCRResult {
   bool get hasText => text.isNotEmpty;
 }
 
-/// Simplified OCR service following flutter_gemma best practices
+/// Enhanced OCR service with activity-based session management
 class OcrService {
-  final GlobalSessionManager _sessionManager;
-  
   // Simple image constraints for mobile OCR
   static const int _maxImageSize = 400;
   static const int _maxImageBytes = 256 * 1024; // 256KB max
@@ -37,7 +35,7 @@ Extract all text from this image. Return only the text content, no additional fo
 If no text is found, return an empty response.
 ''';
 
-  OcrService() : _sessionManager = GlobalSessionManager();
+  OcrService();
   
   /// Main OCR method with simple error handling
   Future<OCRResult> scanImage(File imageFile) async {
@@ -89,8 +87,12 @@ If no text is found, return an empty response.
   /// Get OCR status for compatibility
   Future<String> getOCRStatus() async {
     try {
-      await _sessionManager.getSession();
-      return 'OCR Ready';
+      final aiService = getAIInferenceService();
+      if (aiService != null) {
+        return 'OCR Ready';
+      } else {
+        return 'OCR Not Available - AI service not initialized';
+      }
     } catch (e) {
       return 'OCR Not Available - Model not loaded';
     }
@@ -131,24 +133,22 @@ If no text is found, return an empty response.
     }
   }
 
-  /// Perform OCR operation with flutter_gemma
+  /// Perform OCR operation with activity-based session management
   Future<OCRResult> _performOCR(Uint8List imageBytes) async {
     try {
-      final session = await _sessionManager.getSession();
-
-      // Create multimodal message
-      final message = Message(
-        text: _ocrPrompt,
-        imageBytes: imageBytes,
-        isUser: true,
-      );
+      final aiService = getAIInferenceService();
+      if (aiService == null) {
+        return OCRResult(
+          text: '',
+          confidence: 0.0,
+          error: 'AI service not available. Please ensure the model is loaded.',
+        );
+      }
       
-      developer.log('Sending OCR message to model (${imageBytes.length} bytes)...', name: 'dyslexic_ai.ocr');
+      developer.log('OCR session: ${aiService.getSessionDebugInfo()}', name: 'dyslexic_ai.ocr');
       
-      await session.addQueryChunk(message);
-      
-      // Get response - this runs in background naturally
-      final response = await session.getResponse();
+      // Use the new multimodal response method which handles OCR sessions properly
+      final response = await aiService.generateMultimodalResponse(_ocrPrompt, imageBytes);
       developer.log('OCR response received: ${response.length} chars', name: 'dyslexic_ai.ocr');
       
       final extractedText = response.trim();
@@ -172,9 +172,6 @@ If no text is found, return an empty response.
       
     } catch (e) {
       developer.log('OCR operation failed: $e', name: 'dyslexic_ai.ocr');
-      
-      // Simple error handling - invalidate session and rethrow
-      await _sessionManager.invalidateSession();
       
       // Provide user-friendly error message
       String userError = 'OCR processing failed. Please try again with a different image.';
@@ -214,6 +211,7 @@ If no text is found, return an empty response.
   
   /// Dispose method for cleanup
   Future<void> dispose() async {
-    await _sessionManager.dispose();
+    // Session cleanup is now handled by AIInferenceService
+    developer.log('OCR service disposed', name: 'dyslexic_ai.ocr');
   }
 } 

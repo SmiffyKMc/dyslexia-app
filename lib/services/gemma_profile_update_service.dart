@@ -8,6 +8,7 @@ import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
 import '../utils/prompt_loader.dart';
+import 'global_session_manager.dart';
 
 class GemmaProfileUpdateService {
   late final SessionLogStore _sessionLogStore;
@@ -225,11 +226,12 @@ class GemmaProfileUpdateService {
       
       developer.log('Generated Tier 2 prompt for AI analysis ($taskType)', name: 'dyslexic_ai.profile_update');
 
-      // Use enhanced AI service with background task flag for cooperative yielding
+      // Use enhanced AI service with background task flag and profile analysis activity
       final aiResponse = await aiService.generateResponse(
         mainPrompt, 
         fallbackPrompt: fallbackPrompt,
         isBackgroundTask: isBackgroundTask,
+        activity: AIActivity.profileAnalysis,
       );
       developer.log('Received AI response ($taskType)', name: 'dyslexic_ai.profile_update');
 

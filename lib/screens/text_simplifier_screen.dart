@@ -60,15 +60,15 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Input section - no Observer wrapper needed
-            _buildInputSection(),
-            
-            // Results section - separate Observer for simplification results
-            Expanded(
-              child: Observer(
-                builder: (context) => SingleChildScrollView(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // Input section - no Observer wrapper needed
+              _buildInputSection(),
+              
+              // Results section - separate Observer for simplification results
+              Observer(
+                builder: (context) => Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -80,8 +80,8 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -91,40 +91,31 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     return Container(
       color: DyslexiaTheme.primaryBackground,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Paste complex text below and I\'ll rewrite it in '
-              'simpler language that\'s easier to understand.',
+              'Paste text to simplify',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey,
               ),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Complex Text',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            const SizedBox(height: 12),
+            TextField(
+              controller: _textController,
+              focusNode: _inputFocusNode,
+              maxLines: 4,
+              minLines: 3,
+              textAlignVertical: TextAlignVertical.top,
+              decoration: const InputDecoration(
+                hintText: 'Paste or type complex text here...',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(12),
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              height: 120,
-              child: TextField(
-                controller: _textController,
-                focusNode: _inputFocusNode,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                decoration: const InputDecoration(
-                  hintText: 'Paste or type complex text here...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
             _buildInputControls(),
           ],
         ),

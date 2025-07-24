@@ -4,6 +4,7 @@ import '../models/learner_profile.dart';
 import '../utils/service_locator.dart';
 import '../utils/prompt_loader.dart';
 import '../controllers/learner_profile_store.dart';
+import 'global_session_manager.dart';
 
 
 class TextSimplifierService {
@@ -45,10 +46,11 @@ class TextSimplifierService {
 
       developer.log('📝 Generated prompt for AI simplification', name: 'dyslexic_ai.text_simplifier');
 
-      // Generate simplified text
+      // Generate simplified text with activity-based session management
       final response = await aiService.generateResponse(
         prompt,
         isBackgroundTask: true,
+        activity: AIActivity.textSimplification,
       );
 
       final simplifiedText = _parseSimplificationResponse(response);

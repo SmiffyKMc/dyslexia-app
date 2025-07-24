@@ -15,7 +15,7 @@ import 'screens/text_simplifier_screen.dart';
 import 'screens/sentence_fixer_screen.dart';
 
 import 'screens/model_loading_screen.dart';
-import 'screens/text_simplifier_example.dart';
+
 import 'utils/theme.dart';
 import 'utils/service_locator.dart';
 import 'services/font_preference_service.dart';
@@ -98,7 +98,7 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
             '/sentence_fixer': (context) => const SentenceFixerScreen(),
       
       
-            '/text_simplifier_example': (context) => const TextSimplifierExample(),
+    
           },
         );
       },

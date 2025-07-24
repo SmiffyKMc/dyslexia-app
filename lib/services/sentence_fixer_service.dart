@@ -5,6 +5,7 @@ import '../models/sentence_fixer.dart';
 import '../models/learner_profile.dart';
 import '../utils/prompt_loader.dart';
 import '../utils/service_locator.dart';
+import 'global_session_manager.dart';
 
 class SentenceFixerService {
   final Random _random = Random();
@@ -341,7 +342,10 @@ class SentenceFixerService {
         developer.log('📝 AI generation attempt $attempt: $prompt', 
             name: 'dyslexic_ai.sentence_fixer');
         
-        final response = await aiService.generateResponse(prompt);
+        final response = await aiService.generateResponse(
+          prompt,
+          activity: AIActivity.sentenceGeneration,
+        );
         developer.log('🤖 AI response received (${response.length} chars): $response', 
             name: 'dyslexic_ai.sentence_fixer');
         
@@ -765,7 +769,10 @@ class SentenceFixerService {
       final generateCount = count + 2;
       final prompt = PromptLoader.fill(tmpl, {'count': generateCount.toString()});
       
-      final response = await aiService.generateResponse(prompt);
+      final response = await aiService.generateResponse(
+        prompt, 
+        activity: AIActivity.sentenceGeneration,
+      );
       final aiSentences = _parseStructuredResponse(response, difficulty);
       
       developer.log('🔍 AI generated ${aiSentences.length} valid sentences out of $count requested', 
@@ -1000,7 +1007,7 @@ class SentenceFixerService {
   
   /// Check if this is a grammar change rather than spelling error
   bool _isGrammarChange(String errorWord, String correctWord) {
-    // Plural changes: cat → cats, dog → dogs, box → boxes
+    // Plural changes: cat → cats, dog → dogs, box → boxes, lady → ladies
     if (correctWord == '${errorWord}s' || errorWord == '${correctWord}s') {
       return true;
     }
@@ -1008,32 +1015,68 @@ class SentenceFixerService {
       return true;
     }
     
+    // Y to IES changes: lady → ladies, baby → babies
+    if (errorWord.endsWith('y') && correctWord == '${errorWord.substring(0, errorWord.length - 1)}ies') {
+      return true;
+    }
+    if (correctWord.endsWith('y') && errorWord == '${correctWord.substring(0, correctWord.length - 1)}ies') {
+      return true;
+    }
+    
     // Irregular plurals: child → children, mouse → mice, etc.
     final irregularPlurals = {
       'child': 'children', 'mouse': 'mice', 'foot': 'feet', 'tooth': 'teeth',
-      'man': 'men', 'woman': 'women', 'goose': 'geese'
+      'man': 'men', 'woman': 'women', 'goose': 'geese', 'person': 'people',
+      'leaf': 'leaves', 'wolf': 'wolves', 'half': 'halves', 'knife': 'knives'
     };
     if (irregularPlurals[errorWord] == correctWord || irregularPlurals[correctWord] == errorWord) {
       return true;
     }
     
-    // Past tense changes: run → ran, play → played, go → went
+    // Past tense changes: run → ran, play → played, go → went, try → tried
     if (correctWord.endsWith('ed') && !errorWord.endsWith('ed')) {
       return true;
     }
+    if (correctWord.endsWith('ied') && errorWord.endsWith('y')) {
+      return true; // try → tried, cry → cried
+    }
     
-    // ing changes: run → running, play → playing
+    // -ing changes: run → running, play → playing, swim → swimming
     if (correctWord.endsWith('ing') && !errorWord.endsWith('ing')) {
       return true;
     }
     
-    // Common tense changes: go → went, run → ran, see → saw
+    // Double consonant + ing: run → running, swim → swimming, stop → stopping
+    if (correctWord.endsWith('ing') && correctWord.length > errorWord.length + 3) {
+      final baseLength = errorWord.length;
+      if (baseLength > 0 && correctWord.substring(baseLength, baseLength + 1) == errorWord.substring(baseLength - 1)) {
+        return true; // doubled consonant
+      }
+    }
+    
+    // Common tense changes: go → went, run → ran, see → saw, think → thought
     final tenseChanges = {
       'go': 'went', 'run': 'ran', 'see': 'saw', 'come': 'came', 
-      'get': 'got', 'have': 'had', 'is': 'was', 'are': 'were'
+      'get': 'got', 'have': 'had', 'is': 'was', 'are': 'were',
+      'think': 'thought', 'buy': 'bought', 'bring': 'brought',
+      'catch': 'caught', 'teach': 'taught', 'make': 'made',
+      'take': 'took', 'give': 'gave', 'eat': 'ate', 'drink': 'drank'
     };
     if (tenseChanges[errorWord] == correctWord || tenseChanges[correctWord] == errorWord) {
       return true;
+    }
+    
+    // Comparative/superlative: big → bigger → biggest, good → better → best
+    final comparatives = {
+      'big': ['bigger', 'biggest'], 'good': ['better', 'best'], 'bad': ['worse', 'worst'],
+      'tall': ['taller', 'tallest'], 'small': ['smaller', 'smallest'],
+      'fast': ['faster', 'fastest'], 'slow': ['slower', 'slowest']
+    };
+    for (final entry in comparatives.entries) {
+      if ((entry.key == errorWord && entry.value.contains(correctWord)) ||
+          (entry.key == correctWord && entry.value.contains(errorWord))) {
+        return true;
+      }
     }
     
     return false;
