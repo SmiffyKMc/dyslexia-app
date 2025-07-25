@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../controllers/phonics_game_store.dart';
 import '../models/phonics_game.dart';
 import '../utils/service_locator.dart';
+import '../widgets/fun_loading_widget.dart';
 
 class PhonicsGameScreen extends StatefulWidget {
   const PhonicsGameScreen({super.key});
@@ -43,7 +44,18 @@ class _PhonicsGameScreenState extends State<PhonicsGameScreen> {
           animation: _store,
           builder: (context, child) {
             if (_store.isLoading) {
-              return const Center(child: CircularProgressIndicator());
+              return FunLoadingWidget(
+                title: 'Creating Your Phonics Game',
+                messages: const [
+                  "Generating phonics challenges...",
+                  "Creating letter combinations...",
+                  "Adjusting difficulty level...", 
+                  "Loading practice words...",
+                  "Preparing game content...",
+                  "Almost ready to begin...",
+                ],
+                showProgress: false,
+              );
             }
 
             if (_store.errorMessage != null) {

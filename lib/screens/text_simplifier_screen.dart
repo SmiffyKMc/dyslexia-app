@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:async';
 import '../controllers/text_simplifier_store.dart';
 import '../services/text_simplifier_service.dart';
 import '../services/text_to_speech_service.dart';
-import '../services/ocr_service.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
+import 'dart:developer' as developer;
 
 class TextSimplifierScreen extends StatefulWidget {
   const TextSimplifierScreen({super.key});
@@ -22,8 +20,6 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
   late TextSimplifierStore _store;
   late TextSimplifierService _service;
   late TextToSpeechService _ttsService;
-  late OcrService _ocrService;
-  final ImagePicker _imagePicker = ImagePicker();
   
   final TextEditingController _textController = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
@@ -36,14 +32,32 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     _store = getIt<TextSimplifierStore>();
     _service = getIt<TextSimplifierService>();
     _ttsService = getIt<TextToSpeechService>();
-    _ocrService = getIt<OcrService>();
   }
 
   @override
   void dispose() {
-    _textController.dispose();
-    _inputFocusNode.dispose();
-    _simplifySub?.cancel();
+    try {
+      developer.log('📝 Disposing TextSimplifierScreen', name: 'dyslexic_ai.text_simplifier');
+      
+      // Cancel stream subscriptions
+      _simplifySub?.cancel();
+      _simplifySub = null;
+      
+      // Dispose controllers and focus nodes
+      _textController.dispose();
+      _inputFocusNode.dispose();
+      
+      // Stop TTS if speaking
+      _ttsService.stop();
+      
+      // Clear any partial buffer
+      _partialBuffer.clear();
+      
+      developer.log('📝 TextSimplifierScreen disposed successfully', name: 'dyslexic_ai.text_simplifier');
+    } catch (e) {
+      developer.log('Text simplifier dispose error: $e', name: 'dyslexic_ai.text_simplifier');
+    }
+    
     super.dispose();
   }
 
@@ -135,34 +149,6 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                 icon: const Icon(Icons.paste),
                 label: const Text('Paste'),
               ),
-              const SizedBox(width: 8),
-              Observer(
-                builder: (context) => ElevatedButton.icon(
-                  onPressed: _store.isProcessingOCR ? null : _handleCameraCapture,
-                  icon: _store.isProcessingOCR 
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.camera_alt),
-                  label: Text(_store.isProcessingOCR ? 'Processing...' : 'Camera'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Observer(
-                builder: (context) => ElevatedButton.icon(
-                  onPressed: _store.isProcessingOCR ? null : _handleGalleryPick,
-                  icon: _store.isProcessingOCR 
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.photo_library),
-                  label: Text(_store.isProcessingOCR ? 'Processing...' : 'Gallery'),
-                ),
-              ),
             ],
           ),
         ),
@@ -173,7 +159,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
           width: double.infinity,
           child: Observer(
             builder: (context) => ElevatedButton(
-              onPressed: (_textController.text.trim().isNotEmpty && !_store.isSimplifying && !_store.isProcessingOCR) 
+              onPressed: (_textController.text.trim().isNotEmpty && !_store.isSimplifying) 
                   ? _handleSimplify : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: DyslexiaTheme.primaryAccent,
@@ -268,52 +254,6 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
       }
     } catch (e) {
       _showErrorSnackBar('Failed to paste text: $e');
-    }
-  }
-
-  Future<void> _handleCameraCapture() async {
-    try {
-      _store.setIsProcessingOCR(true);
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.camera);
-      
-      if (pickedFile != null) {
-        final file = File(pickedFile.path);
-        final ocrResult = await _ocrService.scanImage(file);
-        
-        if (ocrResult.isSuccess && ocrResult.text.isNotEmpty) {
-          _textController.text = ocrResult.text;
-          _store.setOCRText(ocrResult.text);
-        } else {
-          _showErrorSnackBar('No text found in image');
-        }
-      }
-    } catch (e) {
-      _showErrorSnackBar('Failed to process image: $e');
-    } finally {
-      _store.setIsProcessingOCR(false);
-    }
-  }
-
-  Future<void> _handleGalleryPick() async {
-    try {
-      _store.setIsProcessingOCR(true);
-      final pickedFile = await _imagePicker.pickImage(source: ImageSource.gallery);
-      
-      if (pickedFile != null) {
-        final file = File(pickedFile.path);
-        final ocrResult = await _ocrService.scanImage(file);
-        
-        if (ocrResult.isSuccess && ocrResult.text.isNotEmpty) {
-          _textController.text = ocrResult.text;
-          _store.setOCRText(ocrResult.text);
-        } else {
-          _showErrorSnackBar('No text found in image');
-        }
-      }
-    } catch (e) {
-      _showErrorSnackBar('Failed to process image: $e');
-    } finally {
-      _store.setIsProcessingOCR(false);
     }
   }
 

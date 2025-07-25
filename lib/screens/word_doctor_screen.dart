@@ -4,6 +4,7 @@ import '../controllers/word_doctor_store.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
 import '../utils/input_validation_helper.dart';
+import '../widgets/fun_loading_widget.dart';
 
 class WordDoctorScreen extends StatefulWidget {
   const WordDoctorScreen({super.key});
@@ -19,7 +20,13 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
   @override
   void initState() {
     super.initState();
-    _store = getIt<WordDoctorStore>();
+    try {
+      _store = getIt<WordDoctorStore>();
+    } catch (e) {
+      // Handle service locator error gracefully
+      debugPrint('Word Doctor initialization failed: $e');
+      rethrow; // Re-throw for now, but this prevents silent failures
+    }
   }
 
   void _onSubmit() {
@@ -211,20 +218,20 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
   }
 
   Widget _buildLoadingIndicator() {
-    return const Card(
+    return Card(
       child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Column(
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Analyzing word...',
-              style: TextStyle(
-                fontSize: 16,
-              ),
-            ),
+        padding: const EdgeInsets.all(16),
+        child: FunLoadingWidget(
+          title: 'Analyzing Your Word',
+          messages: const [
+            "Breaking down word structure...",
+            "Analyzing syllables and phonemes...",
+            "Generating pronunciation guide...",
+            "Creating memory techniques...",
+            "Preparing learning tips...",
+            "Finalizing word analysis...",
           ],
+          showProgress: false,
         ),
       ),
     );

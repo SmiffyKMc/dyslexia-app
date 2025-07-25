@@ -25,6 +25,7 @@ import '../services/model_download_service.dart';
 import '../services/session_logging_service.dart';
 import '../services/gemma_profile_update_service.dart';
 import '../services/text_simplifier_service.dart';
+import '../services/ai_phonics_generation_service.dart';
 import 'dart:developer' as developer;
 
 final getIt = GetIt.instance;
@@ -54,6 +55,8 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<StoryService>(() => StoryService());
   getIt.registerLazySingleton<PhonicsSoundsService>(
       () => PhonicsSoundsService());
+  getIt.registerLazySingleton<AIPhonicsGenerationService>(
+      () => AIPhonicsGenerationService());
   getIt.registerLazySingleton<ModelDownloadService>(
       () => ModelDownloadService());
 

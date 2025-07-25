@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:developer' as developer;
 import 'package:mobx/mobx.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:math' as math;
 
 import '../models/reading_session.dart';
 import '../models/session_log.dart';
@@ -84,6 +85,12 @@ abstract class _ReadingCoachStore with Store {
 
   @observable
   List<PresetStory> presetStories = [];
+  
+  @observable
+  List<String> currentTextWords = [];
+  
+  @observable
+  List<String> recognizedWords = [];
 
   @computed
   double get currentAccuracy {
@@ -97,7 +104,7 @@ abstract class _ReadingCoachStore with Store {
   }
 
   @computed
-  bool get canStartReading => currentText.isNotEmpty && !isListening && !isAnalyzing;
+  bool get canStartReading => currentText.isNotEmpty && !isListening && !isAnalyzing && _speechService.isInitialized;
 
   @computed
   bool get hasSession => currentSession != null;
@@ -118,24 +125,105 @@ abstract class _ReadingCoachStore with Store {
     }
   }
 
+  @computed
+  List<bool> get wordHighlightStates {
+    if (currentTextWords.isEmpty || recognizedWords.isEmpty) {
+      return List.filled(currentTextWords.length, false);
+    }
+    
+    return _calculateWordMatches(currentTextWords, recognizedWords);
+  }
+
+  // Helper method to calculate which words should be highlighted
+  List<bool> _calculateWordMatches(List<String> textWords, List<String> spokenWords) {
+    final highlightStates = List.filled(textWords.length, false);
+    
+    // Simple sequential matching with fuzzy logic
+    int textIndex = 0;
+    int spokenIndex = 0;
+    
+    while (textIndex < textWords.length && spokenIndex < spokenWords.length) {
+      final textWord = textWords[textIndex].toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
+      final spokenWord = spokenWords[spokenIndex].toLowerCase().replaceAll(RegExp(r'[^\w]'), '');
+      
+      // Exact match
+      if (textWord == spokenWord) {
+        highlightStates[textIndex] = true;
+        textIndex++;
+        spokenIndex++;
+      }
+      // Fuzzy match (80% similarity)
+      else if (_calculateSimilarity(textWord, spokenWord) >= 0.8) {
+        highlightStates[textIndex] = true;
+        textIndex++;
+        spokenIndex++;
+      }
+      // Text word is shorter - might be partial recognition
+      else if (textWord.length > 3 && spokenWord.startsWith(textWord.substring(0, textWord.length ~/ 2))) {
+        highlightStates[textIndex] = true;
+        textIndex++;
+        spokenIndex++;
+      }
+      // Skip spoken word (likely recognition error)
+      else {
+        spokenIndex++;
+      }
+    }
+    
+    return highlightStates;
+  }
+
+  // Simple similarity calculation (Levenshtein-like)
+  double _calculateSimilarity(String word1, String word2) {
+    if (word1.isEmpty || word2.isEmpty) return 0.0;
+    if (word1 == word2) return 1.0;
+    
+    final maxLength = math.max(word1.length, word2.length);
+    final commonChars = _countCommonChars(word1, word2);
+    
+    return commonChars / maxLength;
+  }
+
+  int _countCommonChars(String word1, String word2) {
+    final chars1 = word1.split('');
+    final chars2 = word2.split('');
+    int common = 0;
+    
+    for (int i = 0; i < math.min(chars1.length, chars2.length); i++) {
+      if (chars1[i] == chars2[i]) common++;
+    }
+    
+    return common;
+  }
+
   @action
   Future<void> initialize() async {
     isLoading = true;
     errorMessage = null;
 
     try {
-      await _speechService.initialize();
+      // Check speech service initialization with proper error handling
+      final speechInitialized = await _speechService.initialize();
+      if (!speechInitialized) {
+        // Speech service failed to initialize - likely permission issue
+        errorMessage = 'Microphone access is required for reading practice. Please allow microphone permissions in your device settings.';
+        developer.log('Speech service initialization failed - likely permission denied', name: 'dyslexic_ai.reading_coach');
+      } else {
+        // Set up all listeners for the new recording flow only if speech service is ready
+        _speechSubscription = _speechService.recognizedWordsStream.listen(_onSpeechRecognized);
+        _listeningSubscription = _speechService.listeningStream.listen(_onListeningChanged);
+        _recordingStatusSubscription = _speechService.recordingStatusStream.listen(_onRecordingStatusChanged);
+        _silenceSubscription = _speechService.silenceSecondsStream.listen(_onSilenceSecondsChanged);
+        
+        developer.log('Speech recognition initialized successfully', name: 'dyslexic_ai.reading_coach');
+      }
+      
       await _ttsService.initialize();
-      
-      // Set up all listeners for the new recording flow
-      _speechSubscription = _speechService.recognizedWordsStream.listen(_onSpeechRecognized);
-      _listeningSubscription = _speechService.listeningStream.listen(_onListeningChanged);
-      _recordingStatusSubscription = _speechService.recordingStatusStream.listen(_onRecordingStatusChanged);
-      _silenceSubscription = _speechService.silenceSecondsStream.listen(_onSilenceSecondsChanged);
-      
       presetStories = PresetStoriesService.getPresetStories();
+      
     } catch (e) {
-      errorMessage = 'Failed to initialize: $e';
+      errorMessage = 'Failed to initialize reading coach: $e';
+      developer.log('Reading coach initialization error: $e', name: 'dyslexic_ai.reading_coach');
     } finally {
       isLoading = false;
     }
@@ -145,6 +233,12 @@ abstract class _ReadingCoachStore with Store {
   void setCurrentText(String text) {
     currentText = text;
     errorMessage = null;
+    
+    // Split text into words for highlighting
+    currentTextWords = text
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
   }
 
   @action
@@ -222,6 +316,11 @@ abstract class _ReadingCoachStore with Store {
   Future<void> startReading() async {
     if (!canStartReading) {
       developer.log('Cannot start reading: canStartReading=false', name: 'dyslexic_ai.reading_coach');
+      
+      // Provide specific feedback about why reading cannot start
+      if (!_speechService.isInitialized) {
+        errorMessage = 'Microphone access is required to start reading practice. Please allow microphone permissions.';
+      }
       return;
     }
 
@@ -370,6 +469,12 @@ abstract class _ReadingCoachStore with Store {
   void _onSpeechRecognized(String speech) {
     // Only update speech, don't trigger analysis here
     recognizedSpeech = speech;
+    
+    // Split recognized speech into words for highlighting
+    recognizedWords = speech
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
   }
 
   @action
@@ -392,7 +497,12 @@ abstract class _ReadingCoachStore with Store {
     if (status == RecordingStatus.completed && currentSession != null) {
       _handleRecordingComplete();
     } else if (status == RecordingStatus.error) {
-      errorMessage = 'Recording failed. Please try again.';
+      // Provide more specific error message for permission issues
+      if (!_speechService.isInitialized) {
+        errorMessage = 'Microphone permission is required. Please check your device settings and allow microphone access for this app.';
+      } else {
+        errorMessage = 'Recording failed. Please try again or restart the microphone.';
+      }
     }
   }
 
@@ -406,10 +516,50 @@ abstract class _ReadingCoachStore with Store {
     if (currentSession?.status == ReadingSessionStatus.reading) {
       errorMessage = null;
       
+      // Check if speech service is properly initialized before restarting
+      if (!_speechService.isInitialized) {
+        developer.log('Cannot restart listening: speech service not initialized', name: 'dyslexic_ai.reading_coach');
+        errorMessage = 'Microphone access is required. Please allow microphone permissions and try again.';
+        return;
+      }
+      
       // Ensure TTS is stopped before restarting
       await _ttsService.prepareForSpeechRecognition();
       
       await _speechService.restartListening();
+    }
+  }
+
+  @action
+  Future<void> requestMicrophonePermission() async {
+    developer.log('Requesting microphone permission...', name: 'dyslexic_ai.reading_coach');
+    
+    // Clear any existing error message while we try
+    errorMessage = null;
+    isLoading = true;
+    
+    try {
+      // Re-initialize speech service to trigger permission request
+      final initialized = await _speechService.initialize();
+      
+      if (initialized) {
+        // Set up listeners if they weren't set up before
+        if (_speechSubscription == null) {
+          _speechSubscription = _speechService.recognizedWordsStream.listen(_onSpeechRecognized);
+          _listeningSubscription = _speechService.listeningStream.listen(_onListeningChanged);
+          _recordingStatusSubscription = _speechService.recordingStatusStream.listen(_onRecordingStatusChanged);
+          _silenceSubscription = _speechService.silenceSecondsStream.listen(_onSilenceSecondsChanged);
+        }
+        developer.log('Microphone permission granted successfully', name: 'dyslexic_ai.reading_coach');
+      } else {
+        errorMessage = 'Microphone permission was denied. Please go to your device settings and allow microphone access for this app, then try again.';
+        developer.log('Microphone permission denied', name: 'dyslexic_ai.reading_coach');
+      }
+    } catch (e) {
+      errorMessage = 'Failed to request microphone permission: $e';
+      developer.log('Microphone permission request failed: $e', name: 'dyslexic_ai.reading_coach');
+    } finally {
+      isLoading = false;
     }
   }
 
@@ -550,20 +700,49 @@ abstract class _ReadingCoachStore with Store {
 
 
   void dispose() {
-    // Cancel any active session logging
-    if (_sessionLogging.hasActiveSession) {
-      _sessionLogging.cancelSession(reason: 'app_disposed');
+    try {
+      developer.log('🎤 Disposing ReadingCoachStore', name: 'dyslexic_ai.reading_coach');
+      
+      // Cancel any active session logging first
+      if (_sessionLogging.hasActiveSession) {
+        _sessionLogging.cancelSession(reason: 'reading_coach_disposed');
+      }
+      
+      // Cancel all stream subscriptions
+      _speechSubscription?.cancel();
+      _speechSubscription = null;
+      
+      _listeningSubscription?.cancel();
+      _listeningSubscription = null;
+      
+      _recordingStatusSubscription?.cancel();
+      _recordingStatusSubscription = null;
+      
+      _silenceSubscription?.cancel();
+      _silenceSubscription = null;
+      
+      // Stop services but don't dispose (shared services)
+      _ttsService.stop();
+      
+      // Stop speech recognition if active
+      if (_speechService.isListening) {
+        _speechService.stopListening();
+      }
+      
+      // Clear state
+      currentSession = null;
+      currentText = '';
+      recognizedSpeech = '';
+      liveFeedback.clear();
+      practiceWords.clear();
+      errorMessage = null;
+      isListening = false;
+      isAnalyzing = false;
+      
+      developer.log('🎤 ReadingCoachStore disposed successfully', name: 'dyslexic_ai.reading_coach');
+    } catch (e) {
+      developer.log('Reading coach dispose error: $e', name: 'dyslexic_ai.reading_coach');
+      // Continue with disposal even if errors occur
     }
-    
-    _speechSubscription?.cancel();
-    _listeningSubscription?.cancel();
-    _recordingStatusSubscription?.cancel();
-    _silenceSubscription?.cancel();
-    
-    // Stop TTS service before disposing
-    _ttsService.stop();
-    
-    _speechService.dispose();
-    _ttsService.dispose();
   }
 } 

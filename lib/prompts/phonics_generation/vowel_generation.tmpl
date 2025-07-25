@@ -1,0 +1,20 @@
+Generate {{word_count}} words for "{{phoneme}}" vowel sound at {{difficulty_level}} level.
+
+Requirements:
+- 1 word starting with "{{phoneme}}" vowel (correct answer)
+- {{word_count}} other words starting with different sounds (incorrect options)
+- Use simple, common words appropriate for {{difficulty_level}} learners
+
+Example for "a" vowel:
+{
+  "correct_words": ["apple"],
+  "incorrect_words": ["egg", "ice", "umbrella"],
+  "pronunciation_hint": "Make the 'ah' sound like in 'apple'"
+}
+
+Now generate words for "{{phoneme}}" vowel in JSON format:
+{
+  "correct_words": ["actual_word_starting_with_{{phoneme}}"],
+  "incorrect_words": ["word_with_different_sound1", "word_with_different_sound2", "word_with_different_sound3"],
+  "pronunciation_hint": "clear guidance for {{phoneme}} vowel"
+} 

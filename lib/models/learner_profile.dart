@@ -12,6 +12,12 @@ class LearnerProfile {
   final DateTime lastUpdated;
   final int sessionCount;
   final int version;
+  
+  // Questionnaire fields
+  final String? userName;
+  final bool hasCompletedQuestionnaire;
+  final List<String> selectedChallenges;
+  final DateTime? questionnaireCompletedAt;
 
   const LearnerProfile({
     required this.phonologicalAwareness,
@@ -27,6 +33,11 @@ class LearnerProfile {
     required this.lastUpdated,
     required this.sessionCount,
     this.version = 1,
+    // Questionnaire fields
+    this.userName,
+    this.hasCompletedQuestionnaire = false,
+    this.selectedChallenges = const [],
+    this.questionnaireCompletedAt,
   });
 
   factory LearnerProfile.initial() {
@@ -44,6 +55,11 @@ class LearnerProfile {
       lastUpdated: DateTime.now(),
       sessionCount: 0,
       version: 1,
+      // Questionnaire fields
+      userName: null,
+      hasCompletedQuestionnaire: false,
+      selectedChallenges: const [],
+      questionnaireCompletedAt: null,
     );
   }
 
@@ -61,6 +77,11 @@ class LearnerProfile {
     DateTime? lastUpdated,
     int? sessionCount,
     int? version,
+    // Questionnaire fields
+    String? userName,
+    bool? hasCompletedQuestionnaire,
+    List<String>? selectedChallenges,
+    DateTime? questionnaireCompletedAt,
   }) {
     return LearnerProfile(
       phonologicalAwareness: phonologicalAwareness ?? this.phonologicalAwareness,
@@ -76,6 +97,11 @@ class LearnerProfile {
       lastUpdated: lastUpdated ?? this.lastUpdated,
       sessionCount: sessionCount ?? this.sessionCount,
       version: version ?? this.version,
+      // Questionnaire fields
+      userName: userName ?? this.userName,
+      hasCompletedQuestionnaire: hasCompletedQuestionnaire ?? this.hasCompletedQuestionnaire,
+      selectedChallenges: selectedChallenges ?? this.selectedChallenges,
+      questionnaireCompletedAt: questionnaireCompletedAt ?? this.questionnaireCompletedAt,
     );
   }
 
@@ -94,6 +120,11 @@ class LearnerProfile {
       'lastUpdated': lastUpdated.toIso8601String(),
       'sessionCount': sessionCount,
       'version': version,
+      // Questionnaire fields
+      'userName': userName,
+      'hasCompletedQuestionnaire': hasCompletedQuestionnaire,
+      'selectedChallenges': selectedChallenges,
+      'questionnaireCompletedAt': questionnaireCompletedAt?.toIso8601String(),
     };
   }
 
@@ -112,6 +143,15 @@ class LearnerProfile {
       lastUpdated: DateTime.parse(json['lastUpdated'] as String),
       sessionCount: json['sessionCount'] as int,
       version: json['version'] as int? ?? 1,
+      // Questionnaire fields
+      userName: json['userName'] as String?,
+      hasCompletedQuestionnaire: json['hasCompletedQuestionnaire'] as bool? ?? false,
+      selectedChallenges: json['selectedChallenges'] != null 
+          ? List<String>.from(json['selectedChallenges'] as List)
+          : const [],
+      questionnaireCompletedAt: json['questionnaireCompletedAt'] != null 
+          ? DateTime.parse(json['questionnaireCompletedAt'] as String)
+          : null,
     );
   }
 

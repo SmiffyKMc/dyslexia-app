@@ -26,7 +26,7 @@ class SpeechRecognitionService {
   // Silence detection
   Timer? _silenceTimer;
   int _silenceSeconds = 0;
-  final int _maxSilenceSeconds = 5; // 5 seconds of silence triggers auto-stop
+  final int _maxSilenceSeconds = 15; // 15 seconds of silence triggers auto-stop
   bool _hasDetectedSpeech = false;
 
   Stream<String> get recognizedWordsStream {
@@ -74,10 +74,15 @@ class SpeechRecognitionService {
   }
 
   Future<bool> initialize() async {
-    if (_isInitialized || _isDisposed) return _isInitialized;
+    // Allow re-initialization for permission requests
+    if (_isDisposed) return false;
 
     try {
       developer.log('🎤 Initializing speech recognition...', name: 'dyslexic_ai.speech');
+      
+      // Reset state for fresh initialization
+      _isInitialized = false;
+      _permissionGranted = false;
       
       // Check and request permission first
       final hasPermission = await _requestMicrophonePermission();
@@ -100,9 +105,13 @@ class SpeechRecognitionService {
       if (_isInitialized) {
         _ensureStatusController();
         _statusController?.add(RecordingStatus.idle);
+        developer.log('🎤 Speech recognition initialized successfully', name: 'dyslexic_ai.speech');
+      } else {
+        developer.log('🎤 Speech recognition initialization failed', name: 'dyslexic_ai.speech');
+        _ensureStatusController();
+        _statusController?.add(RecordingStatus.error);
       }
 
-      developer.log('🎤 Speech recognition initialized: $_isInitialized', name: 'dyslexic_ai.speech');
       return _isInitialized;
     } catch (e) {
       developer.log('🎤 Speech recognition initialization failed: $e', name: 'dyslexic_ai.speech');
@@ -113,11 +122,26 @@ class SpeechRecognitionService {
   }
 
   Future<bool> _requestMicrophonePermission() async {
-    if (_permissionGranted) return true;
-    
     try {
+      // Always check current permission status
+      final currentStatus = await Permission.microphone.status;
+      
+      if (currentStatus == PermissionStatus.granted) {
+        _permissionGranted = true;
+        return true;
+      }
+      
+      // Request permission if not granted
+      developer.log('🎤 Requesting microphone permission...', name: 'dyslexic_ai.speech');
       final status = await Permission.microphone.request();
       _permissionGranted = status == PermissionStatus.granted;
+      
+      if (_permissionGranted) {
+        developer.log('🎤 Microphone permission granted', name: 'dyslexic_ai.speech');
+      } else {
+        developer.log('🎤 Microphone permission denied: $status', name: 'dyslexic_ai.speech');
+      }
+      
       return _permissionGranted;
     } catch (e) {
       developer.log('🎤 Permission request failed: $e', name: 'dyslexic_ai.speech');
@@ -139,7 +163,7 @@ class SpeechRecognitionService {
       await _speechToText.listen(
         onResult: _onResult,
         listenFor: const Duration(minutes: 10), // Longer duration, we'll handle auto-stop
-        pauseFor: const Duration(seconds: 8), // Longer pause tolerance
+        pauseFor: const Duration(seconds: 15), // Longer pause tolerance - matches our silence detection
         listenOptions: SpeechListenOptions(
           partialResults: true,
           cancelOnError: false,
@@ -213,7 +237,7 @@ class SpeechRecognitionService {
       _silenceController?.add(_silenceSeconds);
       
       // Update status based on silence duration
-      if (_silenceSeconds >= 3 && _hasDetectedSpeech) {
+      if (_silenceSeconds >= 8 && _hasDetectedSpeech) {
         _ensureStatusController();
         _statusController?.add(RecordingStatus.detectingSilence);
       }

@@ -48,5 +48,8 @@
 	<!-- Enable file sharing for flutter_gemma -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<!-- Microphone permission for speech recognition -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to help you practice reading aloud and provide pronunciation feedback.</string>
 </dict>
 </plist>

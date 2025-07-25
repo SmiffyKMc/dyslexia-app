@@ -333,6 +333,17 @@ mixin _$SentenceFixerStore on _SentenceFixerStore, Store {
             profile: profile));
   }
 
+  late final _$_generateSentencesInBackgroundAsyncAction = AsyncAction(
+      '_SentenceFixerStore._generateSentencesInBackground',
+      context: context);
+
+  @override
+  Future<void> _generateSentencesInBackground(
+      String difficulty, int count, LearnerProfile? profile) {
+    return _$_generateSentencesInBackgroundAsyncAction.run(
+        () => super._generateSentencesInBackground(difficulty, count, profile));
+  }
+
   late final _$startNewSessionLegacyAsyncAction = AsyncAction(
       '_SentenceFixerStore.startNewSessionLegacy',
       context: context);

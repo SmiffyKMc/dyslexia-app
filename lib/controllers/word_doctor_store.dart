@@ -79,8 +79,13 @@ abstract class _WordDoctorStore with Store {
   int get recentWordsCount => recentWords.length;
 
   Future<void> _initialize() async {
-    await _loadSavedWords();
-    await _loadRecentWords();
+    try {
+      await _loadSavedWords();
+      await _loadRecentWords();
+    } catch (e) {
+      developer.log('Word Doctor initialization error: $e', name: 'dyslexic_ai.word_doctor');
+      // Don't crash the app, just log the error
+    }
   }
 
   @action
@@ -130,31 +135,46 @@ abstract class _WordDoctorStore with Store {
 
   @action
   Future<void> speakSyllable(String syllable) async {
+    // Cancel any existing TTS timer
+    _ttsDebounceTimer?.cancel();
     
     try {
+      // Clear TTS queue before speaking new content
+      await _ttsService.clearQueue();
       await _ttsService.speakWord(syllable);
     } catch (e) {
       developer.log('Error speaking syllable: $e', name: 'dyslexic_ai.word_doctor');
+      errorMessage = 'Unable to speak syllable. Please try again.';
     }
   }
 
   @action
   Future<void> speakWord(String word) async {
+    // Cancel any existing TTS timer
+    _ttsDebounceTimer?.cancel();
     
     try {
+      // Clear TTS queue before speaking new content
+      await _ttsService.clearQueue();
       await _ttsService.speakWord(word);
     } catch (e) {
       developer.log('Error speaking word: $e', name: 'dyslexic_ai.word_doctor');
+      errorMessage = 'Unable to speak word. Please try again.';
     }
   }
 
   @action
   Future<void> speakExampleSentence(String sentence) async {
+    // Cancel any existing TTS timer
+    _ttsDebounceTimer?.cancel();
     
     try {
+      // Clear TTS queue before speaking new content
+      await _ttsService.clearQueue();
       await _ttsService.speak(sentence);
     } catch (e) {
       developer.log('Error speaking sentence: $e', name: 'dyslexic_ai.word_doctor');
+      errorMessage = 'Unable to speak sentence. Please try again.';
     }
   }
 
@@ -333,7 +353,31 @@ abstract class _WordDoctorStore with Store {
 
 
   void dispose() {
-    _ttsDebounceTimer?.cancel();
-    _ttsService.dispose();
+    try {
+      developer.log('🩹 Disposing WordDoctorStore', name: 'dyslexic_ai.word_doctor');
+      
+      // Cancel timers
+      _ttsDebounceTimer?.cancel();
+      _ttsDebounceTimer = null;
+      
+      // Stop TTS but don't dispose (shared service)
+      _ttsService.stop();
+      
+      // Clear any ongoing analysis
+      if (isAnalyzing) {
+        errorMessage = 'Analysis cancelled - screen closed';
+      }
+      
+      // Clear state
+      currentAnalysis = null;
+      inputWord = '';
+      errorMessage = null;
+      isScanning = false;
+      
+      developer.log('🩹 WordDoctorStore disposed successfully', name: 'dyslexic_ai.word_doctor');
+    } catch (e) {
+      developer.log('Word Doctor dispose error: $e', name: 'dyslexic_ai.word_doctor');
+      // Continue with disposal even if errors occur
+    }
   }
 } 

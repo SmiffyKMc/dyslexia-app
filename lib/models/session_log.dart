@@ -201,8 +201,8 @@ class SessionLog {
         return 'Answered $questionsCorrect/$questionsTotal questions ($percentage%)';
       case SessionType.phonicsGame:
         final score = data['final_score'] as double? ?? 0.0;
-        final percentage = (score * 100).round();
-        return 'Final score: $percentage%';
+        final accuracy = data['accuracy_percentage'] as double? ?? 0.0;
+        return 'Final score: ${score.round()} points (${accuracy.round()}% accuracy)';
       case SessionType.soundItOut:
         final wordsAnalyzed = data['words_analyzed'] as int? ?? 0;
         return 'Analyzed $wordsAnalyzed phonetic patterns';

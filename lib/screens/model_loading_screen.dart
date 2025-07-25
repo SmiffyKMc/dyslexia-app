@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/model_download_service.dart';
-
+import '../widgets/fun_loading_widget.dart';
 import '../main.dart';
+import 'questionnaire/questionnaire_flow.dart';
 
 class ModelLoadingScreen extends StatefulWidget {
   const ModelLoadingScreen({super.key});
@@ -170,10 +172,41 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
 
   void _navigateToHome() {
     if (mounted && _isModelReady) {
-      developer.log("Model is ready, navigating to MainApp.", name: 'dyslexic_ai.navigation');
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainApp()),
-      );
+      developer.log("Model is ready, checking first-time user flow.", name: 'dyslexic_ai.navigation');
+      _checkFirstTimeUser();
+    }
+  }
+
+  Future<void> _checkFirstTimeUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasCompleted = prefs.getBool('has_completed_questionnaire') ?? false;
+      
+      if (!mounted) return;
+      
+      if (!hasCompleted) {
+        developer.log("First-time user, navigating to questionnaire.", name: 'dyslexic_ai.navigation');
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const QuestionnaireFlow()),
+          );
+        }
+      } else {
+        developer.log("Returning user, navigating to MainApp.", name: 'dyslexic_ai.navigation');
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainApp()),
+          );
+        }
+      }
+    } catch (e) {
+      developer.log("Error checking first-time user: $e", name: 'dyslexic_ai.navigation.error');
+      // Fallback to main app on error
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainApp()),
+        );
+      }
     }
   }
 
@@ -181,9 +214,34 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
     setState(() {
       _loadingError = null;
       _loadingProgress = 0.0;
+      _isModelReady = false;
       _isInitializing = false;
     });
     _initModel();
+  }
+
+  List<String> _getDownloadingMessages() {
+    return [
+      "Downloading AI reading assistant...",
+      "Setting up personalized learning tools...",
+      "Preparing your reading coach...",
+      "Loading language processing models...",
+      "Configuring adaptive learning system...",
+      "Initializing speech recognition...",
+      "Almost ready to begin...",
+    ];
+  }
+
+  List<String> _getInitializingMessages() {
+    return [
+      "Loading AI model into memory...",
+      "Optimizing performance settings...",
+      "Finalizing system configuration...",
+      "Preparing adaptive features...",
+      "Testing model responsiveness...",
+      "Completing initialization...",
+      "Ready to start learning...",
+    ];
   }
 
   @override
@@ -271,107 +329,54 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
           
           Padding(
             padding: const EdgeInsets.all(40.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: size.width * 0.5,
-                  height: size.width * 0.5,
-                  child: Stack(
-                    alignment: Alignment.center,
+            child: _loadingError != null
+                ? // Error state
+                Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: double.infinity,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                      Icon(
+                        Icons.error_outline,
+                        size: 80,
+                        color: theme.colorScheme.error,
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Something went wrong',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: Text(
+                          _loadingError!,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: Container(
-                          width: size.width * 0.4,
-                          height: size.width * 0.4,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: theme.colorScheme.primary.withValues(alpha: 0.15),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.school,
-                              size: size.width * 0.2,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                        onPressed: _retryLoad,
+                        child: const Text('Try Again'),
                       ),
                     ],
+                  )
+                : // Fun loading widget
+                FunLoadingWidget(
+                    title: _isInitializing 
+                        ? 'Configuring your reading assistant' 
+                        : 'Preparing your reading assistant',
+                    messages: _isInitializing 
+                        ? _getInitializingMessages()
+                        : _getDownloadingMessages(),
+                    showProgress: true,
+                    progressValue: _isInitializing ? null : _loadingProgress.clamp(0.0, 1.0),
                   ),
-                ),
-                
-                const SizedBox(height: 50),
-                
-                Text(
-                  _isInitializing ? 'Configuring your reading assistant' : 'Preparing your reading assistant',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                
-                const SizedBox(height: 15),
-                
-                Text(
-                  _loadingError ?? (_isInitializing 
-                    ? 'Loading AI model into memory...'
-                    : 'Setting up AI tools to help with reading and learning...'),
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: _loadingError != null
-                        ? theme.colorScheme.error
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                  ),
-                ),
-                
-                const SizedBox(height: 30),
-                
-                if (_loadingError == null)
-                  _isInitializing
-                    ? SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.primary,
-                          ),
-                        ),
-                      )
-                    : SizedBox(
-                        width: size.width * 0.6,
-                        child: LinearProgressIndicator(
-                          value: _loadingProgress.clamp(0.0, 1.0),
-                          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            theme.colorScheme.primary,
-                          ),
-                          minHeight: 6,
-                        ),
-                      ),
-                
-                if (_loadingError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: ElevatedButton(
-                      onPressed: _retryLoad,
-                      child: const Text('Try Again'),
-                    ),
-                  ),
-              ],
-            ),
           ),
         ],
       ),

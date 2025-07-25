@@ -4,6 +4,7 @@ import '../controllers/adaptive_story_store.dart';
 import '../models/story.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
+import '../widgets/fun_loading_widget.dart';
 
 class AdaptiveStoryScreen extends StatefulWidget {
   const AdaptiveStoryScreen({super.key});
@@ -51,8 +52,20 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
               if (!_store.isLoading) {
                 return const SizedBox.shrink();
               }
-              return const Expanded(
-                child: Center(child: CircularProgressIndicator()),
+              return Expanded(
+                child: FunLoadingWidget(
+                  title: 'Creating Your Story',
+                  messages: const [
+                    "AI is writing a personalized story...",
+                    "Crafting characters and plot...",
+                    "Adjusting content to your reading level...",
+                    "Generating comprehension questions...",
+                    "Finalizing story elements...",
+                    "Preparing interactive features...",
+                    "Almost ready to begin reading...",
+                  ],
+                  showProgress: false,
+                ),
               );
             },
           ),

@@ -229,48 +229,48 @@ class PhonicsSoundsService {
        case 'ly':
          return 'lee';     // '-ly' ending
        
-       // Consonant blends - minimal pronunciation
+       // Consonant blends - phonetic pronunciation for TTS
        case 'bl':
-         return 'bl';      // Pure 'bl' blend
+         return 'bluh';    // 'bl' blend as in 'blue'
        case 'br':
-         return 'br';      // Pure 'br' blend
+         return 'bruh';    // 'br' blend as in 'brown'
        case 'cl':
-         return 'cl';      // Pure 'cl' blend
+         return 'cluh';    // 'cl' blend as in 'clap'
        case 'cr':
-         return 'cr';      // Pure 'cr' blend
+         return 'cruh';    // 'cr' blend as in 'cry'
        case 'dr':
-         return 'dr';      // Pure 'dr' blend
+         return 'druh';    // 'dr' blend as in 'drop'
        case 'fl':
-         return 'fl';      // Pure 'fl' blend
+         return 'fluh';    // 'fl' blend as in 'flag'
        case 'fr':
-         return 'fr';      // Pure 'fr' blend
+         return 'fruh';    // 'fr' blend as in 'frog'
        case 'gl':
-         return 'gl';      // Pure 'gl' blend
+         return 'gluh';    // 'gl' blend as in 'glad'
        case 'gr':
-         return 'gr';      // Pure 'gr' blend
+         return 'gruh';    // 'gr' blend as in 'green'
        case 'pl':
-         return 'pl';      // Pure 'pl' blend
+         return 'pluh';    // 'pl' blend as in 'play'
        case 'pr':
-         return 'pr';      // Pure 'pr' blend
+         return 'pruh';    // 'pr' blend as in 'pretty'
        case 'sc':
        case 'sk':
-         return 'sk';      // Pure 'sk' blend
+         return 'skuh';    // 'sk' blend as in 'skip'
        case 'sl':
-         return 'sl';      // Pure 'sl' blend
+         return 'sluh';    // 'sl' blend as in 'slow'
        case 'sm':
-         return 'sm';      // Pure 'sm' blend
+         return 'smuh';    // 'sm' blend as in 'smile'
        case 'sn':
-         return 'sn';      // Pure 'sn' blend
+         return 'snuh';    // 'sn' blend as in 'snake'
        case 'sp':
-         return 'sp';      // Pure 'sp' blend
+         return 'spuh';    // 'sp' blend as in 'spin'
        case 'st':
-         return 'st';      // Pure 'st' blend
+         return 'stuh';    // 'st' blend as in 'stop'
        case 'sw':
-         return 'sw';      // Pure 'sw' blend
+         return 'swuh';    // 'sw' blend as in 'swim'
        case 'tr':
-         return 'tr';      // Pure 'tr' blend
+         return 'truh';    // 'tr' blend as in 'tree'
        case 'tw':
-         return 'tw';      // Pure 'tw' blend
+         return 'twuh';    // 'tw' blend as in 'twelve'
        
        // Three-letter blends
        case 'scr':
@@ -283,6 +283,26 @@ class PhonicsSoundsService {
          return 'str';     // Pure 'str' blend
        case 'thr':
          return 'thr';     // Pure 'thr' blend
+       
+       // Vowel digraphs - phonetic pronunciation for TTS
+       case 'ai':
+         return 'ay';      // 'ai' makes long 'a' sound as in 'rain'
+       case 'ay':
+         return 'ay';      // 'ay' makes long 'a' sound as in 'play'
+       case 'ea':
+         return 'ee';      // 'ea' makes long 'e' sound as in 'leaf'
+       case 'ie':
+         return 'eye';     // 'ie' makes long 'i' sound as in 'tie'
+       case 'oa':
+         return 'oh';      // 'oa' makes long 'o' sound as in 'boat'
+       case 'ow':
+         return 'oh';      // 'ow' makes long 'o' sound as in 'show'
+       case 'ou':
+         return 'ow';      // 'ou' makes 'ow' sound as in 'house'
+       case 'ue':
+         return 'yoo';     // 'ue' makes long 'u' sound as in 'blue'
+       case 'ui':
+         return 'oo';      // 'ui' makes 'oo' sound as in 'fruit'
       
       default:
         return phoneme;   // Return original if not found

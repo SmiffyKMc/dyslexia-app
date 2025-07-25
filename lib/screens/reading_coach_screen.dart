@@ -5,6 +5,7 @@ import '../controllers/learner_profile_store.dart';
 import '../models/reading_session.dart';
 import '../utils/service_locator.dart';
 import '../widgets/story_selector_modal.dart';
+import '../widgets/fun_loading_widget.dart';
 
 class ReadingCoachScreen extends StatefulWidget {
   const ReadingCoachScreen({super.key});
@@ -104,8 +105,19 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             Observer(
               builder: (context) {
                 if (_store.isLoading) {
-                  return const Expanded(
-                    child: Center(child: CircularProgressIndicator()),
+                  return Expanded(
+                    child: FunLoadingWidget(
+                      title: 'Preparing Your Reading Coach',
+                      messages: const [
+                        "Setting up speech recognition...",
+                        "Analyzing reading patterns...",
+                        "Calibrating pronunciation detection...",
+                        "Preparing personalized feedback...",
+                        "Loading coaching features...",
+                        "Almost ready to begin practice...",
+                      ],
+                      showProgress: false,
+                    ),
                   );
                 }
                 return const SizedBox.shrink();
@@ -131,29 +143,67 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                             if (_store.errorMessage == null) {
                               return const SizedBox.shrink();
                             }
+                            
+                            // Check if this is a permission error
+                            final isPermissionError = _store.errorMessage!.toLowerCase().contains('microphone') ||
+                                                     _store.errorMessage!.toLowerCase().contains('permission');
+                            
                             return Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        border: Border.all(color: Colors.red[200]!),
-                        borderRadius: BorderRadius.circular(8),
+                        color: isPermissionError ? Colors.orange[50] : Colors.red[50],
+                        border: Border.all(color: isPermissionError ? Colors.orange[200]! : Colors.red[200]!),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error, color: Colors.red[600]),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _store.errorMessage!,
-                              style: TextStyle(color: Colors.red[600]),
+                          Row(
+                            children: [
+                              Icon(
+                                isPermissionError ? Icons.mic_off : Icons.error, 
+                                color: isPermissionError ? Colors.orange[600] : Colors.red[600]
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  isPermissionError ? 'Microphone Access Required' : 'Error',
+                                  style: TextStyle(
+                                    color: isPermissionError ? Colors.orange[600] : Colors.red[600],
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _store.clearError,
+                                icon: const Icon(Icons.close),
+                                iconSize: 16,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _store.errorMessage!,
+                            style: TextStyle(
+                              color: isPermissionError ? Colors.orange[700] : Colors.red[600],
                             ),
                           ),
-                          IconButton(
-                            onPressed: _store.clearError,
-                            icon: const Icon(Icons.close),
-                            iconSize: 16,
-                          ),
+                          if (isPermissionError) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _store.requestMicrophonePermission,
+                                icon: const Icon(Icons.mic),
+                                label: const Text('Allow Microphone Access'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                             );
@@ -354,16 +404,53 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            _store.currentText,
-            style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.6,
-                  letterSpacing: 0.5,
-                ),
-              ),
+          _buildHighlightedText(),
         ],
             ),
+    );
+  }
+
+  Widget _buildHighlightedText() {
+    if (_store.currentTextWords.isEmpty) {
+      return Text(
+        _store.currentText,
+        style: const TextStyle(
+          fontSize: 18,
+          height: 1.6,
+          letterSpacing: 0.5,
+        ),
+      );
+    }
+
+    final highlightStates = _store.wordHighlightStates;
+    final words = _store.currentTextWords;
+    
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          fontSize: 18,
+          height: 1.6,
+          letterSpacing: 0.5,
+          color: Colors.black87,
+        ),
+        children: [
+          for (int i = 0; i < words.length; i++) ...[
+            TextSpan(
+              text: words[i],
+              style: TextStyle(
+                backgroundColor: highlightStates.length > i && highlightStates[i]
+                    ? Colors.yellow.withValues(alpha: 0.6)
+                    : Colors.transparent,
+                fontWeight: highlightStates.length > i && highlightStates[i]
+                    ? FontWeight.w600
+                    : FontWeight.normal,
+              ),
+            ),
+            if (i < words.length - 1)
+              const TextSpan(text: ' '), // Add space between words
+          ],
+        ],
+      ),
     );
   }
 
@@ -381,7 +468,21 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-            Text(_store.isListening ? 'Recording...' : 'Mic ready'),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_store.isListening ? 'Recording...' : 'Mic ready'),
+                if (_store.isListening && _store.silenceSeconds >= 8)
+                  Text(
+                    'Auto-stop in ${15 - _store.silenceSeconds}s',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _store.silenceSeconds >= 12 ? Colors.red : Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
                 const Spacer(),
             if (_store.hasSession) ...[
               Text(
@@ -403,10 +504,13 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
               height: 60,
               child: ElevatedButton.icon(
               onPressed: _store.canStartReading ? _store.startReading : null,
-                icon: const Icon(Icons.mic, size: 28),
-                label: const Text(
-                  'Start Reading',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                icon: Icon(
+                  _store.canStartReading ? Icons.mic : Icons.mic_off, 
+                  size: 28
+                ),
+                label: Text(
+                  _store.canStartReading ? 'Start Reading' : 'Microphone Not Ready',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
           ),

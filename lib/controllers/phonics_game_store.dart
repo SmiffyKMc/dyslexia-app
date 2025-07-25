@@ -3,11 +3,14 @@ import 'package:flutter/foundation.dart';
 import '../models/phonics_game.dart';
 import '../models/session_log.dart';
 import '../services/phonics_sounds_service.dart';
+import '../services/ai_phonics_generation_service.dart';
 import '../services/session_logging_service.dart';
+import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
 
 class PhonicsGameStore with ChangeNotifier {
   final PhonicsSoundsService _soundsService = PhonicsSoundsService();
+  late final AIPhonicsGenerationService _aiPhonicsService;
   late final SessionLoggingService _sessionLogging;
 
   PhonicsGameSession? _currentSession;
@@ -50,12 +53,22 @@ class PhonicsGameStore with ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
-      // Initialize session logging if not already done
+      // Initialize services
       _sessionLogging = getIt<SessionLoggingService>();
+      _aiPhonicsService = getIt<AIPhonicsGenerationService>();
 
       await _soundsService.initialize();
 
-      List<SoundSet> soundSets = _soundsService.generateRandomSoundSets(rounds, difficulty: difficulty);
+      // Get learner profile for AI generation
+      final learnerProfileStore = getIt<LearnerProfileStore>();
+      final profile = learnerProfileStore.currentProfile;
+
+      // Generate sound sets using AI (with fallback)
+      List<SoundSet> soundSets = await _aiPhonicsService.generateGameSounds(
+        profile: profile,
+        rounds: rounds,
+        difficulty: difficulty,
+      );
       
       if (soundSets.isEmpty) {
         throw Exception('No sound sets available for difficulty $difficulty');
@@ -64,7 +77,11 @@ class PhonicsGameStore with ChangeNotifier {
       List<GameRound> gameRounds = [];
       for (int i = 0; i < soundSets.length; i++) {
         SoundSet soundSet = soundSets[i];
-        List<WordOption> options = _soundsService.generateGameOptions(soundSet);
+        
+        // Use AI-generated word options directly, fallback to original generation if needed
+        List<WordOption> options = soundSet.words.isNotEmpty 
+            ? soundSet.words 
+            : _soundsService.generateGameOptions(soundSet);
         
         gameRounds.add(GameRound(
           roundNumber: i + 1,
@@ -100,13 +117,17 @@ class PhonicsGameStore with ChangeNotifier {
       );
       
       _startRoundTimer();
-      await _playCurrentSound();
       
     } catch (e) {
       _errorMessage = 'Failed to start game: $e';
     } finally {
       _isLoading = false;
       notifyListeners();
+      
+      // Play sound after loading is complete
+      if (_errorMessage?.isEmpty ?? true) {
+        await _playCurrentSound();
+      }
     }
   }
 

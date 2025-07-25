@@ -3,6 +3,9 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     
+    <!-- Microphone permission for speech recognition -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    
     <application
         android:label="dyslexic_ai"
         android:name="${applicationName}"

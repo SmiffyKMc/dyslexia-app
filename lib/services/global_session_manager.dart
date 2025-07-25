@@ -9,6 +9,8 @@ enum AIActivity {
   profileAnalysis,
   textSimplification,
   storyGeneration,
+  phonicsGeneration,
+  wordAnalysis,
   general,
 }
 
@@ -36,44 +38,58 @@ class GlobalSessionManager {
   AIActivity? _currentActivity;
   DateTime? _sessionCreatedAt;
   int _estimatedTokensUsed = 0;
+  int _powerUserOperationCount = 0; // Track operations for power user session management
   
   /// Standard session configuration
   static const double temperature = 0.3;
   static const int topK = 10;
   
-  /// Session timeout duration (auto-cleanup)
-  static const Duration sessionTimeout = Duration(minutes: 5);
+  /// Session timeout duration (auto-cleanup) - AGGRESSIVE for power users
+  static const Duration sessionTimeout = Duration(minutes: 2); // Reduced from 5 to 2
   
-  /// Activity-specific session policies
+  /// Global token ceiling - ensure we never exceed model limits
+  static const int globalTokenCeiling = 1800; // Safe margin below 2048
+  
+  /// Activity-specific session policies - REDUCED budgets for power users
   static const Map<AIActivity, SessionPolicy> _activityPolicies = {
     AIActivity.ocrProcessing: SessionPolicy(
       requiresFreshSession: true,
-      maxTokenBudget: 800,
+      maxTokenBudget: 600, // Reduced from 800
       description: 'OCR operations always need fresh sessions due to high image token consumption',
     ),
     AIActivity.profileAnalysis: SessionPolicy(
       requiresFreshSession: true,
-      maxTokenBudget: 600,
+      maxTokenBudget: 400, // Reduced from 600
       description: 'Profile analysis needs clean context for accurate assessment',
     ),
     AIActivity.sentenceGeneration: SessionPolicy(
-      requiresFreshSession: false,
-      maxTokenBudget: 800,
-      description: 'Sentence generation can reuse sessions within activity',
+      requiresFreshSession: true, // Changed to true for power users
+      maxTokenBudget: 500, // Reduced from 800
+      description: 'Sentence generation uses fresh sessions for power users',
     ),
     AIActivity.textSimplification: SessionPolicy(
-      requiresFreshSession: false,
-      maxTokenBudget: 500,
-      description: 'Text simplification can reuse sessions for similar operations',
+      requiresFreshSession: true, // Changed to true for power users
+      maxTokenBudget: 300, // Reduced from 500
+      description: 'Text simplification uses fresh sessions for power users',
     ),
     AIActivity.storyGeneration: SessionPolicy(
-      requiresFreshSession: false,
-      maxTokenBudget: 1000,
-      description: 'Story generation benefits from context continuity',
+      requiresFreshSession: true, // Changed to true for power users
+      maxTokenBudget: 600, // Reduced from 1000
+      description: 'Story generation uses fresh sessions for power users',
+    ),
+    AIActivity.phonicsGeneration: SessionPolicy(
+      requiresFreshSession: true, // Changed to true for power users
+      maxTokenBudget: 800, // Reduced from 1500
+      description: 'Phonics generation uses fresh sessions for power users',
+    ),
+    AIActivity.wordAnalysis: SessionPolicy(
+      requiresFreshSession: true, // Changed to true for power users
+      maxTokenBudget: 400, // Reduced from 800
+      description: 'Word analysis uses fresh sessions for power users',
     ),
     AIActivity.general: SessionPolicy(
       requiresFreshSession: false,
-      maxTokenBudget: 500,
+      maxTokenBudget: 300, // Reduced from 500
       description: 'General purpose operations',
     ),
   };
@@ -127,24 +143,40 @@ class GlobalSessionManager {
   
   /// Check if a new session should be created based on activity and policy
   bool _shouldCreateNewSession(AIActivity activity, SessionPolicy policy) {
-    // Different activity than current session
+    // Different activity than current session - ALWAYS invalidate for power users
     if (_currentActivity != null && _currentActivity != activity) {
-      developer.log('🔄 Activity changed from ${_currentActivity!.name} to ${activity.name}', 
+      developer.log('🔄 Activity changed from ${_currentActivity!.name} to ${activity.name} - forcing fresh session', 
           name: 'dyslexic_ai.session');
       return true;
     }
     
-    // Session timeout check
+    // Global token ceiling check - CRITICAL for power users
+    if (_estimatedTokensUsed > globalTokenCeiling) {
+      developer.log('🚨 GLOBAL token ceiling exceeded: $_estimatedTokensUsed > $globalTokenCeiling - forcing fresh session', 
+          name: 'dyslexic_ai.session');
+      return true;
+    }
+    
+    // Session timeout check - more aggressive for power users
     if (_sessionCreatedAt != null && 
         DateTime.now().difference(_sessionCreatedAt!).compareTo(sessionTimeout) > 0) {
-      developer.log('⏰ Session timeout exceeded (${sessionTimeout.inMinutes}m)', 
+      developer.log('⏰ Session timeout exceeded (${sessionTimeout.inMinutes}m) - forcing fresh session', 
           name: 'dyslexic_ai.session');
       return true;
     }
     
-    // Token budget exceeded for this activity
+    // Activity-specific token budget exceeded
     if (_estimatedTokensUsed > policy.maxTokenBudget) {
-      developer.log('🪙 Token budget exceeded for ${activity.name}: $_estimatedTokensUsed > ${policy.maxTokenBudget}', 
+      developer.log('🪙 Activity token budget exceeded for ${activity.name}: $_estimatedTokensUsed > ${policy.maxTokenBudget} - forcing fresh session', 
+          name: 'dyslexic_ai.session');
+      return true;
+    }
+    
+    // For power users: invalidate session every 3 operations to prevent accumulation
+    _powerUserOperationCount++;
+    if (_powerUserOperationCount >= 3) {
+      _powerUserOperationCount = 0;
+      developer.log('🔄 Power user: 3 operations completed - forcing fresh session for reliability', 
           name: 'dyslexic_ai.session');
       return true;
     }
@@ -155,8 +187,22 @@ class GlobalSessionManager {
   /// Update estimated token usage (called by AIInferenceService)
   void updateTokenUsage(int tokensDelta) {
     _estimatedTokensUsed += tokensDelta;
-    developer.log('🪙 Session token usage updated: $_estimatedTokensUsed tokens', 
-        name: 'dyslexic_ai.session');
+    
+    // Log with warning if approaching limits
+    if (_estimatedTokensUsed > globalTokenCeiling * 0.8) {
+      developer.log('⚠️ Session approaching token limit: $_estimatedTokensUsed tokens (${((_estimatedTokensUsed / globalTokenCeiling) * 100).round()}%)', 
+          name: 'dyslexic_ai.session');
+    } else {
+      developer.log('🪙 Session token usage updated: $_estimatedTokensUsed tokens', 
+          name: 'dyslexic_ai.session');
+    }
+    
+    // Force invalidation if we exceed global ceiling
+    if (_estimatedTokensUsed > globalTokenCeiling) {
+      developer.log('🚨 CRITICAL: Token usage exceeded global ceiling, invalidating session immediately', 
+          name: 'dyslexic_ai.session');
+      invalidateSession();
+    }
   }
   
   /// Reset token counter (for new sessions)
@@ -178,6 +224,7 @@ class GlobalSessionManager {
       _currentActivity = null;
       _sessionCreatedAt = null;
       _estimatedTokensUsed = 0;
+      _powerUserOperationCount = 0; // Reset operation counter
     }
   }
   

@@ -148,6 +148,7 @@ flutter:
     - lib/prompts/sentence_fixer/
     - lib/prompts/profile_analysis/
     - lib/prompts/word_analysis/
+    - lib/prompts/phonics_generation/
     - lib/prompts/shared/
   
   # Dyslexia-friendly fonts

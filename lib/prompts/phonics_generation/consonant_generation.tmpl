@@ -1,0 +1,20 @@
+Generate {{word_count}} words for "{{phoneme}}" consonant sound at {{difficulty_level}} level.
+
+Requirements:
+- 1 word starting with "{{phoneme}}" sound (correct answer)
+- {{word_count}} other words starting with different sounds (incorrect options)
+- Use simple, common words appropriate for {{difficulty_level}} learners
+
+Example for "b" sound:
+{
+  "correct_words": ["ball"],
+  "incorrect_words": ["cat", "dog", "fish"],
+  "pronunciation_hint": "Make the 'buh' sound like in 'ball'"
+}
+
+Now generate words for "{{phoneme}}" sound in JSON format:
+{
+  "correct_words": ["actual_word_starting_with_{{phoneme}}"],
+  "incorrect_words": ["word_with_different_sound1", "word_with_different_sound2", "word_with_different_sound3"],
+  "pronunciation_hint": "clear guidance for {{phoneme}} sound"
+} 

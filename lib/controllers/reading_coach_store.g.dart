@@ -44,6 +44,13 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
           Computed<String>(() => super.recordingStatusText,
               name: '_ReadingCoachStore.recordingStatusText'))
       .value;
+  Computed<List<bool>>? _$wordHighlightStatesComputed;
+
+  @override
+  List<bool> get wordHighlightStates => (_$wordHighlightStatesComputed ??=
+          Computed<List<bool>>(() => super.wordHighlightStates,
+              name: '_ReadingCoachStore.wordHighlightStates'))
+      .value;
 
   late final _$currentTextAtom =
       Atom(name: '_ReadingCoachStore.currentText', context: context);
@@ -253,6 +260,38 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
     });
   }
 
+  late final _$currentTextWordsAtom =
+      Atom(name: '_ReadingCoachStore.currentTextWords', context: context);
+
+  @override
+  List<String> get currentTextWords {
+    _$currentTextWordsAtom.reportRead();
+    return super.currentTextWords;
+  }
+
+  @override
+  set currentTextWords(List<String> value) {
+    _$currentTextWordsAtom.reportWrite(value, super.currentTextWords, () {
+      super.currentTextWords = value;
+    });
+  }
+
+  late final _$recognizedWordsAtom =
+      Atom(name: '_ReadingCoachStore.recognizedWords', context: context);
+
+  @override
+  List<String> get recognizedWords {
+    _$recognizedWordsAtom.reportRead();
+    return super.recognizedWords;
+  }
+
+  @override
+  set recognizedWords(List<String> value) {
+    _$recognizedWordsAtom.reportWrite(value, super.recognizedWords, () {
+      super.recognizedWords = value;
+    });
+  }
+
   late final _$initializeAsyncAction =
       AsyncAction('_ReadingCoachStore.initialize', context: context);
 
@@ -341,6 +380,16 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   @override
   Future<void> restartListening() {
     return _$restartListeningAsyncAction.run(() => super.restartListening());
+  }
+
+  late final _$requestMicrophonePermissionAsyncAction = AsyncAction(
+      '_ReadingCoachStore.requestMicrophonePermission',
+      context: context);
+
+  @override
+  Future<void> requestMicrophonePermission() {
+    return _$requestMicrophonePermissionAsyncAction
+        .run(() => super.requestMicrophonePermission());
   }
 
   late final _$_handleRecordingCompleteAsyncAction = AsyncAction(
@@ -470,11 +519,14 @@ isGeneratingStory: ${isGeneratingStory},
 liveFeedback: ${liveFeedback},
 practiceWords: ${practiceWords},
 presetStories: ${presetStories},
+currentTextWords: ${currentTextWords},
+recognizedWords: ${recognizedWords},
 currentAccuracy: ${currentAccuracy},
 formattedAccuracy: ${formattedAccuracy},
 canStartReading: ${canStartReading},
 hasSession: ${hasSession},
-recordingStatusText: ${recordingStatusText}
+recordingStatusText: ${recordingStatusText},
+wordHighlightStates: ${wordHighlightStates}
     ''';
   }
 }
