@@ -57,7 +57,7 @@ jobs:
           flutter pub get
 
       - name: Run Flutter analyze
-        run: flutter analyze --no-fatal-infos --no-fatal-warning
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
       - name: Build release APK with Gradle compatibility
         run: |
