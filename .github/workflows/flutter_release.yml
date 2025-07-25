@@ -23,7 +23,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.3"  # Pin to stable version
+          flutter-version: "3.29.1"  # Match local Flutter version
           channel: stable
           cache: true
 
