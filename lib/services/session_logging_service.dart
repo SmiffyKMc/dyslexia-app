@@ -134,10 +134,6 @@ class SessionLoggingService {
   }) {
     developer.log('📝 Logging comprehension: $questionsCorrect/$questionsTotal', name: 'dyslexic_ai.session_logging');
     
-    // Debug: Check current session data before update
-    final currentData = _sessionLogStore.currentSession?.data ?? {};
-    developer.log('📝 Current session data before comprehension update: questions_answered=${currentData['questions_answered']}', name: 'dyslexic_ai.session_logging');
-    
     final comprehensionData = {
       'questions_total': questionsTotal,
       'questions_correct': questionsCorrect,
@@ -147,13 +143,7 @@ class SessionLoggingService {
       'comprehension_updated': DateTime.now().toIso8601String(),
     };
     
-    developer.log('📝 Comprehension data to update: $comprehensionData', name: 'dyslexic_ai.session_logging');
-    
     updateSessionData(comprehensionData);
-    
-    // Debug: Check session data after update
-    final updatedData = _sessionLogStore.currentSession?.data ?? {};
-    developer.log('📝 Session data after comprehension update: questions_answered=${updatedData['questions_answered']}, questions_total=${updatedData['questions_total']}', name: 'dyslexic_ai.session_logging');
   }
 
   void logGameResults({

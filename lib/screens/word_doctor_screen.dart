@@ -23,9 +23,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
     try {
       _store = getIt<WordDoctorStore>();
     } catch (e) {
-      // Handle service locator error gracefully
-      debugPrint('Word Doctor initialization failed: $e');
-      rethrow; // Re-throw for now, but this prevents silent failures
+      rethrow;
     }
   }
 

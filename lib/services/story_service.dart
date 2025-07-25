@@ -538,13 +538,6 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
   ];
 
   List<Story> getAllStories() {
-    
-    // Validate question quality on first load (in debug mode)
-    assert(() {
-      validateAllQuestions();
-      return true;
-    }());
-    
     return List.unmodifiable(_stories);
   }
 

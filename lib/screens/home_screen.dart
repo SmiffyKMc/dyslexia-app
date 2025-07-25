@@ -743,7 +743,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildRecentActivity() {
     final recentSessions = _sessionLogStore.recentLogs.take(3).toList();
     
-    // Debug recent sessions if they show incorrect data
     for (final session in recentSessions) {
       if (session.sessionType == SessionType.readingCoach && 
           (session.data['words_read'] == 0 || session.accuracy == 0)) {
