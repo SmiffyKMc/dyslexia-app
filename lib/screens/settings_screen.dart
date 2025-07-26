@@ -70,15 +70,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildProfileSection(),
-          const SizedBox(height: 24),
           _buildAccessibilitySection(),
           const SizedBox(height: 24),
-          _buildAppearanceSection(),
-          const SizedBox(height: 24),
-          _buildNotificationSection(),
-          const SizedBox(height: 24),
-          _buildDataSection(),
+          _buildDebugSection(),
           const SizedBox(height: 24),
           _buildAboutSection(),
         ],
@@ -86,41 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildProfileSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Profile',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildListTile(
-              'Name',
-              'Reading Assistant User',
-              Icons.person,
-              () {},
-            ),
-            _buildListTile(
-              'Age',
-              'Not specified',
-              Icons.cake,
-              () {},
-            ),
-            _buildListTile(
-              'Reading Level',
-              'Beginner',
-              Icons.school,
-              () {},
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildAccessibilitySection() {
     return Card(
@@ -135,24 +95,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             _buildFontSwitchTile(),
-            _buildSwitchTile(
-              'Increased Letter Spacing',
-              'Add extra space between letters',
-              true,
-              Icons.space_bar,
-            ),
-            _buildSwitchTile(
-              'High Contrast Mode',
-              'Enhance text visibility',
-              false,
-              Icons.contrast,
-            ),
-            _buildSwitchTile(
-              'Word Highlighting',
-              'Highlight words while reading',
-              true,
-              Icons.highlight,
-            ),
           ],
         ),
       ),
@@ -169,79 +111,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildAppearanceSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Appearance',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildListTile(
-              'Theme',
-              'Light',
-              Icons.palette,
-              () {},
-            ),
-            _buildListTile(
-              'Text Size',
-              'Large',
-              Icons.text_increase,
-              () {},
-            ),
-            _buildListTile(
-              'Reading Speed',
-              'Normal',
-              Icons.speed,
-              () {},
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildNotificationSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Notifications',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildSwitchTile(
-              'Daily Reminders',
-              'Get reminded to practice daily',
-              true,
-              Icons.notifications,
-            ),
-            _buildSwitchTile(
-              'Achievement Alerts',
-              'Celebrate your progress',
-              true,
-              Icons.emoji_events,
-            ),
-            _buildSwitchTile(
-              'Weekly Reports',
-              'Review your weekly progress',
-              false,
-              Icons.analytics,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDataSection() {
+  Widget _buildDebugSection() {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -249,29 +121,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Data & Privacy',
+              'Debug & Development',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildListTile(
-              'Export Data',
-              'Download your progress data',
-              Icons.download,
-              () {},
-            ),
-            _buildListTile(
-              'Delete Account',
-              'Permanently delete your account',
-              Icons.delete_forever,
-              () {},
-              isDestructive: true,
-            ),
-            _buildListTile(
-              'Privacy Policy',
-              'Read our privacy policy',
-              Icons.privacy_tip,
-              () {},
-            ),
             _buildSettingsTile(
               'Clear Session Data',
               'Reset all session history and progress',
@@ -307,23 +160,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildListTile(
-              'Version',
-              '1.0.0',
-              Icons.info,
-              () {},
-            ),
-            _buildListTile(
-              'Help & Support',
-              'Get help using the app',
-              Icons.help,
-              () {},
-            ),
-            _buildListTile(
-              'Rate App',
-              'Leave a review',
-              Icons.star,
-              () {},
+            ListTile(
+              leading: Icon(Icons.info, color: Colors.grey[600]),
+              title: const Text('Version', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('1.0.0', style: TextStyle(fontSize: 12)),
+              contentPadding: EdgeInsets.zero,
             ),
           ],
         ),
@@ -331,54 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildSwitchTile(String title, String subtitle, bool value, IconData icon) {
-    return ListTile(
-      leading: Icon(icon, color: Colors.grey[600]),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: Switch(
-        value: value,
-        onChanged: (newValue) {},
-      ),
-      contentPadding: EdgeInsets.zero,
-    );
-  }
 
-  Widget _buildListTile(String title, String subtitle, IconData icon, VoidCallback onTap, {bool isDestructive = false}) {
-    return ListTile(
-      leading: Icon(
-        icon, 
-        color: isDestructive ? Colors.red : Colors.grey[600],
-      ),
-      title: Text(
-        title, 
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          color: isDestructive ? Colors.red : null,
-        ),
-      ),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: onTap,
-      contentPadding: EdgeInsets.zero,
-    );
-  }
-
-  Widget _buildSettingsGroup(String title, List<Widget> tiles) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-        ),
-        ...tiles,
-      ],
-    );
-  }
 
   Widget _buildSettingsTile(String title, String subtitle, IconData icon, VoidCallback onTap) {
     return ListTile(

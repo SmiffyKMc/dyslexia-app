@@ -110,6 +110,9 @@ abstract class _ReadingCoachStore with Store {
   bool get hasSession => currentSession != null;
 
   @computed
+  bool get isInInputMode => !isGeneratingStory && currentText.isEmpty;
+
+  @computed
   String get recordingStatusText {
     switch (recordingStatus) {
       case RecordingStatus.idle:
@@ -239,6 +242,17 @@ abstract class _ReadingCoachStore with Store {
         .split(RegExp(r'\s+'))
         .where((word) => word.isNotEmpty)
         .toList();
+  }
+
+  @action
+  void clearCurrentText() {
+    currentText = '';
+    currentTextWords.clear();
+    errorMessage = null;
+    // Clear any active session when starting fresh
+    if (currentSession != null) {
+      currentSession = null;
+    }
   }
 
   @action

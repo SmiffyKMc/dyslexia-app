@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/questionnaire_service.dart';
+import '../../services/font_preference_service.dart';
 import '../../main.dart';
 
 class ResultsScreen extends StatefulWidget {
@@ -50,6 +51,195 @@ class _ResultsScreenState extends State<ResultsScreen> {
         });
       }
     }
+  }
+
+  /// Check if user selected challenges that would benefit from dyslexic font
+  bool _shouldRecommendDyslexicFont() {
+    const visualChallenges = {
+      'letter_confusion',      // Confuses similar letters (b/d, p/q)
+      'skipping_words',        // Often skips words or lines when reading
+      'word_recognition',      // Difficulty recognizing common words
+      'slow_reading',          // Reading feels slow or effortful
+    };
+    
+    return widget.selectedChallenges.any((challenge) => visualChallenges.contains(challenge));
+  }
+
+  Future<void> _applyDyslexicFont() async {
+    try {
+      await FontPreferenceService().setFontPreference(true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Dyslexia-friendly font applied! You can change this in Settings anytime.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to apply font. You can change this in Settings later.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildFontRecommendationCard() {
+    return Card(
+      elevation: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.text_fields,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Font Recommendation',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Based on your responses, we recommend trying our dyslexia-friendly font',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            
+            // Font comparison
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Standard Font',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Reading helps you learn\nand understand better.',
+                              style: TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 16,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Dyslexia-Friendly Font',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Reading helps you learn\nand understand better.',
+                              style: TextStyle(
+                                fontFamily: 'OpenDyslexic',
+                                fontSize: 16,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            Text(
+              '💡 The dyslexia-friendly font makes letters more distinct and can help reduce letter confusion and improve reading flow.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey[700],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {}, // Skip - do nothing
+                    child: const Text('Maybe Later'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _applyDyslexicFont,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('Try It Now'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -155,6 +345,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
           
           const SizedBox(height: 24),
+          
+          // Font recommendation (only show if user has visual challenges)
+          if (_shouldRecommendDyslexicFont()) ...[
+            _buildFontRecommendationCard(),
+            const SizedBox(height: 24),
+          ],
           
           // Error message
           if (_errorMessage != null)

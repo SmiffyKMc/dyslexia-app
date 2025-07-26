@@ -94,10 +94,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Hello, Alex!',
-                style: Theme.of(context).textTheme.titleLarge,
-                overflow: TextOverflow.ellipsis,
+              Observer(
+                builder: (context) => Text(
+                  _profileStore.currentProfile?.userName != null 
+                      ? 'Hello, ${_profileStore.currentProfile!.userName}!'
+                      : 'Hello!',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               Text(
                 'Daily streak: 7 days',

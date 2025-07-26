@@ -60,8 +60,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
 
   void _startAIStoryGeneration() {
     _store.generateAIStory((text) {
-      // Update text field as story streams in
-      _textController.text = text;
+      // Text streams directly to display section - no text field update needed
+      // The store handles setCurrentText(), display section shows the streamed content
     });
   }
 
@@ -217,15 +217,29 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                               : const SizedBox.shrink(),
                         ),
                         
-                        // Static text selection section - no Observer needed
-                  _buildTextSelection(),
-                  const SizedBox(height: 24),
-                        
-                        // Current text display - needs Observer for currentText
+                        // Text selection section - show only in input mode
                         Observer(
-                          builder: (context) => _buildCurrentText(),
+                          builder: (context) => _store.isInInputMode 
+                              ? Column(
+                                  children: [
+                                    _buildTextSelection(),
+                                    const SizedBox(height: 24),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                  const SizedBox(height: 24),
+                        
+                        // Current text display - show only when not in input mode
+                        Observer(
+                          builder: (context) => !_store.isInInputMode 
+                              ? Column(
+                                  children: [
+                                    _buildCurrentText(),
+                                    const SizedBox(height: 24),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
                         
                         // Reading controls - needs Observer for multiple states
                         Observer(
@@ -397,6 +411,14 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                 ),
               ),
               IconButton(
+                onPressed: () {
+                  _store.clearCurrentText();
+                  _textController.clear();
+                },
+                icon: const Icon(Icons.edit, size: 20),
+                tooltip: 'New text',
+              ),
+              IconButton(
                 onPressed: () => _store.speakText(_store.currentText),
                 icon: const Icon(Icons.volume_up, size: 20),
                 tooltip: 'Listen to text',
@@ -411,6 +433,34 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   Widget _buildHighlightedText() {
+    // Show generation indicator when AI is generating story
+    if (_store.isGeneratingStory) {
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Generating your story...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.purple,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_store.currentTextWords.isEmpty) {
       return Text(
         _store.currentText,

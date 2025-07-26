@@ -1,11 +1,23 @@
 import 'package:mobx/mobx.dart';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import '../services/ocr_service.dart';
+import '../utils/service_locator.dart';
 
 part 'text_simplifier_store.g.dart';
 
 class TextSimplifierStore = _TextSimplifierStore with _$TextSimplifierStore;
 
 abstract class _TextSimplifierStore with Store {
+  late final OcrService _ocrService;
+  late final ImagePicker _imagePicker;
+
+  _TextSimplifierStore() {
+    _ocrService = getIt<OcrService>();
+    _imagePicker = ImagePicker();
+  }
+
   @observable
   String originalText = '';
 
@@ -164,6 +176,25 @@ abstract class _TextSimplifierStore with Store {
   void pasteFromClipboard(String clipboardText) {
     setOriginalText(clipboardText);
     developer.log('📋 Pasted text from clipboard: ${clipboardText.length} characters', name: 'dyslexic_ai.text_simplifier');
+  }
+
+  @action
+  Future<void> pickImageFromGallery() async {
+    isProcessingOCR = true;
+    errorMessage = null;
+
+    try {
+      final XFile? image = await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        final extractedText = await _ocrService.processImageForReading(File(image.path));
+        setOCRText(extractedText);
+      }
+    } catch (e) {
+      errorMessage = 'Failed to process image: $e';
+      developer.log('❌ OCR processing failed: $e', name: 'dyslexic_ai.text_simplifier');
+    } finally {
+      isProcessingOCR = false;
+    }
   }
 
   @action

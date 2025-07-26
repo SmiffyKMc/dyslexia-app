@@ -1,7 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
+import '../controllers/learner_profile_store.dart';
+import '../utils/service_locator.dart';
 
-class LearnScreen extends StatelessWidget {
+class LearnScreen extends StatefulWidget {
   const LearnScreen({super.key});
+
+  @override
+  State<LearnScreen> createState() => _LearnScreenState();
+}
+
+class _LearnScreenState extends State<LearnScreen> {
+  late final LearnerProfileStore _profileStore;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileStore = getIt<LearnerProfileStore>();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,49 +46,54 @@ class LearnScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
-                children: [
-                  _buildLearningCard(
-                    context,
-                    'Reading Coach',
-                    'Practice reading with real-time feedback and pronunciation help',
-                    Icons.mic_outlined,
-                    '/reading_coach',
-                    Colors.blue,
-                    isRecommended: true,
-                  ),
-                  _buildLearningCard(
-                    context,
-                    'Story Mode',
-                    'Interactive fill-in-the-blank stories with word pattern learning',
-                    Icons.menu_book_outlined,
-                    '/adaptive_story',
-                    Colors.purple,
-                  ),
-                  _buildLearningCard(
-                    context,
-                    'Phonics Game',
-                    'Match words to sounds and learn phoneme patterns',
-                    Icons.games_outlined,
-                    '/phonics_game',
-                    Colors.orange,
-                  ),
-                  _buildLearningCard(
-                    context,
-                    'Sentence Fixer',
-                    'Find and fix spelling or grammar mistakes in sentences',
-                    Icons.search_outlined,
-                    '/sentence_fixer',
-                    Colors.deepPurple,
-                  ),
-                  _buildComingSoonCard(context),
-                ],
+              Observer(
+                builder: (context) => GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 0.85,
+                  children: [
+                    _buildLearningCard(
+                      context,
+                      'Reading Coach',
+                      'Practice reading with real-time feedback and pronunciation help',
+                      Icons.mic_outlined,
+                      '/reading_coach',
+                      Colors.blue,
+                      isRecommended: _profileStore.recommendedTool == 'Reading Coach',
+                    ),
+                    _buildLearningCard(
+                      context,
+                      'Story Mode',
+                      'Interactive fill-in-the-blank stories with word pattern learning',
+                      Icons.menu_book_outlined,
+                      '/adaptive_story',
+                      Colors.purple,
+                      isRecommended: _profileStore.recommendedTool == 'Story Mode',
+                    ),
+                    _buildLearningCard(
+                      context,
+                      'Phonics Game',
+                      'Match words to sounds and learn phoneme patterns',
+                      Icons.games_outlined,
+                      '/phonics_game',
+                      Colors.orange,
+                      isRecommended: _profileStore.recommendedTool == 'Phonics Game',
+                    ),
+                    _buildLearningCard(
+                      context,
+                      'Sentence Fixer',
+                      'Find and fix spelling or grammar mistakes in sentences',
+                      Icons.search_outlined,
+                      '/sentence_fixer',
+                      Colors.deepPurple,
+                      isRecommended: _profileStore.recommendedTool == 'Sentence Fixer',
+                    ),
+                    _buildComingSoonCard(context),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               _buildLearningTips(context),

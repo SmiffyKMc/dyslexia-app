@@ -149,6 +149,20 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                 icon: const Icon(Icons.paste),
                 label: const Text('Paste'),
               ),
+              const SizedBox(width: 12),
+              Observer(
+                builder: (context) => ElevatedButton.icon(
+                  onPressed: _store.isProcessingOCR ? null : _handleScanImage,
+                  icon: _store.isProcessingOCR 
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.photo_library),
+                  label: Text(_store.isProcessingOCR ? 'Processing...' : 'Scan Image'),
+                ),
+              ),
             ],
           ),
         ),
@@ -254,6 +268,17 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
       }
     } catch (e) {
       _showErrorSnackBar('Failed to paste text: $e');
+    }
+  }
+
+  Future<void> _handleScanImage() async {
+    try {
+      await _store.pickImageFromGallery();
+      if (_store.originalText.isNotEmpty) {
+        _textController.text = _store.originalText;
+      }
+    } catch (e) {
+      _showErrorSnackBar('Failed to process image: $e');
     }
   }
 
