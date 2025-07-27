@@ -347,17 +347,21 @@ dyslexic_ai/
 
 ## 📚 **Documentation**
 
-- **[Technical Architecture](DYSLEXIC_AI_COMPREHENSIVE_OVERVIEW.md)**: Detailed system design and component overview
-- **[AI Integration Summary](AI_INTEGRATION_SUMMARY.md)**: Gemma 3n implementation details and best practices  
-- **[Performance Review](AI_PERFORMANCE_REVIEW.md)**: Optimization strategies and benchmarking results
-- **[Problem Solving Case Study](ON_DEVICE_AI_PROBLEM_SOLVING.md)**: In-depth analysis of technical challenges and solutions
-- **[Competition Summary](COMPETITION_READY_SUMMARY.md)**: Feature overview and demo preparation guide
+### **Core Documentation**
+- **[Technical Deep Dive](DyslexAI_Technical_Deep_Dive.md)**: Comprehensive engineering proof-of-work covering session management, prompt engineering, and production problem-solving
+- **[Kaggle Competition Writeup](Dyslexia_AI_Kaggle_Writeup.md)**: Main submission overview highlighting innovation, impact, and competitive advantages
+- **[Dyslexia Research](dyslexcia_research.md)**: Background research and educational foundation informing the app design
+
+### **Getting Started**
+- **Installation**: Follow the setup instructions in this README
+- **Architecture**: Review the Technical Deep Dive for system design details
+- **Features**: See the Kaggle Writeup for comprehensive feature overview
 
 ---
 
-## 🤝 **Contributing**
+##  **Contributing**
 
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the codebase.
+This is a Kaggle competition submission showcasing on-device AI for educational accessibility. 
 
 ### **Development Setup**
 1. Follow the installation instructions above
@@ -369,7 +373,7 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📜 **License**
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is a Kaggle competition submission demonstrating on-device AI capabilities. Code is provided for educational and evaluation purposes.
 
 ---
 
@@ -384,10 +388,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 **Contact & Support**
 
-- **Project Maintainer**: [Your Name]
-- **Email**: your.email@example.com
-- **Project Repository**: [GitHub Repository Link]
-- **Issues & Feature Requests**: [GitHub Issues Link]
+**Kaggle Competition Submission**: DyslexAI - On-Device AI for Educational Accessibility  
+**Project Repository**: GitHub Repository (publicly available for evaluation)  
+**Technical Documentation**: See [Technical Deep Dive](DyslexAI_Technical_Deep_Dive.md) for implementation details
 
 ---
 
