@@ -248,6 +248,16 @@ mixin _$TextSimplifierStore on _TextSimplifierStore, Store {
     });
   }
 
+  late final _$pickImageFromGalleryAsyncAction = AsyncAction(
+      '_TextSimplifierStore.pickImageFromGallery',
+      context: context);
+
+  @override
+  Future<void> pickImageFromGallery() {
+    return _$pickImageFromGalleryAsyncAction
+        .run(() => super.pickImageFromGallery());
+  }
+
   late final _$_TextSimplifierStoreActionController =
       ActionController(name: '_TextSimplifierStore', context: context);
 

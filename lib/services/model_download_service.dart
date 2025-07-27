@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as path;
 import 'package:get_it/get_it.dart';
 
+import 'background_download_manager.dart';
+
 typedef DownloadProgressCallback = void Function(double progress);
 typedef DownloadErrorCallback = void Function(String error);
 typedef DownloadSuccessCallback = void Function();
@@ -273,51 +275,113 @@ class ModelDownloadService {
             onSuccess?.call();
             return;
           } else {
-            developer.log('⚠️ Failed to load existing model, will re-download', name: 'dyslexic_ai.model_download');
+            developer.log('⚠️ Existing model file is corrupted, deleting and re-downloading...', name: 'dyslexic_ai.model_download');
+            
+            // Delete the corrupted file
+            try {
+              final modelFile = File(existingPath);
+              if (modelFile.existsSync()) {
+                await modelFile.delete();
+                developer.log('🗑️ Deleted corrupted existing model file', name: 'dyslexic_ai.model_download');
+              }
+              
+                              // Clear preferences and cached expected size
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove(_prefsKeyModelPath);
+                await prefs.remove(_prefsKeyModelDownloaded);
+                await prefs.remove('expected_model_size'); // Clear cached size
+            } catch (deleteError) {
+              developer.log('❌ Error cleaning up corrupted file: $deleteError', name: 'dyslexic_ai.model_download');
+            }
+            
+            // Continue to download section below
           }
         }
       }
       
-      // Download the model
-      developer.log('📥 Starting model download...', name: 'dyslexic_ai.model_download');
-      final modelPath = await _getModelFilePath();
+      // Use BackgroundDownloadManager for new downloads
+      developer.log('📥 Starting background model download...', name: 'dyslexic_ai.model_download');
       
-      final downloadSuccess = await _downloadWithDio(
-        _modelUrl,
-        modelPath,
-        (progress) {
-          downloadProgress = progress;
-          onProgress?.call(progress);
-        },
-      );
+      final getIt = GetIt.instance;
+      final backgroundDownloadManager = getIt<BackgroundDownloadManager>();
       
-      if (!downloadSuccess) {
-        throw Exception('Failed to download model file');
-      }
+      // Listen to background download progress
+      final subscription = backgroundDownloadManager.stateStream.listen((state) async {
+        switch (state.status) {
+          case DownloadStatus.downloading:
+            downloadProgress = state.progress;
+            onProgress?.call(state.progress);
+            break;
+          case DownloadStatus.completed:
+            developer.log('🔧 Background download complete, initializing model...', name: 'dyslexic_ai.model_download');
+            
+            // Signal UI to switch to circular progress for model initialization
+            onProgress?.call(-1.0);
+            
+            // Get the downloaded model path and set it in preferences for consistency
+            final modelPath = await _getModelFilePath();
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString(_prefsKeyModelPath, modelPath);
+            await prefs.setBool(_prefsKeyModelDownloaded, true);
+            
+            // Initialize the model into memory
+            final success = await _setModelPathInFlutterGemma(modelPath);
+            
+            if (success) {
+              isModelReady = true;
+              downloadProgress = 1.0;
+              onProgress?.call(1.0);
+              onSuccess?.call();
+              developer.log('🎉 Model download and setup completed successfully!', name: 'dyslexic_ai.model_download');
+            } else {
+              // Model file is corrupted - delete it and retry
+              developer.log('⚠️ Model file appears corrupted, deleting and retrying...', name: 'dyslexic_ai.model_download');
+              
+              try {
+                final modelFile = File(modelPath);
+                if (modelFile.existsSync()) {
+                  await modelFile.delete();
+                  developer.log('🗑️ Deleted corrupted model file', name: 'dyslexic_ai.model_download');
+                }
+                
+                                 // Clear preferences and cached expected size so the model appears as not available
+                 final prefs = await SharedPreferences.getInstance();
+                 await prefs.remove(_prefsKeyModelPath);
+                 await prefs.remove(_prefsKeyModelDownloaded);
+                 await prefs.remove('expected_model_size'); // Clear cached size
+                
+                // Retry the download
+                developer.log('🔄 Retrying download due to corruption...', name: 'dyslexic_ai.model_download');
+                await downloadModelIfNeeded(
+                  onProgress: onProgress,
+                  onError: onError,
+                  onSuccess: onSuccess,
+                );
+                return;
+                
+              } catch (deleteError) {
+                developer.log('❌ Error during corruption cleanup: $deleteError', name: 'dyslexic_ai.model_download');
+              }
+              
+              final errorString = 'Failed to initialize downloaded model';
+              developer.log(errorString, name: 'dyslexic_ai.model_download');
+              downloadError = errorString;
+              onError?.call(errorString);
+            }
+            break;
+          case DownloadStatus.failed:
+            final errorString = 'Background download failed: ${state.error ?? 'Unknown error'}';
+            developer.log(errorString, name: 'dyslexic_ai.model_download');
+            downloadError = errorString;
+            onError?.call(errorString);
+            break;
+          default:
+            break;
+        }
+      });
       
-      // Set the model path in flutter_gemma
-      developer.log('🔧 Setting up model in flutter_gemma...', name: 'dyslexic_ai.model_download');
-      
-      // Signal UI to switch to circular progress for model initialization
-      onProgress?.call(-1.0);
-      
-      final setupSuccess = await _setModelPathInFlutterGemma(modelPath);
-      
-      if (!setupSuccess) {
-        throw Exception('Failed to set model path in flutter_gemma');
-      }
-      
-      // Save success state
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_prefsKeyModelDownloaded, true);
-      await prefs.setString(_prefsKeyModelPath, modelPath);
-      
-      isModelReady = true;
-      downloadProgress = 1.0;
-      onProgress?.call(1.0);
-      
-      developer.log('🎉 Model download and setup completed successfully!', name: 'dyslexic_ai.model_download');
-      onSuccess?.call();
+      // Start the background download
+      await backgroundDownloadManager.startBackgroundDownload();
       
     } catch (e, stackTrace) {
       final errorString = 'Model download failed: $e';
@@ -327,6 +391,44 @@ class ModelDownloadService {
     }
   }
   
+  /// Initialize existing model into memory (without download)
+  /// Returns true if successful, false if failed
+  Future<bool> initializeExistingModel() async {
+    try {
+      developer.log('🚀 Initializing existing model into memory...', name: 'dyslexic_ai.model_download');
+      
+      // Check if model file exists
+      if (!await isModelAvailable()) {
+        developer.log('❌ No model file available for initialization', name: 'dyslexic_ai.model_download');
+        return false;
+      }
+      
+      // Get the existing model path
+      final prefs = await SharedPreferences.getInstance();
+      final existingPath = prefs.getString(_prefsKeyModelPath);
+      
+      if (existingPath == null) {
+        developer.log('❌ No model path found in preferences', name: 'dyslexic_ai.model_download');
+        return false;
+      }
+      
+      // Initialize the model into memory using flutter_gemma
+      final success = await _setModelPathInFlutterGemma(existingPath);
+      
+      if (success) {
+        developer.log('✅ Model initialized successfully into memory', name: 'dyslexic_ai.model_download');
+        isModelReady = true;
+        return true;
+      } else {
+        developer.log('❌ Failed to initialize model into memory', name: 'dyslexic_ai.model_download');
+        return false;
+      }
+    } catch (e) {
+      developer.log('❌ Error initializing existing model: $e', name: 'dyslexic_ai.model_download');
+      return false;
+    }
+  }
+
   Future<void> clearModelData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefsKeyModelDownloaded);

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 import '../services/model_download_service.dart';
+import '../utils/service_locator.dart';
 import '../widgets/fun_loading_widget.dart';
 import '../main.dart';
 import 'questionnaire/questionnaire_flow.dart';
@@ -17,12 +20,16 @@ class ModelLoadingScreen extends StatefulWidget {
 class _ModelLoadingScreenState extends State<ModelLoadingScreen>
     with TickerProviderStateMixin {
   
-  final ModelDownloadService _modelDownloadService = ModelDownloadService();
+  late final ModelDownloadService _modelDownloadService;
 
   double _loadingProgress = 0.0;
   String? _loadingError;
   bool _isModelReady = false;
   bool _isInitializing = false;
+  
+  // Additional progress info for better UX
+  String _progressText = '';
+  String _downloadedInfo = '';
   
   late final AnimationController _pulseController;
   late final Animation<double> _scaleAnimation;
@@ -39,6 +46,8 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
   @override
   void initState() {
     super.initState();
+    
+    _modelDownloadService = getIt<ModelDownloadService>();
     
     _setupAnimations();
     _initModel();
@@ -117,57 +126,58 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
       _loadingProgress = 0.0;
       _loadingError = null;
       _isModelReady = false;
+      _isInitializing = false;
     });
 
-    try {
-      await _modelDownloadService.downloadModelIfNeeded(
-        onProgress: (progress) {
-          if (mounted) {
-            if (progress == -1.0) {
-              // Switch to initialization mode (circular progress)
-              setState(() {
-                _isInitializing = true;
-                _loadingProgress = 0.8;
-              });
-              developer.log('Switching to model initialization mode', name: 'dyslexic_ai.init');
-            } else {
-              // Regular download progress (linear progress)
-              setState(() => _loadingProgress = progress * 0.8);
-              developer.log('Download progress: ${(progress * 100).toStringAsFixed(1)}%', name: 'dyslexic_ai.init');
-            }
-          }
-        },
-        onError: (error) {
-          if (mounted) {
-            developer.log('Error downloading model: $error', name: 'dyslexic_ai.init.error', error: error);
-            setState(() {
-              _loadingError = "Failed to download AI model. Please check your internet connection and try again.";
-              _loadingProgress = 0.0;
-            });
-          }
-        },
-        onSuccess: () async {
-          if (mounted) {
-            developer.log('Model initialization completed successfully', name: 'dyslexic_ai.init');
+    // Use the original pattern - call downloadModelIfNeeded with callbacks
+    await _modelDownloadService.downloadModelIfNeeded(
+      onProgress: (progress) {
+        if (!mounted) return;
+        
+        if (progress == -1.0) {
+          // Signal to switch UI to model initialization mode
+          developer.log('📱 UI switching to model initialization mode', name: 'dyslexic_ai.init');
+          setState(() {
+            _isInitializing = true;
+            _loadingProgress = 1.0; // Show completed progress bar
+          });
+        } else if (progress >= 0.0 && progress <= 1.0) {
+          // Regular download progress
+          final progressPercent = (progress * 100).toInt();
+          developer.log('📱 UI received progress: $progressPercent%', name: 'dyslexic_ai.init');
+          
+          setState(() {
+            _loadingProgress = progress;
+            _isInitializing = false;
+            _progressText = '$progressPercent%';
             
-            setState(() {
-              _isModelReady = true;
-              _loadingProgress = 1.0;
-              _loadingError = null;
-            });
-            _navigateToHome();
-          }
-        },
-      );
-    } catch (e, stackTrace) {
-      if (mounted) {
-        final errorMsg = 'Unexpected error during model setup: $e';
-        developer.log(errorMsg, name: 'dyslexic_ai.init.error', error: e, stackTrace: stackTrace);
+            // Note: We don't have detailed MB info in this callback, but that's OK
+            // The background download still happens, we just show simpler progress
+            _downloadedInfo = 'Downloading...';
+          });
+        }
+      },
+      onError: (error) {
+        if (!mounted) return;
+        developer.log('Error from downloadModelIfNeeded: $error', name: 'dyslexic_ai.init.error');
         setState(() {
-          _loadingError = "An unexpected error occurred. Please try again.";
+          _loadingError = "Failed to download AI model. Please check your internet connection and try again.";
+          _loadingProgress = 0.0;
+          _isInitializing = false;
         });
-      }
-    }
+      },
+      onSuccess: () {
+        if (!mounted) return;
+        developer.log('Model ready, navigating to home', name: 'dyslexic_ai.init');
+        setState(() {
+          _isModelReady = true;
+          _loadingProgress = 1.0;
+          _loadingError = null;
+          _isInitializing = false;
+        });
+        _navigateToHome();
+      },
+    );
   }
 
   void _navigateToHome() {
@@ -210,27 +220,100 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
     }
   }
 
-  void _retryLoad() {
+  void _retryLoad() async {
     setState(() {
       _loadingError = null;
       _loadingProgress = 0.0;
       _isModelReady = false;
       _isInitializing = false;
     });
+    
+    // Just restart the download process - don't cancel/delete partial files
     _initModel();
   }
 
-  List<String> _getDownloadingMessages() {
-    return [
-      "Downloading AI reading assistant...",
-      "Setting up personalized learning tools...",
-      "Preparing your reading coach...",
-      "Loading language processing models...",
-      "Configuring adaptive learning system...",
-      "Initializing speech recognition...",
-      "Almost ready to begin...",
-    ];
+  Widget _buildDownloadProgress() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Downloading AI Reading Assistant',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).primaryColor,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 40),
+        
+        // Progress bar
+        Container(
+          width: double.infinity,
+          height: 8,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: _loadingProgress.clamp(0.0, 1.0),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Theme.of(context).primaryColor,
+                    Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Progress percentage
+        Text(
+          _progressText.isNotEmpty ? _progressText : '0%',
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
+        
+        const SizedBox(height: 10),
+        
+        // Downloaded MB info
+        Text(
+          _downloadedInfo.isNotEmpty ? _downloadedInfo : 'Preparing download...',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
+        ),
+        
+        const SizedBox(height: 40),
+        
+        // Spinning icon for visual interest
+        Container(
+          width: 60,
+          height: 60,
+          child: CircularProgressIndicator(
+            strokeWidth: 3,
+            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+          ),
+        ),
+      ],
+    );
   }
+
+
 
   List<String> _getInitializingMessages() {
     return [
@@ -366,17 +449,16 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                       ),
                     ],
                   )
-                : // Fun loading widget
-                FunLoadingWidget(
-                    title: _isInitializing 
-                        ? 'Configuring your reading assistant' 
-                        : 'Preparing your reading assistant',
-                    messages: _isInitializing 
-                        ? _getInitializingMessages()
-                        : _getDownloadingMessages(),
-                    showProgress: true,
-                    progressValue: _isInitializing ? null : _loadingProgress.clamp(0.0, 1.0),
-                  ),
+                : _isInitializing
+                  ? // Initialization phase: Show messages 
+                    FunLoadingWidget(
+                        title: 'Configuring your reading assistant',
+                        messages: _getInitializingMessages(),
+                        showProgress: true,
+                        progressValue: null, // Indeterminate progress for initialization
+                      )
+                  : // Download phase: Show progress + MB info
+                    _buildDownloadProgress(),
           ),
         ],
       ),

@@ -8,6 +8,7 @@ import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
 import '../utils/prompt_loader.dart';
+import '../utils/resource_diagnostics.dart';
 import 'global_session_manager.dart';
 
 class GemmaProfileUpdateService {
@@ -16,8 +17,6 @@ class GemmaProfileUpdateService {
   
   // Background processing management
   Timer? _deferredUpdateTimer;
-  Timer? _activityMonitorTimer; // Fix: Store timer reference to prevent memory leak
-  bool _isUserActive = false;
   DateTime? _lastUserActivity;
   bool _isUpdatePending = false; // Fix: Prevent race conditions
   bool _isAppInBackground = false; // Phase 3: App lifecycle tracking
@@ -30,8 +29,11 @@ class GemmaProfileUpdateService {
     _sessionLogStore = getIt<SessionLogStore>();
     _profileStore = getIt<LearnerProfileStore>();
     
-    // Start monitoring user activity
-    _startActivityMonitoring();
+    // Clean up any existing timers from old scheduling system
+    _deferredUpdateTimer?.cancel();
+    ResourceDiagnostics().unregisterTimer('GemmaProfileUpdateService', 'deferredUpdateTimer');
+    _deferredUpdateTimer = null;
+    _isUpdatePending = false;
   }
   
   /// Phase 3: Handle app lifecycle changes
@@ -74,30 +76,19 @@ class GemmaProfileUpdateService {
     _isAppInBackground = false;
     developer.log('Resumed background processing - app in foreground', name: 'dyslexic_ai.profile_update');
     
-    // If there was a pending update, reschedule it
+    // If there was a pending update, run it immediately
     if (_isUpdatePending) {
-      developer.log('Rescheduling deferred update after app resume', name: 'dyslexic_ai.profile_update');
+      developer.log('Running immediate update after app resume', name: 'dyslexic_ai.profile_update');
       _isUpdatePending = false; // Reset flag
-      scheduleBackgroundUpdate();
+      updateProfileFromRecentSessions(isBackgroundTask: true);
     }
-  }
-  
-  /// Start monitoring user activity to defer background AI processing
-  void _startActivityMonitoring() {
-    // Fix: Store timer reference and add disposal logic
-    _activityMonitorTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_lastUserActivity != null) {
-        final timeSinceActivity = DateTime.now().difference(_lastUserActivity!);
-        _isUserActive = timeSinceActivity.inSeconds < userInactivityDelay.inSeconds;
-      }
-    });
   }
   
   /// Mark user as active (call this from UI interactions)
   void markUserActive() {
     final previousActivity = _lastUserActivity;
     _lastUserActivity = DateTime.now();
-    _isUserActive = true;
+    // _isUserActive = true; // Calculated on demand
     
     // Only log if it's been more than 2 seconds since last log (to avoid spam)
     if (previousActivity == null || DateTime.now().difference(previousActivity).inSeconds > 2) {
@@ -105,84 +96,18 @@ class GemmaProfileUpdateService {
     }
   }
   
-  /// Check if it's appropriate to run background AI processing
-  bool get _canRunBackgroundAI {
-    if (_isAppInBackground) {
-      developer.log('Deferring AI processing - app in background', name: 'dyslexic_ai.profile_update');
-      return false;
-    }
-    
-    if (_isUserActive) {
-      final timeSinceActivity = _lastUserActivity != null 
-          ? DateTime.now().difference(_lastUserActivity!).inSeconds 
-          : 0;
-      developer.log('Deferring AI processing - user is active (last activity: ${timeSinceActivity}s ago)', name: 'dyslexic_ai.profile_update');
-      return false;
-    }
-    
-    if (_profileStore.isUpdating) {
-      developer.log('Deferring AI processing - already updating', name: 'dyslexic_ai.profile_update');
-      return false;
-    }
-    
-    final timeSinceActivity = _lastUserActivity != null 
-        ? DateTime.now().difference(_lastUserActivity!).inSeconds 
-        : 999;
-    developer.log('✅ AI processing can proceed - user inactive for ${timeSinceActivity}s', name: 'dyslexic_ai.profile_update');
-    return true;
-  }
-
   /// Schedule a deferred profile update that waits for user inactivity
+  /// NOTE: This method is now disabled - we use immediate updates instead
   void scheduleBackgroundUpdate() {
-    developer.log('🔄 scheduleBackgroundUpdate called - isUpdatePending: $_isUpdatePending, isAppInBackground: $_isAppInBackground', name: 'dyslexic_ai.profile_update');
+    developer.log('🔄 scheduleBackgroundUpdate called - but disabled (using immediate updates)', name: 'dyslexic_ai.profile_update');
     
-    // Fix: Prevent duplicate scheduling
-    if (_isUpdatePending) {
-      developer.log('❌ Profile update already pending, skipping new schedule', name: 'dyslexic_ai.profile_update');
-      return;
-    }
-    
-    // Phase 3: Don't schedule if app is in background
-    if (_isAppInBackground) {
-      developer.log('App in background, deferring profile update scheduling', name: 'dyslexic_ai.profile_update');
-      _isUpdatePending = true; // Mark as pending for when app resumes
-      return;
-    }
-    
-    // Cancel any existing timer
+    // Cancel any existing timer from the old system
     _deferredUpdateTimer?.cancel();
-    _isUpdatePending = true;
+    ResourceDiagnostics().unregisterTimer('GemmaProfileUpdateService', 'deferredUpdateTimer');
+    _deferredUpdateTimer = null;
+    _isUpdatePending = false;
     
-    developer.log('✅ Scheduling background profile update - timer will check every 2s', name: 'dyslexic_ai.profile_update');
-    
-    // Set up a timer that checks periodically if we can run the update
-    _deferredUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
-      if (_canRunBackgroundAI) {
-        developer.log('User inactive - running deferred profile update', name: 'dyslexic_ai.profile_update');
-        timer.cancel();
-        _isUpdatePending = false;
-        
-        try {
-          await updateProfileFromRecentSessions(isBackgroundTask: true);
-        } catch (e) {
-          developer.log('Background profile update failed: $e', name: 'dyslexic_ai.profile_update');
-        }
-      } else {
-        // If we've been waiting too long, force the update
-        final waitTime = DateTime.now().difference(_lastUserActivity ?? DateTime.now());
-        if (waitTime > maxDeferDelay) {
-          developer.log('Forcing profile update after max defer delay', name: 'dyslexic_ai.profile_update');
-          timer.cancel();
-          _isUpdatePending = false;
-          
-          try {
-            await updateProfileFromRecentSessions(isBackgroundTask: true);
-          } catch (e) {
-            developer.log('Forced background profile update failed: $e', name: 'dyslexic_ai.profile_update');
-          }
-        }
-      }
-    });
+    developer.log('✅ Old scheduling system disabled - profile updates are now immediate', name: 'dyslexic_ai.profile_update');
   }
 
   Future<bool> updateProfileFromRecentSessions({bool isBackgroundTask = false}) async {
@@ -243,12 +168,12 @@ class GemmaProfileUpdateService {
       } else {
         developer.log('Failed to parse AI response into valid profile ($taskType)', name: 'dyslexic_ai.profile_update');
         
-        // Schedule retry for failed background updates
+        // Direct retry for failed background updates
         if (isBackgroundTask) {
           developer.log('Scheduling retry for failed background profile update in 2 minutes', name: 'dyslexic_ai.profile_update');
           Timer(const Duration(minutes: 2), () {
             developer.log('Retrying profile update after previous failure', name: 'dyslexic_ai.profile_update');
-            scheduleBackgroundUpdate();
+            updateProfileFromRecentSessions(isBackgroundTask: true);
           });
         }
         
@@ -611,7 +536,9 @@ Return JSON:
   bool get canUpdateProfile {
     return _profileStore.hasProfile && 
            _sessionLogStore.completedLogs.isNotEmpty &&
-           getAIInferenceService() != null;
+           getAIInferenceService() != null &&
+           !_profileStore.isUpdating &&
+           !_isAppInBackground;
   }
   
   /// Check if background AI processing is currently active
@@ -643,10 +570,10 @@ Return JSON:
   void dispose() {
     developer.log('Disposing GemmaProfileUpdateService', name: 'dyslexic_ai.profile_update');
     _deferredUpdateTimer?.cancel();
-    _activityMonitorTimer?.cancel(); // Fix: Dispose activity monitor timer
+    ResourceDiagnostics().unregisterTimer('GemmaProfileUpdateService', 'deferredUpdateTimer');
+    // Activity monitor timer removed - no longer needed
     
     // Reset state flags
     _isUpdatePending = false;
-    _isUserActive = false;
   }
 } 

@@ -260,12 +260,13 @@ class SessionLoggingService {
     
     _profileStore.incrementSessionCount();
     
-    // Schedule intelligent background profile update that waits for user inactivity
+    // Immediate profile update when conditions are met (shows "AI Updating..." on home screen)
     if (_profileStore.needsUpdate && _profileUpdateService.canUpdateProfile) {
-      developer.log('📝 Scheduling background profile update after session completion', name: 'dyslexic_ai.session_logging');
-      _profileUpdateService.scheduleBackgroundUpdate();
+      developer.log('📝 Starting immediate profile update after session completion', name: 'dyslexic_ai.session_logging');
+      // Start update immediately - home screen will show "AI Updating..." spinner
+      _profileUpdateService.updateProfileFromRecentSessions(isBackgroundTask: true);
     } else {
-      developer.log('📝 Background update not scheduled - needsUpdate: ${_profileStore.needsUpdate}, canUpdate: ${_profileUpdateService.canUpdateProfile}, sessionsSince: ${_profileStore.sessionsSinceLastUpdate}', name: 'dyslexic_ai.session_logging');
+      developer.log('📝 Profile update not started - needsUpdate: ${_profileStore.needsUpdate}, canUpdate: ${_profileUpdateService.canUpdateProfile}, sessionsSince: ${_profileStore.sessionsSinceLastUpdate}', name: 'dyslexic_ai.session_logging');
     }
     
     _sessionStartTime = null;

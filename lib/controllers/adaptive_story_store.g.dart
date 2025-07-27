@@ -296,6 +296,14 @@ mixin _$AdaptiveStoryStore on _AdaptiveStoryStore, Store {
     });
   }
 
+  late final _$generateStoryAsyncAction =
+      AsyncAction('_AdaptiveStoryStore.generateStory', context: context);
+
+  @override
+  Future<void> generateStory() {
+    return _$generateStoryAsyncAction.run(() => super.generateStory());
+  }
+
   late final _$startStoryAsyncAction =
       AsyncAction('_AdaptiveStoryStore.startStory', context: context);
 

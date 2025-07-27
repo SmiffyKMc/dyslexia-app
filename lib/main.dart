@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:workmanager/workmanager.dart';
 import 'screens/home_screen.dart';
 import 'screens/learn_screen.dart';
 import 'screens/tools_screen.dart';
@@ -20,10 +22,69 @@ import 'utils/theme.dart';
 import 'utils/service_locator.dart';
 import 'services/font_preference_service.dart';
 import 'services/gemma_profile_update_service.dart';
+import 'services/background_download_manager.dart';
 import 'dart:developer' as developer;
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  developer.log('🎯 WorkManager callback dispatcher initialized', name: 'dyslexic_ai.workmanager');
+  
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      developer.log('🔧 Background task started: $task with data: $inputData', name: 'dyslexic_ai.workmanager');
+      
+      switch (task) {
+        case 'model_download_task':
+          developer.log('📥 Starting model download task execution', name: 'dyslexic_ai.workmanager');
+          await _handleModelDownloadTask(inputData);
+          developer.log('✅ Model download task completed successfully', name: 'dyslexic_ai.workmanager');
+          break;
+        default:
+          developer.log('❓ Unknown background task: $task', name: 'dyslexic_ai.workmanager');
+          return Future.value(false);
+      }
+      
+      developer.log('✅ Background task completed: $task', name: 'dyslexic_ai.workmanager');
+      return Future.value(true);
+    } catch (e, stackTrace) {
+      developer.log('❌ Background task failed: $task - $e\n$stackTrace', name: 'dyslexic_ai.workmanager');
+      return Future.value(false);
+    }
+  });
+}
+
+Future<void> _handleModelDownloadTask(Map<String, dynamic>? inputData) async {
+  try {
+    // Initialize minimal services needed for download
+    final downloadManager = BackgroundDownloadManager.instance;
+    await downloadManager.initialize();
+    
+    // Check if model is already available before starting download
+    if (await downloadManager.isModelAvailable()) {
+      developer.log('✅ Model already available in background task, skipping download', name: 'dyslexic_ai.workmanager');
+      return;
+    }
+    
+    // Perform pure download (no task registration - worker only)
+    developer.log('📥 Worker starting actual model download', name: 'dyslexic_ai.workmanager');
+    await downloadManager.performActualDownload();
+    
+    developer.log('✅ Worker download task completed', name: 'dyslexic_ai.workmanager');
+  } catch (e, stackTrace) {
+    developer.log('❌ Background download failed: $e\n$stackTrace', name: 'dyslexic_ai.workmanager');
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize WorkManager for background model downloads
+  await Workmanager().initialize(
+    callbackDispatcher,
+    isInDebugMode: kDebugMode, // Only enable debug in debug builds
+  );
+  developer.log('🎯 WorkManager initialized with debug mode: $kDebugMode', name: 'dyslexic_ai.workmanager');
+  
   await setupLocator();
   
   SystemChrome.setPreferredOrientations([

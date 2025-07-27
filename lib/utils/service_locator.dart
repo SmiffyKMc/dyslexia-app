@@ -1,4 +1,5 @@
 import 'package:get_it/get_it.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -22,11 +23,20 @@ import '../controllers/sentence_fixer_store.dart';
 import '../services/story_service.dart';
 import '../services/phonics_sounds_service.dart';
 import '../services/model_download_service.dart';
+import '../services/background_download_manager.dart';
+import '../services/download_notification_service.dart';
 import '../services/session_logging_service.dart';
 import '../services/gemma_profile_update_service.dart';
 import '../services/text_simplifier_service.dart';
 import '../services/ai_phonics_generation_service.dart';
 import 'dart:developer' as developer;
+
+// Conditional logging - automatically disabled in production builds
+void debugLog(String message, {String? name}) {
+  if (kDebugMode) {
+    developer.log(message, name: name ?? 'dyslexic_ai');
+  }
+}
 
 final getIt = GetIt.instance;
 
@@ -60,6 +70,10 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<ModelDownloadService>(
       () => ModelDownloadService());
 
+  // Register background download services
+  getIt.registerSingleton<BackgroundDownloadManager>(BackgroundDownloadManager.instance);
+  getIt.registerSingleton<DownloadNotificationService>(DownloadNotificationService.instance);
+
   // Register new learner profiler services
   getIt.registerLazySingleton<SessionLogStore>(() => SessionLogStore());
   getIt.registerLazySingleton<LearnerProfileStore>(() => LearnerProfileStore());
@@ -81,6 +95,13 @@ Future<void> setupLocator() async {
   
   // Initialize text simplifier service
   getIt<TextSimplifierService>().initialize();
+
+  // Initialize background download services
+  await getIt<BackgroundDownloadManager>().initialize();
+  await getIt<DownloadNotificationService>().initialize();
+  
+  // Clean up any orphaned background tasks on app startup
+  await getIt<BackgroundDownloadManager>().validateAndCleanupBackgroundTasks();
 
   getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore());
 
@@ -112,39 +133,32 @@ GlobalSessionManager getGlobalSessionManager() {
 /// This will reuse the singleton instance if already created
 AIInferenceService? getAIInferenceService() {
   try {
-    developer.log('🔍 Getting AI inference service...',
-        name: 'dyslexic_ai.service_locator');
+    debugLog('🔍 Getting AI inference service...');
 
     // Check if we already have a registered singleton
     if (getIt.isRegistered<AIInferenceService>()) {
-      developer.log('✅ Reusing existing AIInferenceService singleton',
-          name: 'dyslexic_ai.service_locator');
+      debugLog('✅ Reusing existing AIInferenceService singleton');
       return getIt<AIInferenceService>();
     }
 
     final plugin = FlutterGemmaPlugin.instance;
-    developer.log('📚 Got flutter_gemma plugin: ${plugin.runtimeType}',
-        name: 'dyslexic_ai.service_locator');
+    debugLog('📚 Got flutter_gemma plugin: ${plugin.runtimeType}');
 
     final inferenceModel = plugin.initializedModel;
-    developer.log(
-        '🤖 Initialized model: ${inferenceModel?.runtimeType ?? 'null'}',
-        name: 'dyslexic_ai.service_locator');
+    debugLog(
+        '🤖 Initialized model: ${inferenceModel?.runtimeType ?? 'null'}');
 
     if (inferenceModel != null) {
-      developer.log('✅ Creating new AIInferenceService singleton',
-          name: 'dyslexic_ai.service_locator');
+      debugLog('✅ Creating new AIInferenceService singleton');
       final service = AIInferenceService(inferenceModel);
       getIt.registerSingleton<AIInferenceService>(service);
       return service;
     } else {
-      developer.log('❌ No initialized model available',
-          name: 'dyslexic_ai.service_locator');
+      debugLog('❌ No initialized model available');
       return null;
     }
   } catch (e) {
-    developer.log('❌ Error getting AI service: $e',
-        name: 'dyslexic_ai.service_locator');
+    debugLog('❌ Error getting AI service: $e');
     return null;
   }
 }

@@ -61,10 +61,6 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
         appBar: AppBar(
           backgroundColor: DyslexiaTheme.primaryBackground,
           elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: DyslexiaTheme.textPrimary),
-            onPressed: widget.onBack,
-          ),
           title: const Text(
             'Tell us your name',
             style: TextStyle(
@@ -80,10 +76,6 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Progress indicator
-                _buildProgressIndicator(),
-                const SizedBox(height: 40),
-                
                 // Main content
                 Expanded(
                   child: Column(

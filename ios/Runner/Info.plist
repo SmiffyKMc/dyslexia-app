@@ -51,5 +51,12 @@
 	<!-- Microphone permission for speech recognition -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to help you practice reading aloud and provide pronunciation feedback.</string>
+	
+	<!-- Background processing for model downloads -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>background-fetch</string>
+	</array>
 </dict>
 </plist>

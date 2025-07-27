@@ -38,7 +38,7 @@ abstract class _LearnerProfileStore with Store {
   bool get isInitialProfile => currentProfile?.isInitial ?? true;
 
   @computed
-  bool get needsUpdate => sessionsSinceLastUpdate >= 2 || (currentProfile?.needsUpdate ?? false);
+  bool get needsUpdate => sessionsSinceLastUpdate >= 3 || (currentProfile?.needsUpdate ?? false);
 
   @computed
   String get recommendedTool => currentProfile?.recommendedTool ?? 'Reading Coach';

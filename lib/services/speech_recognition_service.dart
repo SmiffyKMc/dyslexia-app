@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:developer' as developer;
+import '../utils/resource_diagnostics.dart';
 
 enum RecordingStatus {
   idle,
@@ -28,6 +29,12 @@ class SpeechRecognitionService {
   int _silenceSeconds = 0;
   final int _maxSilenceSeconds = 15; // 15 seconds of silence triggers auto-stop
   bool _hasDetectedSpeech = false;
+
+  SpeechRecognitionService() {
+    // DIAGNOSTIC: Register service instance creation
+    ResourceDiagnostics().registerServiceInstance('SpeechRecognitionService');
+    developer.log('🎤 SpeechRecognitionService instance created', name: 'dyslexic_ai.speech_recognition');
+  }
 
   Stream<String> get recognizedWordsStream {
     _ensureRecognizedWordsController();
@@ -231,6 +238,9 @@ class SpeechRecognitionService {
 
   void _startSilenceDetection() {
     _silenceSeconds = 0;
+    _silenceTimer?.cancel();
+    ResourceDiagnostics().unregisterTimer('SpeechRecognitionService', 'silenceTimer');
+    
     _silenceTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _silenceSeconds++;
       _ensureSilenceController();
@@ -247,11 +257,15 @@ class SpeechRecognitionService {
         _handleSilenceTimeout();
       }
     });
+    
+    // DIAGNOSTIC: Register the silence timer
+    ResourceDiagnostics().registerTimer('SpeechRecognitionService', 'silenceTimer', _silenceTimer!);
   }
 
   void _stopSilenceTimer() {
     _silenceTimer?.cancel();
     _silenceTimer = null;
+    ResourceDiagnostics().unregisterTimer('SpeechRecognitionService', 'silenceTimer');
   }
 
   void _resetSilenceTimer() {
@@ -346,6 +360,9 @@ class SpeechRecognitionService {
     if (_isDisposed) return;
     
     developer.log('🎤 Disposing speech recognition service', name: 'dyslexic_ai.speech');
+    
+    // DIAGNOSTIC: Unregister service instance
+    ResourceDiagnostics().unregisterServiceInstance('SpeechRecognitionService');
     
     _isDisposed = true;
     _isListening = false;

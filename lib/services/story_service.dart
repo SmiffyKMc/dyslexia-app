@@ -221,6 +221,9 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
 
   Story? parseStoryResponse(String response, List<String> targetPhonemes, String difficulty) {
     try {
+      // LOG: Full AI response
+      developer.log('🔍 FULL AI RESPONSE:\n$response', name: 'dyslexic_ai.story_ai');
+      
       // Extract JSON from response
       final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(response);
       if (jsonMatch == null) {
@@ -229,7 +232,10 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
       }
       
       final jsonString = jsonMatch.group(0)!;
+      developer.log('🔍 EXTRACTED JSON:\n$jsonString', name: 'dyslexic_ai.story_ai');
+      
       final data = json.decode(jsonString) as Map<String, dynamic>;
+      developer.log('🔍 PARSED DATA: $data', name: 'dyslexic_ai.story_ai');
       
       // Validate required fields
       if (!data.containsKey('title') || !data.containsKey('content') || !data.containsKey('questions')) {
@@ -241,19 +247,65 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
       final questions = <Question>[];
       final questionsData = data['questions'] as List<dynamic>;
       
+      developer.log('🔍 PROCESSING ${questionsData.length} QUESTIONS:', name: 'dyslexic_ai.story_ai');
+      
       for (int i = 0; i < questionsData.length; i++) {
         final qData = questionsData[i] as Map<String, dynamic>;
         
+        developer.log('🔍 QUESTION $i RAW DATA: $qData', name: 'dyslexic_ai.story_ai');
+        
+        final sentence = qData['type'] == 'fill_in_blank' ? qData['sentence'] ?? '' : qData['question'] ?? '';
+        final blankPosition = qData['blank_position'] ?? 0;
+        final correctAnswer = qData['correct_answer'] ?? '';
+        final options = List<String>.from(qData['options'] ?? []);
+        
+        // RANDOMIZE: Shuffle the options so correct answer isn't always first
+        if (options.isNotEmpty) {
+          options.shuffle();
+          developer.log('🎲 SHUFFLED OPTIONS: $options (correct: "$correctAnswer")', name: 'dyslexic_ai.story_ai');
+        }
+        
+        // AUTO-FIX: Calculate correct blank position for fill-in-blank questions
+        int actualBlankPosition = blankPosition;
+        if (qData['type'] == 'fill_in_blank' && sentence.isNotEmpty && correctAnswer.isNotEmpty) {
+          final words = sentence.split(' ');
+          // Find where the correct answer actually appears in the sentence
+          for (int i = 0; i < words.length; i++) {
+            final word = words[i].replaceAll(RegExp(r'[^\w]'), ''); // Remove punctuation
+            final answer = correctAnswer.replaceAll(RegExp(r'[^\w]'), '');
+            if (word.toLowerCase() == answer.toLowerCase()) {
+              actualBlankPosition = i;
+              developer.log('🔧 AUTO-CORRECTED blank position from $blankPosition to $actualBlankPosition for "$correctAnswer"', name: 'dyslexic_ai.story_ai');
+              break;
+            }
+          }
+        }
+        
+        developer.log('🔍 QUESTION $i PARSED:', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Type: ${qData['type']}', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Sentence: "$sentence"', name: 'dyslexic_ai.story_ai');
+        developer.log('   - AI Blank Position: $blankPosition', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Corrected Blank Position: $actualBlankPosition', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Correct Answer: "$correctAnswer"', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Options: $options', name: 'dyslexic_ai.story_ai');
+        
         final question = Question(
           id: qData['id'] ?? 'ai_q$i',
-          sentence: qData['type'] == 'fill_in_blank' ? qData['sentence'] ?? '' : qData['question'] ?? '',
-          blankPosition: qData['blank_position'] ?? 0,
-          correctAnswer: qData['correct_answer'] ?? '',
-          options: List<String>.from(qData['options'] ?? []),
+          sentence: sentence,
+          blankPosition: actualBlankPosition,
+          correctAnswer: correctAnswer,
+          options: options,
           type: qData['type'] == 'fill_in_blank' ? QuestionType.fillInBlank : QuestionType.multipleChoice,
           hint: qData['hint'],
           pattern: qData['pattern'] ?? '',
         );
+        
+        // LOG: Test the sentenceWithBlank generation
+        developer.log('🔍 QUESTION $i FINAL RESULT:', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Original sentence: "${question.sentence}"', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Sentence words: ${question.sentenceWords}', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Blank position: ${question.blankPosition}', name: 'dyslexic_ai.story_ai');
+        developer.log('   - Generated sentenceWithBlank: "${question.sentenceWithBlank}"', name: 'dyslexic_ai.story_ai');
         
         questions.add(question);
       }
@@ -266,6 +318,8 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         questions: questions,
       );
       
+      developer.log('🔍 STORY CONTENT: "${data['content']}"', name: 'dyslexic_ai.story_ai');
+      
       // Create story
       final story = Story(
         id: 'ai_generated_${DateTime.now().millisecondsSinceEpoch}',
@@ -277,6 +331,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         coverImage: '🤖',
       );
       
+      developer.log('✅ STORY CREATED SUCCESSFULLY: ${story.title}', name: 'dyslexic_ai.story_ai');
       return story;
     } catch (e) {
       developer.log('❌ Failed to parse AI story response: $e', name: 'dyslexic_ai.story_ai');

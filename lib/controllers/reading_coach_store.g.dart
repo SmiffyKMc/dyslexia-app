@@ -37,6 +37,13 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
       (_$hasSessionComputed ??= Computed<bool>(() => super.hasSession,
               name: '_ReadingCoachStore.hasSession'))
           .value;
+  Computed<bool>? _$isInInputModeComputed;
+
+  @override
+  bool get isInInputMode =>
+      (_$isInInputModeComputed ??= Computed<bool>(() => super.isInInputMode,
+              name: '_ReadingCoachStore.isInInputMode'))
+          .value;
   Computed<String>? _$recordingStatusTextComputed;
 
   @override
@@ -427,6 +434,17 @@ mixin _$ReadingCoachStore on _ReadingCoachStore, Store {
   }
 
   @override
+  void clearCurrentText() {
+    final _$actionInfo = _$_ReadingCoachStoreActionController.startAction(
+        name: '_ReadingCoachStore.clearCurrentText');
+    try {
+      return super.clearCurrentText();
+    } finally {
+      _$_ReadingCoachStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void selectPresetStory(PresetStory story) {
     final _$actionInfo = _$_ReadingCoachStoreActionController.startAction(
         name: '_ReadingCoachStore.selectPresetStory');
@@ -525,6 +543,7 @@ currentAccuracy: ${currentAccuracy},
 formattedAccuracy: ${formattedAccuracy},
 canStartReading: ${canStartReading},
 hasSession: ${hasSession},
+isInInputMode: ${isInInputMode},
 recordingStatusText: ${recordingStatusText},
 wordHighlightStates: ${wordHighlightStates}
     ''';

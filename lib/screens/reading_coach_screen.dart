@@ -58,10 +58,11 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     );
   }
 
-  void _startAIStoryGeneration() {
-    _store.generateAIStory((text) {
-      // Text streams directly to display section - no text field update needed
-      // The store handles setCurrentText(), display section shows the streamed content
+  void _startAIStoryGeneration() async {
+    // Call generateAIStory asynchronously so isGeneratingStory flag can update UI immediately
+    await _store.generateAIStory((text) {
+      // Store handles setCurrentText() internally for streaming updates
+      // This callback is called for each stream chunk but no additional action needed
     });
   }
 
@@ -352,6 +353,49 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   Widget _buildCurrentText() {
+    // Show generation indicator when AI is generating and no content yet
+    if (_store.isGeneratingStory && _store.currentText.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.purple[50],
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.purple[200]!),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'AI Generating Story...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.purple[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Creating a personalized story for your reading practice',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.purple[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_store.currentText.isEmpty) {
       return Container(
         width: double.infinity,
@@ -433,8 +477,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   Widget _buildHighlightedText() {
-    // Show generation indicator when AI is generating story
-    if (_store.isGeneratingStory) {
+    // Show generation indicator only when AI is generating AND we have no content yet
+    if (_store.isGeneratingStory && _store.currentText.isEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
         child: Row(
@@ -461,6 +505,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
       );
     }
 
+    // If we have text content, show it (even during generation for streaming effect)
     if (_store.currentTextWords.isEmpty) {
       return Text(
         _store.currentText,

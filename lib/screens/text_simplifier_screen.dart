@@ -32,6 +32,14 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     _store = getIt<TextSimplifierStore>();
     _service = getIt<TextSimplifierService>();
     _ttsService = getIt<TextToSpeechService>();
+    
+    // Add listener to sync text controller with store for reactive button
+    _textController.addListener(() {
+      // Only update store if text is different to prevent circular updates
+      if (_store.originalText != _textController.text) {
+        _store.setOriginalText(_textController.text);
+      }
+    });
   }
 
   @override
@@ -167,30 +175,31 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _buildSimplificationControls(),
-        const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: Observer(
-            builder: (context) => ElevatedButton(
-              onPressed: (_textController.text.trim().isNotEmpty && !_store.isSimplifying) 
-                  ? _handleSimplify : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: DyslexiaTheme.primaryAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            builder: (context) {
+              developer.log('🔘 Button state - canSimplify: ${_store.canSimplify}, isSimplifying: ${_store.isSimplifying}, isProcessingOCR: ${_store.isProcessingOCR}, hasOriginalText: ${_store.hasOriginalText}', name: 'dyslexic_ai.text_simplifier');
+              
+              return ElevatedButton(
+                onPressed: _store.canSimplify ? _handleSimplify : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: DyslexiaTheme.primaryAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-              ),
-              child: const Text(
-                'Simplify Text',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                child: const Text(
+                  'Simplify Text',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ],
@@ -213,10 +222,10 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     try {
       final stream = _service.simplifyTextStream(
         originalText: _store.originalText,
-        readingLevel: _store.selectedReadingLevel,
-        explainChanges: _store.explainChanges,
-        defineKeyTerms: _store.defineKeyTerms,
-        addVisuals: _store.addVisuals,
+        readingLevel: 'Grade 3', // Default reading level
+        explainChanges: false, // Default: don't explain changes
+        defineKeyTerms: true, // Default: define difficult words
+        addVisuals: false, // Default: no visual elements
       );
 
       _simplifySub = stream.listen((chunk) {
@@ -244,10 +253,10 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
         content: const Text(
           'This tool helps you understand complex text by:\n\n'
           '• Rewriting text in simpler language\n'
-          '• Adjusting reading level to your needs\n'
+          '• Adjusting reading level for easier understanding\n'
           '• Providing definitions for difficult words\n'
           '• Reading text aloud for better comprehension\n\n'
-          'Choose your reading level and options, then tap "Simplify Text" to get started.',
+          'Paste or type complex text, then tap "Simplify Text" to get started.',
         ),
         actions: [
           TextButton(
@@ -273,11 +282,20 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
 
   Future<void> _handleScanImage() async {
     try {
+      developer.log('🖼️ Starting OCR image processing...', name: 'dyslexic_ai.text_simplifier');
       await _store.pickImageFromGallery();
+      
+      developer.log('📷 OCR completed. Store originalText length: ${_store.originalText.length}', name: 'dyslexic_ai.text_simplifier');
+      developer.log('🔍 Store canSimplify: ${_store.canSimplify}', name: 'dyslexic_ai.text_simplifier');
+      
       if (_store.originalText.isNotEmpty) {
         _textController.text = _store.originalText;
+        developer.log('✅ Set text controller with ${_store.originalText.length} characters', name: 'dyslexic_ai.text_simplifier');
+      } else {
+        developer.log('⚠️ No text extracted from OCR', name: 'dyslexic_ai.text_simplifier');
       }
     } catch (e) {
+      developer.log('❌ OCR processing failed: $e', name: 'dyslexic_ai.text_simplifier');
       _showErrorSnackBar('Failed to process image: $e');
     }
   }
@@ -290,10 +308,10 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     try {
       final simplifiedText = await _service.simplifyText(
         originalText: _store.originalText,
-        readingLevel: _store.selectedReadingLevel,
-        explainChanges: _store.explainChanges,
-        defineKeyTerms: _store.defineKeyTerms,
-        addVisuals: _store.addVisuals,
+        readingLevel: 'Grade 3', // Default reading level
+        explainChanges: false, // Default: don't explain changes
+        defineKeyTerms: true, // Default: define difficult words
+        addVisuals: false, // Default: no visual elements
         isRegenerateRequest: true,
       );
       
@@ -311,51 +329,18 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
 
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-
-
-  void _showReadingLevelSelector() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Reading Level'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _store.getReadingLevels().length,
-            itemBuilder: (context, index) {
-              final level = _store.getReadingLevels()[index];
-              return RadioListTile<String>(
-                title: Text(level),
-                value: level,
-                groupValue: _store.selectedReadingLevel,
-                onChanged: (value) {
-                  if (value != null) {
-                    _store.setSelectedReadingLevel(value);
-                    Navigator.of(context).pop();
-                  }
-                },
-              );
-            },
-          ),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red.shade600,
+          behavior: SnackBarBehavior.floating,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
+      );
+    }
   }
+
+
 
   Widget _buildErrorMessage() {
     return Container(
@@ -703,205 +688,6 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSimplificationControls() {
-    return Card(
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Primary controls - always visible
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Reading Level',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                _buildReadingLevelDropdown(),
-              ],
-            ),
-            const SizedBox(height: 16),
-            
-            // Smart defaults with clear labels
-            Row(
-              children: [
-                Expanded(
-                  child: _buildExplainChangesCheckbox(),
-                ),
-              ],
-            ),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: _buildDefineKeyTermsCheckbox(),
-                ),
-              ],
-            ),
-            
-            // Advanced options (collapsible)
-            _buildAdvancedOptionsExpansion(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReadingLevelDropdown() {
-    return Observer(
-      builder: (context) => GestureDetector(
-        onTap: _showReadingLevelSelector,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Theme.of(context).primaryColor.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _store.selectedReadingLevel,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).primaryColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.arrow_drop_down,
-                color: Theme.of(context).primaryColor,
-                size: 20,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExplainChangesCheckbox() {
-    return Observer(
-      builder: (context) => CheckboxListTile(
-        title: Text(
-          'Explain changes',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          'Show what was changed',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
-        ),
-        value: _store.explainChanges,
-        onChanged: (value) {
-          if (value != null) {
-            _store.setExplainChanges(value);
-          }
-        },
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  Widget _buildDefineKeyTermsCheckbox() {
-    return Observer(
-      builder: (context) => CheckboxListTile(
-        title: Text(
-          'Define difficult words',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          'Tap words for definitions',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.grey[600],
-          ),
-        ),
-        value: _store.defineKeyTerms,
-        onChanged: (value) {
-          if (value != null) {
-            _store.setDefineKeyTerms(value);
-          }
-        },
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  Widget _buildAdvancedOptionsExpansion() {
-    return ExpansionTile(
-      title: Text(
-        'Advanced Options',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      subtitle: Text(
-        'Display and feature options',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: Colors.grey[600],
-        ),
-      ),
-      initiallyExpanded: false,
-      children: [
-        Observer(
-          builder: (context) => CheckboxListTile(
-            title: Text(
-              'Side-by-side view',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            subtitle: Text(
-              'Show original and simplified text together',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            value: _store.sideBySideView,
-            onChanged: (value) {
-              if (value != null) {
-                _store.setSideBySideView(value);
-              }
-            },
-            controlAffinity: ListTileControlAffinity.leading,
-          ),
-        ),
-        Observer(
-          builder: (context) => CheckboxListTile(
-            title: Text(
-              'Add visual elements',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            subtitle: Text(
-              'Include emoji and visual cues (experimental)',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
-            ),
-            value: _store.addVisuals,
-            onChanged: (value) {
-              if (value != null) {
-                _store.setAddVisuals(value);
-              }
-            },
-            controlAffinity: ListTileControlAffinity.leading,
-          ),
-        ),
-      ],
     );
   }
 

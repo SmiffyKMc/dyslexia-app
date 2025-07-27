@@ -4,8 +4,8 @@ import '../models/session_log.dart';
 import '../services/story_service.dart';
 import '../services/text_to_speech_service.dart';
 import '../services/session_logging_service.dart';
-import '../services/gemma_profile_update_service.dart';
 import '../utils/service_locator.dart';
+import '../controllers/learner_profile_store.dart';
 
 part 'adaptive_story_store.g.dart';
 
@@ -15,7 +15,6 @@ abstract class _AdaptiveStoryStore with Store {
   final StoryService _storyService;
   final TextToSpeechService _ttsService;
   late final SessionLoggingService _sessionLogging;
-  late final GemmaProfileUpdateService _profileUpdateService;
   DateTime? _sessionStartTime;
 
   _AdaptiveStoryStore({
@@ -24,7 +23,6 @@ abstract class _AdaptiveStoryStore with Store {
   })  : _storyService = storyService,
         _ttsService = ttsService {
     _sessionLogging = getIt<SessionLoggingService>();
-    _profileUpdateService = getIt<GemmaProfileUpdateService>();
   }
 
   @observable
@@ -132,6 +130,81 @@ abstract class _AdaptiveStoryStore with Store {
   }
 
   @action
+  Future<void> generateStory() async {
+    isLoading = true;
+    errorMessage = null;
+
+    try {
+      // Get learner profile for personalized story generation
+      final profileStore = getIt<LearnerProfileStore>();
+      final profile = profileStore.currentProfile;
+      
+      if (profile == null) {
+        throw Exception('No learner profile available for story generation');
+      }
+
+      // Generate AI story using existing StoryService method
+      final story = await _storyService.generateStoryWithAI(profile);
+      
+      if (story == null) {
+        throw Exception('Failed to generate AI story');
+      }
+
+      // Start the generated story like a regular story
+      currentStory = story;
+      currentPartIndex = 0;
+      currentQuestionIndex = 0;
+      lastAnswer = null;
+      showingFeedback = false;
+      
+      practicedWords.clear();
+      patternPracticeCount.clear();
+      discoveredPatterns.clear();
+
+      progress = StoryProgress(
+        storyId: 'ai_generated_${DateTime.now().millisecondsSinceEpoch}',
+        startedAt: DateTime.now(),
+      );
+
+      // Start session logging
+      _sessionStartTime = DateTime.now();
+      await _sessionLogging.startSession(
+        sessionType: SessionType.adaptiveStory,
+        featureName: 'AI Generated Story',
+        initialData: {
+          'story_id': progress!.storyId,
+          'story_title': story.title,
+          'story_difficulty': story.difficulty.toString(),
+          'total_parts': story.totalParts,
+          'total_questions': story.parts.fold(0, (sum, part) => sum + part.questions.length),
+          'story_started': _sessionStartTime!.toIso8601String(),
+          'generation_type': 'ai_generated',
+          'profile_confidence': profile.confidence,
+          'profile_accuracy': profile.decodingAccuracy,
+          'target_patterns': story.learningPatterns.join(', '),
+        },
+      );
+
+    } catch (e) {
+      errorMessage = 'Failed to generate story: $e';
+      
+      // Complete session with error if logging was started
+      if (_sessionLogging.hasActiveSession) {
+        await _sessionLogging.completeSession(
+          finalAccuracy: 0.0,
+          completionStatus: 'failed',
+          additionalData: {
+            'error_message': e.toString(),
+            'story_status': 'ai_generation_failed',
+          },
+        );
+      }
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  @action
   Future<void> startStory(String storyId) async {
     isLoading = true;
     errorMessage = null;
@@ -193,13 +266,11 @@ abstract class _AdaptiveStoryStore with Store {
 
   @action
   Future<void> answerQuestion(String answer) async {
-    if (currentQuestion == null) return;
+    final question = currentQuestion;
+    if (question == null) return;
 
-    
-    final question = currentQuestion!;
     final isCorrect = question.isCorrect(answer);
-    
-    final userAnswer = UserAnswer(
+    lastAnswer = UserAnswer(
       questionId: question.id,
       userAnswer: answer,
       correctAnswer: question.correctAnswer,
@@ -207,23 +278,23 @@ abstract class _AdaptiveStoryStore with Store {
       answeredAt: DateTime.now(),
     );
 
-    lastAnswer = userAnswer;
-    showingFeedback = true;
-
-    // Track practiced word
-    practicedWords.add(question.correctAnswer);
-    
-    // Track pattern practice
-    if (question.pattern.isNotEmpty) {
-      final currentCount = patternPracticeCount[question.pattern] ?? 0;
-      patternPracticeCount[question.pattern] = currentCount + 1;
+    // Track practiced words and patterns
+    if (isCorrect && question.type == QuestionType.fillInBlank) {
+      final word = question.correctAnswer.toLowerCase();
+      if (!practicedWords.contains(word)) {
+        practicedWords.add(word);
+      }
       
-      _updateDiscoveredPatterns(question.pattern);
+      if (question.pattern.isNotEmpty) {
+        patternPracticeCount[question.pattern] = (patternPracticeCount[question.pattern] ?? 0) + 1;
+      }
     }
+
+    showingFeedback = true;
 
     // Update progress
     if (progress != null) {
-      final updatedAnswers = List<UserAnswer>.from(progress!.answers)..add(userAnswer);
+      final updatedAnswers = List<UserAnswer>.from(progress!.answers)..add(lastAnswer!);
       final updatedPracticedWords = List<String>.from(progress!.practicedWords)..add(question.correctAnswer);
       final updatedPatternCount = Map<String, int>.from(progress!.patternPracticeCount);
       if (question.pattern.isNotEmpty) {
@@ -389,9 +460,6 @@ abstract class _AdaptiveStoryStore with Store {
           completionStatus: 'completed',
           additionalData: completionData,
         );
-        
-        // Schedule intelligent background profile update after story completion
-        _profileUpdateService.scheduleBackgroundUpdate();
       }
     }
   }

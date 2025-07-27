@@ -6,10 +6,21 @@
     <!-- Microphone permission for speech recognition -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     
+    <!-- Network permissions for background downloads -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Background processing permissions -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    
+    <!-- Notification permissions -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
     <application
         android:label="dyslexic_ai"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true">
         <activity
             android:name=".MainActivity"

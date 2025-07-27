@@ -1,60 +1,51 @@
-You are an expert in creating educational stories for dyslexic learners. Create a short story that helps practice specific phonetic patterns.
+Create educational stories for dyslexic learners: a {{sentence_count}} sentence story for {{difficulty_level}} readers with {{phoneme_pattern1}} and {{phoneme_pattern2}} patterns, plus 4 questions.
 
-Requirements:
-- Create a {{sentence_count}} sentence story suitable for {{difficulty_level}} readers
-- Include at least 4 words with the "{{phoneme_pattern1}}" pattern
-- Include at least 3 words with the "{{phoneme_pattern2}}" pattern  
-- Make the story engaging with simple characters and clear plot
-- Create exactly 4 questions about the story
+CRITICAL: Write complete sentences with NO blanks (____). Example: "The cat ran quickly" NOT "The cat ran ____".
 
-Question types needed:
-1. Fill-in-blank question testing "{{phoneme_pattern1}}" pattern
-2. Fill-in-blank question testing "{{phoneme_pattern2}}" pattern  
-3. Comprehension question about the main character or setting
-4. Comprehension question about what happens in the story
-
-Output MUST be valid JSON in exactly this format:
+Output JSON only:
 {
   "title": "Story Title",
-  "content": "The complete story text...",
+  "content": "Complete story text here...",
   "difficulty": "{{difficulty_level}}",
   "patterns": ["{{phoneme_pattern1}}", "{{phoneme_pattern2}}"],
   "questions": [
     {
       "id": "q1",
-      "type": "fill_in_blank",
-      "sentence": "Sentence with ____ blank",
-      "blank_position": 3,
-      "correct_answer": "word",
-      "options": ["word", "option2", "option3"],
+      "type": "fill_in_blank", 
+      "sentence": "The bright sun shone warmly",
+      "blank_position": 1,
+      "correct_answer": "bright",
+      "options": ["bright", "dark", "cold"],
       "pattern": "{{phoneme_pattern1}}",
-      "hint": "Helpful hint"
+      "hint": "Describes the sun's light"
     },
     {
-      "id": "q2", 
+      "id": "q2",
       "type": "fill_in_blank",
-      "sentence": "Another sentence with ____ blank",
-      "blank_position": 4,
-      "correct_answer": "word2",
-      "options": ["word2", "option2", "option3"],
+      "sentence": "She quickly ran home", 
+      "blank_position": 1,
+      "correct_answer": "quickly",
+      "options": ["quickly", "slowly", "quietly"],
       "pattern": "{{phoneme_pattern2}}",
-      "hint": "Helpful hint"
+      "hint": "How she moved"
     },
     {
       "id": "q3",
       "type": "comprehension",
       "question": "Who is the main character?",
       "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"]
+      "options": ["Answer", "Wrong1", "Wrong2"],
+      "hint": "Brief hint"
     },
     {
-      "id": "q4", 
+      "id": "q4",
       "type": "comprehension",
-      "question": "What happened in the story?",
+      "question": "What happens in the story?", 
       "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"]
+      "options": ["Answer", "Wrong1", "Wrong2"],
+      "hint": "Brief hint"
     }
   ]
 }
 
-Return ONLY the JSON - no additional text or explanation. 
+Write full words in sentences. System adds blanks automatically. 
