@@ -61,6 +61,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _resetToNewUser() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset to New User'),
+        content: const Text(
+          'This will completely reset the app to its initial state:\n\n'
+          '• Remove your learning profile\n'
+          '• Clear all session history\n'
+          '• Reset daily streak to 0\n'
+          '• Return to "get started" experience\n\n'
+          'This action cannot be undone. Continue?'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reset', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await SessionDebugHelper.completeResetToNewUser();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Reset complete! Restart app to see new user experience'),
+            duration: Duration(seconds: 4),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,6 +172,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Reset all session history and progress',
               Icons.delete_forever,
               _clearSessionData,
+            ),
+            _buildSettingsTile(
+              'Reset to New User',
+              'Complete reset - return to first-time user experience',
+              Icons.refresh,
+              _resetToNewUser,
             ),
             _buildSettingsTile(
               'Profile Debug',

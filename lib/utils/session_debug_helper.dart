@@ -3,6 +3,7 @@ import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
 import '../utils/service_locator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionDebugHelper {
   static final SessionLogStore _sessionLogStore = getIt<SessionLogStore>();
@@ -160,6 +161,27 @@ class SessionDebugHelper {
     
     developer.log('🐛 All session data and profile cleared', name: 'dyslexic_ai.debug');
     developer.log('🐛 === SESSION DATA AND PROFILE CLEARED ===', name: 'dyslexic_ai.debug');
+  }
+
+  static Future<void> completeResetToNewUser() async {
+    developer.log('🐛 === COMPLETE RESET TO NEW USER STATE ===', name: 'dyslexic_ai.debug');
+    
+    // Clear all session logs
+    await _sessionLogStore.clearAllLogs();
+    
+    // Clear daily streak (import and clear streak data)
+    final prefs = getIt<SharedPreferences>();
+    await prefs.remove('dyslexic_ai_last_open_date');
+    await prefs.remove('dyslexic_ai_current_streak');
+    await prefs.remove('dyslexic_ai_best_streak');
+    developer.log('🐛 Daily streak data cleared', name: 'dyslexic_ai.debug');
+    
+    // Complete profile reset to null (not default profile)
+    developer.log('🐛 Session data cleared, now doing complete profile reset...', name: 'dyslexic_ai.debug');
+    await _profileStore.completeResetToNewUser();
+    
+    developer.log('🐛 === COMPLETE RESET TO NEW USER STATE FINISHED ===', name: 'dyslexic_ai.debug');
+    developer.log('🐛 User is now in exact same state as first app install', name: 'dyslexic_ai.debug');
   }
 
   static void debugRecentActivity() {

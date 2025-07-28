@@ -29,6 +29,7 @@ import '../services/session_logging_service.dart';
 import '../services/gemma_profile_update_service.dart';
 import '../services/text_simplifier_service.dart';
 import '../services/ai_phonics_generation_service.dart';
+import '../services/daily_streak_service.dart';
 import 'dart:developer' as developer;
 
 // Conditional logging - automatically disabled in production builds
@@ -85,6 +86,10 @@ Future<void> setupLocator() async {
   // Register text simplifier service
   getIt.registerLazySingleton<TextSimplifierService>(
       () => TextSimplifierService());
+  
+  // Register daily streak service
+  getIt.registerLazySingleton<DailyStreakService>(
+      () => DailyStreakService(sharedPreferences));
 
   // Initialize font preference service
   await getIt<FontPreferenceService>().init();

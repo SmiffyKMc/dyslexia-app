@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
 
 import '../services/model_download_service.dart';
 import '../utils/service_locator.dart';
@@ -160,8 +158,30 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
       onError: (error) {
         if (!mounted) return;
         developer.log('Error from downloadModelIfNeeded: $error', name: 'dyslexic_ai.init.error');
+        
+        // Provide more specific error messages based on the current status
+        final status = _modelDownloadService.currentStatus;
+        String errorMessage;
+        
+        switch (status) {
+          case ModelStatus.notDownloaded:
+          case ModelStatus.downloading:
+            errorMessage = "Failed to download AI model. Please check your internet connection and try again.";
+            break;
+          case ModelStatus.downloadCompleted:
+          case ModelStatus.initializing:
+            errorMessage = "Downloaded successfully but failed to initialize. This may be due to device limitations. Try restarting the app or freeing up memory.";
+            break;
+          case ModelStatus.initializationFailed:
+            errorMessage = "Model initialization failed. The file is ready but cannot be loaded right now. Try restarting the app or freeing up memory.";
+            break;
+          case ModelStatus.ready:
+            errorMessage = "An unexpected error occurred: $error";
+            break;
+        }
+        
         setState(() {
-          _loadingError = "Failed to download AI model. Please check your internet connection and try again.";
+          _loadingError = errorMessage;
           _loadingProgress = 0.0;
           _isInitializing = false;
         });

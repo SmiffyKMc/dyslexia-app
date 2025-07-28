@@ -187,13 +187,13 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
   int _getStoryLength(String difficulty) {
     switch (difficulty) {
       case 'beginner':
-        return 4; // 4-5 sentences
+        return 2; // 2-3 sentences - easier for new users
       case 'intermediate':
-        return 6; // 6-7 sentences
+        return 4; // 4-5 sentences
       case 'advanced':
-        return 8; // 8-10 sentences
+        return 6; // 6-7 sentences
       default:
-        return 4;
+        return 2; // Default to easiest for new users
     }
   }
 
