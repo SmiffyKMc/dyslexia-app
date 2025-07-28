@@ -4,6 +4,7 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/learner_profile_store.dart';
 import '../controllers/session_log_store.dart';
 import '../services/gemma_profile_update_service.dart';
+import '../services/daily_streak_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
@@ -21,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late final LearnerProfileStore _profileStore;
   late final SessionLogStore _sessionLogStore;
   late final GemmaProfileUpdateService _profileUpdateService;
+  late final DailyStreakService _dailyStreakService;
   bool _isRecommendationExpanded = false;
 
   @override
@@ -29,6 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _profileStore = getIt<LearnerProfileStore>();
     _sessionLogStore = getIt<SessionLogStore>();
     _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _dailyStreakService = getIt<DailyStreakService>();
+    
+    // Record that the app was opened today for daily streak tracking
+    _dailyStreakService.recordAppOpen();
     
     // DIAGNOSTIC: Log home screen initialization
     ResourceDiagnostics().logMemoryPressureEvent('Home screen initialized', 'HomeScreen.initState');
@@ -128,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               Text(
-                'Daily streak: 7 days',
+                _dailyStreakService.getStreakMessage(),
                 style: Theme.of(context).textTheme.bodySmall,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -142,51 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
         IconButton(
           onPressed: () {},
           icon: const Icon(Icons.notifications_outlined, size: 20),
-        ),
-        Stack(
-          children: [
-            IconButton(
-              onPressed: () {},
-              icon: const Icon(Icons.settings, size: 20),
-            ),
-            if (_profileStore.isUpdating)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.green.withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        spreadRadius: 1,
-                      ),
-                    ],
-                  ),
-                  child: TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 800),
-                    tween: Tween<double>(begin: 0.3, end: 1.0),
-                    builder: (context, value, child) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: value),
-                          shape: BoxShape.circle,
-                        ),
-                      );
-                    },
-                    onEnd: () {
-                      if (mounted && _profileStore.isUpdating) {
-                        setState(() {});
-                      }
-                    },
-                  ),
-                ),
-              ),
-          ],
         ),
       ],
     );
@@ -933,7 +894,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildPersonalizedSuggestions(BuildContext context) {
-    if (!_profileStore.hasProfile) {
+    // Show "get started" message if no profile OR if it's truly initial (no sessions/questionnaire)
+    if (!_profileStore.hasProfile || _profileStore.isInitialProfile) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -941,7 +903,7 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Suggested Practice',
+                'Why not get started with the below',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -954,7 +916,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Colors.blue,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.school, color: Colors.white, size: 20),
+                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 16),
                   const Expanded(
@@ -962,17 +924,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "Start with some sessions to get personalized suggestions!",
+                          "Complete a few sessions to unlock personalized recommendations!",
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Text(
-                          "Try Reading Coach or Word Doctor",
+                          "Reading Coach is a great place to start",
                           style: TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _navigateToRecommendedTool('Reading Coach'),
+                  icon: _getToolIcon('Reading Coach'),
+                  label: const Text('Try Reading Coach'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
               ),
             ],
           ),

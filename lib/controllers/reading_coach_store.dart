@@ -7,6 +7,7 @@ import 'dart:math' as math;
 
 import '../models/reading_session.dart';
 import '../models/session_log.dart';
+import '../models/learner_profile.dart';
 import '../services/speech_recognition_service.dart';
 import '../services/text_to_speech_service.dart';
 import '../services/ocr_service.dart';
@@ -260,17 +261,33 @@ abstract class _ReadingCoachStore with Store {
     setCurrentText(story.content);
   }
 
+  /// Create a safe default profile for users without profiles
+  LearnerProfile _createSafeDefaultProfile() {
+    return LearnerProfile(
+      phonologicalAwareness: 'developing',
+      phonemeConfusions: const [],
+      decodingAccuracy: 'developing', // Maps to beginner = 2 sentences
+      workingMemory: 'average',
+      fluency: 'developing',
+      confidence: 'building',
+      preferredStyle: 'visual',
+      focus: 'basic phonemes',
+      recommendedTool: 'Reading Coach',
+      advice: 'Practice with simple stories to build confidence!',
+      lastUpdated: DateTime.now(),
+      sessionCount: 0,
+      version: 1,
+    );
+  }
+
   @action
   Future<void> generateAIStory(Function(String) onTextUpdate) async {
     if (isGeneratingStory) return;
     
     final profileStore = getIt<LearnerProfileStore>();
-    final profile = profileStore.currentProfile;
+    final profile = profileStore.currentProfile ?? _createSafeDefaultProfile();
     
-    if (profile == null) {
-      errorMessage = 'No learner profile available for story generation';
-      return;
-    }
+    // Allow AI generation even without a profile using safe defaults
     
     isGeneratingStory = true;
     errorMessage = null;

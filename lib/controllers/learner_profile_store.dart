@@ -35,7 +35,7 @@ abstract class _LearnerProfileStore with Store {
   bool get hasProfile => currentProfile != null;
 
   @computed
-  bool get isInitialProfile => currentProfile?.isInitial ?? true;
+  bool get isInitialProfile => currentProfile == null || currentProfile!.isInitial;
 
   @computed
   bool get needsUpdate => sessionsSinceLastUpdate >= 3 || (currentProfile?.needsUpdate ?? false);
@@ -79,16 +79,15 @@ abstract class _LearnerProfileStore with Store {
       await _loadProfileHistory();
       
       if (currentProfile == null) {
-        developer.log('🧠 No existing profile found, creating initial profile', name: 'dyslexic_ai.profile');
-        currentProfile = LearnerProfile.initial();
-        await _saveProfileToStorage();
+        developer.log('🧠 No existing profile found - will create when user completes questionnaire or sessions', name: 'dyslexic_ai.profile');
+        // DON'T auto-create a default profile - leave as null until user has real data
       }
       
       developer.log('🧠 Profile initialized: ${currentProfile.toString()}', name: 'dyslexic_ai.profile');
     } catch (e) {
       developer.log('❌ Failed to initialize profile: $e', name: 'dyslexic_ai.profile');
       errorMessage = 'Failed to load learning profile: $e';
-      currentProfile = LearnerProfile.initial();
+      // DON'T create default profile on error either - leave as null
     } finally {
       isLoading = false;
     }
@@ -181,6 +180,35 @@ abstract class _LearnerProfileStore with Store {
     } catch (e) {
       developer.log('❌ Failed to reset profile: $e', name: 'dyslexic_ai.profile');
       errorMessage = 'Failed to reset profile: $e';
+    } finally {
+      isUpdating = false;
+    }
+  }
+
+  @action
+  Future<void> completeResetToNewUser() async {
+    developer.log('🧠 Complete reset to new user state - removing profile entirely', name: 'dyslexic_ai.profile');
+    
+    isUpdating = true;
+    
+    try {
+      if (currentProfile != null) {
+        profileHistory.add(currentProfile!);
+        await _saveProfileHistory();
+      }
+
+      // Set to null instead of creating default profile - this is the key difference
+      currentProfile = null;
+      sessionsSinceLastUpdate = 0;
+      
+      // Clear profile from storage completely
+      final prefs = getIt<SharedPreferences>();
+      await prefs.remove(_profileKey);
+      
+      developer.log('🧠 Complete reset successful - user is now in true new user state', name: 'dyslexic_ai.profile');
+    } catch (e) {
+      developer.log('❌ Failed to complete reset: $e', name: 'dyslexic_ai.profile');
+      errorMessage = 'Failed to reset to new user state: $e';
     } finally {
       isUpdating = false;
     }
