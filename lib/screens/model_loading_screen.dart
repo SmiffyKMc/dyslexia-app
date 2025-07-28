@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get_it/get_it.dart';
 
 import '../services/model_download_service.dart';
-import '../utils/service_locator.dart';
 import '../widgets/fun_loading_widget.dart';
 import '../main.dart';
 import 'questionnaire/questionnaire_flow.dart';

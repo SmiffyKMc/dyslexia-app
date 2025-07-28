@@ -28,13 +28,16 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
   void initState() {
     super.initState();
     try {
-      developer.log('🧠 Initializing NameEntryScreen...', name: 'dyslexic_ai.questionnaire');
+      developer.log('🧠 Initializing NameEntryScreen...',
+          name: 'dyslexic_ai.questionnaire');
       _nameController = TextEditingController(text: widget.initialName);
       _isNameValid = widget.initialName.trim().isNotEmpty;
       _nameController.addListener(_onNameChanged);
-      developer.log('🧠 NameEntryScreen initialized successfully', name: 'dyslexic_ai.questionnaire');
+      developer.log('🧠 NameEntryScreen initialized successfully',
+          name: 'dyslexic_ai.questionnaire');
     } catch (e, stackTrace) {
-      developer.log('❌ Failed to initialize NameEntryScreen: $e', name: 'dyslexic_ai.questionnaire', error: e, stackTrace: stackTrace);
+      developer.log('❌ Failed to initialize NameEntryScreen: $e',
+          name: 'dyslexic_ai.questionnaire', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }
@@ -86,7 +89,8 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
                         width: 64,
                         height: 64,
                         decoration: BoxDecoration(
-                          color: DyslexiaTheme.primaryAccent.withValues(alpha: 0.1),
+                          color: DyslexiaTheme.primaryAccent
+                              .withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -96,7 +100,7 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      
+
                       const Text(
                         'What should we call you?',
                         style: TextStyle(
@@ -107,7 +111,7 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       const Text(
                         'This helps us personalize your learning experience and create a profile just for you.',
                         style: TextStyle(
@@ -117,15 +121,15 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      
+
                       // Name input field
                       _buildNameField(),
-                      
+
                       const Spacer(),
                     ],
                   ),
                 ),
-                
+
                 // Navigation buttons
                 _buildNavigationButtons(),
               ],
@@ -134,7 +138,8 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
         ),
       );
     } catch (e, stackTrace) {
-      developer.log('❌ Error building NameEntryScreen: $e', name: 'dyslexic_ai.questionnaire', error: e, stackTrace: stackTrace);
+      developer.log('❌ Error building NameEntryScreen: $e',
+          name: 'dyslexic_ai.questionnaire', error: e, stackTrace: stackTrace);
       return Scaffold(
         backgroundColor: DyslexiaTheme.primaryBackground,
         body: Center(
@@ -171,33 +176,6 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
     }
   }
 
-  Widget _buildProgressIndicator() {
-    return Row(
-      children: [
-        // Step indicators
-        for (int i = 0; i < 4; i++)
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: i <= 1 
-                          ? DyslexiaTheme.primaryAccent 
-                          : DyslexiaTheme.primaryAccent.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                if (i < 3) const SizedBox(width: 8),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildNameField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +189,6 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        
         TextField(
           controller: _nameController,
           decoration: InputDecoration(
@@ -222,11 +199,13 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: DyslexiaTheme.primaryAccent, width: 2),
+              borderSide: const BorderSide(
+                  color: DyslexiaTheme.primaryAccent, width: 2),
             ),
             filled: true,
             fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           style: const TextStyle(fontSize: 16),
           textInputAction: TextInputAction.next,
@@ -269,7 +248,9 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
           child: ElevatedButton(
             onPressed: _isNameValid ? widget.onNext : null,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _isNameValid ? DyslexiaTheme.primaryAccent : DyslexiaTheme.borderColor,
+              backgroundColor: _isNameValid
+                  ? DyslexiaTheme.primaryAccent
+                  : DyslexiaTheme.borderColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -289,4 +270,4 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
       ],
     );
   }
-} 
+}

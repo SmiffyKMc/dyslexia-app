@@ -57,14 +57,18 @@ abstract class _WordDoctorStore with Store {
   @observable
   bool isScanning = false;
 
+  @observable
+  bool isProcessingOCR = false;
+
   // Debouncing for TTS calls
   Timer? _ttsDebounceTimer;
 
   @computed
-  bool get canAnalyze => inputWord.trim().isNotEmpty && !isAnalyzing && !isScanning;
+  bool get canAnalyze =>
+      inputWord.trim().isNotEmpty && !isAnalyzing && !isScanning;
 
   @computed
-  bool get canScanImage => !isAnalyzing && !isScanning;
+  bool get canScanImage => !isAnalyzing && !isScanning && !isProcessingOCR;
 
   @computed
   bool get hasCurrentAnalysis => currentAnalysis != null;
@@ -83,7 +87,8 @@ abstract class _WordDoctorStore with Store {
       await _loadSavedWords();
       await _loadRecentWords();
     } catch (e) {
-      developer.log('Word Doctor initialization error: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Word Doctor initialization error: $e',
+          name: 'dyslexic_ai.word_doctor');
       // Don't crash the app, just log the error
     }
   }
@@ -106,15 +111,14 @@ abstract class _WordDoctorStore with Store {
     try {
       // Just do the basic word analysis - no session logging or complex async operations
       final analysis = await _analysisService.analyzeWord(wordToAnalyze);
-      
+
       // Simple dictionary check
       final isSaved = await _dictionaryService.isWordSaved(wordToAnalyze);
       currentAnalysis = analysis.copyWith(isSaved: isSaved);
-      
+
       // Simple recent words update
       await _dictionaryService.addToRecentWords(currentAnalysis!);
       await _loadRecentWords();
-      
     } catch (e) {
       errorMessage = 'Failed to analyze word: $e';
     } finally {
@@ -137,13 +141,14 @@ abstract class _WordDoctorStore with Store {
   Future<void> speakSyllable(String syllable) async {
     // Cancel any existing TTS timer
     _ttsDebounceTimer?.cancel();
-    
+
     try {
       // Clear TTS queue before speaking new content
       await _ttsService.clearQueue();
       await _ttsService.speakWord(syllable);
     } catch (e) {
-      developer.log('Error speaking syllable: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Error speaking syllable: $e',
+          name: 'dyslexic_ai.word_doctor');
       errorMessage = 'Unable to speak syllable. Please try again.';
     }
   }
@@ -152,7 +157,7 @@ abstract class _WordDoctorStore with Store {
   Future<void> speakWord(String word) async {
     // Cancel any existing TTS timer
     _ttsDebounceTimer?.cancel();
-    
+
     try {
       // Clear TTS queue before speaking new content
       await _ttsService.clearQueue();
@@ -167,13 +172,14 @@ abstract class _WordDoctorStore with Store {
   Future<void> speakExampleSentence(String sentence) async {
     // Cancel any existing TTS timer
     _ttsDebounceTimer?.cancel();
-    
+
     try {
       // Clear TTS queue before speaking new content
       await _ttsService.clearQueue();
       await _ttsService.speak(sentence);
     } catch (e) {
-      developer.log('Error speaking sentence: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Error speaking sentence: $e',
+          name: 'dyslexic_ai.word_doctor');
       errorMessage = 'Unable to speak sentence. Please try again.';
     }
   }
@@ -229,7 +235,8 @@ abstract class _WordDoctorStore with Store {
       savedWords.clear();
       savedWords.addAll(words);
     } catch (e) {
-      developer.log('Error loading saved words: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Error loading saved words: $e',
+          name: 'dyslexic_ai.word_doctor');
     }
   }
 
@@ -240,7 +247,8 @@ abstract class _WordDoctorStore with Store {
       recentWords.clear();
       recentWords.addAll(words);
     } catch (e) {
-      developer.log('Error loading recent words: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Error loading recent words: $e',
+          name: 'dyslexic_ai.word_doctor');
     }
   }
 
@@ -274,21 +282,18 @@ abstract class _WordDoctorStore with Store {
   Future<void> refreshData() async {
     await _loadSavedWords();
     await _loadRecentWords();
-    
+
     if (currentAnalysis != null) {
-      final isSaved = await _dictionaryService.isWordSaved(currentAnalysis!.word);
+      final isSaved =
+          await _dictionaryService.isWordSaved(currentAnalysis!.word);
       currentAnalysis = currentAnalysis!.copyWith(isSaved: isSaved);
     }
   }
 
-
-
-
-
   @action
   Future<void> scanWordFromGallery() async {
     if (!canScanImage) return;
-    
+
     isScanning = true;
     errorMessage = null;
 
@@ -297,7 +302,7 @@ abstract class _WordDoctorStore with Store {
         source: ImageSource.gallery,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         await _processScannedImage(File(image.path));
       }
@@ -309,10 +314,13 @@ abstract class _WordDoctorStore with Store {
   }
 
   Future<void> _processScannedImage(File imageFile) async {
-    
+    isProcessingOCR = true;
+
     try {
+      developer.log('📷 Starting OCR processing...',
+          name: 'dyslexic_ai.word_doctor');
       final result = await _ocrService.scanImage(imageFile);
-      
+
       if (result.isSuccess && result.hasText) {
         // Extract the first meaningful word from the OCR result
         final words = result.text
@@ -321,23 +329,30 @@ abstract class _WordDoctorStore with Store {
             .map((word) => word.replaceAll(RegExp(r'[^\w]'), ''))
             .where((word) => word.length > 1)
             .toList();
-        
+
         if (words.isNotEmpty) {
           final extractedWord = words.first;
-          
-          // Set the input word and trigger analysis
+
+          // Set the input word (user will manually press "Analyze Word")
           setInputWord(extractedWord);
-          
-          // Auto-analyze the scanned word
-          await analyzeCurrentWord();
+
+          developer.log(
+              '📷 OCR extracted word: "$extractedWord" - ready for manual analysis',
+              name: 'dyslexic_ai.word_doctor');
         } else {
-          errorMessage = 'No readable words found in the image. Please try again with clearer text.';
+          errorMessage =
+              'No readable words found in the image. Please try again with clearer text.';
         }
       } else {
-        errorMessage = result.error ?? 'Unable to read text from image. Please ensure the text is clear and well-lit.';
+        errorMessage = result.error ??
+            'Unable to read text from image. Please ensure the text is clear and well-lit.';
       }
     } catch (e) {
       errorMessage = 'Failed to process image: $e';
+    } finally {
+      isProcessingOCR = false;
+      developer.log('📷 OCR processing completed',
+          name: 'dyslexic_ai.word_doctor');
     }
   }
 
@@ -350,34 +365,35 @@ abstract class _WordDoctorStore with Store {
     }
   }
 
-
-
   void dispose() {
     try {
-      developer.log('🩹 Disposing WordDoctorStore', name: 'dyslexic_ai.word_doctor');
-      
+      developer.log('🩹 Disposing WordDoctorStore',
+          name: 'dyslexic_ai.word_doctor');
+
       // Cancel timers
       _ttsDebounceTimer?.cancel();
       _ttsDebounceTimer = null;
-      
+
       // Stop TTS but don't dispose (shared service)
       _ttsService.stop();
-      
+
       // Clear any ongoing analysis
       if (isAnalyzing) {
         errorMessage = 'Analysis cancelled - screen closed';
       }
-      
+
       // Clear state
       currentAnalysis = null;
       inputWord = '';
       errorMessage = null;
       isScanning = false;
-      
-      developer.log('🩹 WordDoctorStore disposed successfully', name: 'dyslexic_ai.word_doctor');
+
+      developer.log('🩹 WordDoctorStore disposed successfully',
+          name: 'dyslexic_ai.word_doctor');
     } catch (e) {
-      developer.log('Word Doctor dispose error: $e', name: 'dyslexic_ai.word_doctor');
+      developer.log('Word Doctor dispose error: $e',
+          name: 'dyslexic_ai.word_doctor');
       // Continue with disposal even if errors occur
     }
   }
-} 
+}

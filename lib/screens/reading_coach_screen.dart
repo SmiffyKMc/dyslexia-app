@@ -25,7 +25,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     _store = getIt<ReadingCoachStore>();
     _profileStore = getIt<LearnerProfileStore>();
     _store.initialize();
-    
+
     // Initialize text field with current text
     _textController.text = _store.currentText;
   }
@@ -67,7 +67,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   }
 
   void _selectImageFromGallery() {
-                _store.pickImageFromGallery();
+    _store.pickImageFromGallery();
   }
 
   @override
@@ -124,103 +124,123 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                 return const SizedBox.shrink();
               },
             ),
-            
+
             // Main content - only show when not loading
             Observer(
-          builder: (context) {
-            if (_store.isLoading) {
+              builder: (context) {
+                if (_store.isLoading) {
                   return const SizedBox.shrink();
-            }
+                }
 
                 return Expanded(
                   child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         // Error message - needs Observer for errorMessage
                         Observer(
                           builder: (context) {
                             if (_store.errorMessage == null) {
                               return const SizedBox.shrink();
                             }
-                            
+
                             // Check if this is a permission error
-                            final isPermissionError = _store.errorMessage!.toLowerCase().contains('microphone') ||
-                                                     _store.errorMessage!.toLowerCase().contains('permission');
-                            
+                            final isPermissionError = _store.errorMessage!
+                                    .toLowerCase()
+                                    .contains('microphone') ||
+                                _store.errorMessage!
+                                    .toLowerCase()
+                                    .contains('permission');
+
                             return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isPermissionError ? Colors.orange[50] : Colors.red[50],
-                        border: Border.all(color: isPermissionError ? Colors.orange[200]! : Colors.red[200]!),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                isPermissionError ? Icons.mic_off : Icons.error, 
-                                color: isPermissionError ? Colors.orange[600] : Colors.red[600]
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  isPermissionError ? 'Microphone Access Required' : 'Error',
-                                  style: TextStyle(
-                                    color: isPermissionError ? Colors.orange[600] : Colors.red[600],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: _store.clearError,
-                                icon: const Icon(Icons.close),
-                                iconSize: 16,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _store.errorMessage!,
-                            style: TextStyle(
-                              color: isPermissionError ? Colors.orange[700] : Colors.red[600],
-                            ),
-                          ),
-                          if (isPermissionError) ...[
-                            const SizedBox(height: 12),
-                            SizedBox(
                               width: double.infinity,
-                              child: ElevatedButton.icon(
-                                onPressed: _store.requestMicrophonePermission,
-                                icon: const Icon(Icons.mic),
-                                label: const Text('Allow Microphone Access'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  foregroundColor: Colors.white,
-                                ),
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: isPermissionError
+                                    ? Colors.orange[50]
+                                    : Colors.red[50],
+                                border: Border.all(
+                                    color: isPermissionError
+                                        ? Colors.orange[200]!
+                                        : Colors.red[200]!),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ),
-                          ],
-                        ],
-                      ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                          isPermissionError
+                                              ? Icons.mic_off
+                                              : Icons.error,
+                                          color: isPermissionError
+                                              ? Colors.orange[600]
+                                              : Colors.red[600]),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          isPermissionError
+                                              ? 'Microphone Access Required'
+                                              : 'Error',
+                                          style: TextStyle(
+                                            color: isPermissionError
+                                                ? Colors.orange[600]
+                                                : Colors.red[600],
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        onPressed: _store.clearError,
+                                        icon: const Icon(Icons.close),
+                                        iconSize: 16,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _store.errorMessage!,
+                                    style: TextStyle(
+                                      color: isPermissionError
+                                          ? Colors.orange[700]
+                                          : Colors.red[600],
+                                    ),
+                                  ),
+                                  if (isPermissionError) ...[
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed:
+                                            _store.requestMicrophonePermission,
+                                        icon: const Icon(Icons.mic),
+                                        label: const Text(
+                                            'Allow Microphone Access'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.orange,
+                                          foregroundColor: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             );
                           },
                         ),
-                        
+
                         // Space after error message
                         Observer(
-                          builder: (context) => _store.errorMessage != null 
-                              ? const SizedBox(height: 16) 
+                          builder: (context) => _store.errorMessage != null
+                              ? const SizedBox(height: 16)
                               : const SizedBox.shrink(),
                         ),
-                        
+
                         // Text selection section - show only in input mode
                         Observer(
-                          builder: (context) => _store.isInInputMode 
+                          builder: (context) => _store.isInInputMode
                               ? Column(
                                   children: [
                                     _buildTextSelection(),
@@ -229,10 +249,10 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                        
+
                         // Current text display - show only when not in input mode
                         Observer(
-                          builder: (context) => !_store.isInInputMode 
+                          builder: (context) => !_store.isInInputMode
                               ? Column(
                                   children: [
                                     _buildCurrentText(),
@@ -241,12 +261,12 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                        
+
                         // Reading controls - needs Observer for multiple states
                         Observer(
                           builder: (context) => _buildReadingControls(),
                         ),
-                        
+
                         // Session results - needs Observer for hasSession
                         Observer(
                           builder: (context) {
@@ -255,19 +275,19 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                             }
                             return Column(
                               children: [
-                    const SizedBox(height: 24),
-                    _buildSessionResults(),
                                 const SizedBox(height: 24),
-                    _buildPracticeWords(),
-                  ],
+                                _buildSessionResults(),
+                                const SizedBox(height: 24),
+                                _buildPracticeWords(),
+                              ],
                             );
                           },
                         ),
-                ],
+                      ],
                     ),
-              ),
-            );
-          },
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -277,12 +297,12 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
 
   Widget _buildTextSelection() {
     return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-            const Text(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
           'Enter text to read',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: _textController,
@@ -311,7 +331,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.purple),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -328,23 +349,23 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                 )
               : const SizedBox(height: 8),
         ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
                 onPressed: _showStorySelectorModal,
-                    icon: const Icon(Icons.library_books),
-                    label: const Text('Choose Story'),
-                  ),
-                ),
+                icon: const Icon(Icons.library_books),
+                label: const Text('Choose Story'),
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-          child: OutlinedButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: _selectImageFromGallery,
                 icon: const Icon(Icons.photo_library),
                 label: const Text('Scan Image'),
-          ),
+              ),
             ),
           ],
         ),
@@ -432,13 +453,13 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     }
 
     return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -447,7 +468,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
               const Expanded(
                 child: Text(
                   'Text to read:',
-                style: TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.grey,
@@ -472,7 +493,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
           const SizedBox(height: 8),
           _buildHighlightedText(),
         ],
-            ),
+      ),
     );
   }
 
@@ -519,7 +540,7 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
 
     final highlightStates = _store.wordHighlightStates;
     final words = _store.currentTextWords;
-    
+
     return RichText(
       text: TextSpan(
         style: const TextStyle(
@@ -533,9 +554,10 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             TextSpan(
               text: words[i],
               style: TextStyle(
-                backgroundColor: highlightStates.length > i && highlightStates[i]
-                    ? Colors.yellow.withValues(alpha: 0.6)
-                    : Colors.transparent,
+                backgroundColor:
+                    highlightStates.length > i && highlightStates[i]
+                        ? Colors.yellow.withValues(alpha: 0.6)
+                        : Colors.transparent,
                 fontWeight: highlightStates.length > i && highlightStates[i]
                     ? FontWeight.w600
                     : FontWeight.normal,
@@ -552,17 +574,17 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
   Widget _buildReadingControls() {
     return Column(
       children: [
-            Row(
-              children: [
-                Container(
-                  width: 12,
-                  height: 12,
+        Row(
+          children: [
+            Container(
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
                 color: _store.isListening ? Colors.red : Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -572,13 +594,15 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                     'Auto-stop in ${15 - _store.silenceSeconds}s',
                     style: TextStyle(
                       fontSize: 12,
-                      color: _store.silenceSeconds >= 12 ? Colors.red : Colors.orange,
+                      color: _store.silenceSeconds >= 12
+                          ? Colors.red
+                          : Colors.orange,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
               ],
             ),
-                const Spacer(),
+            const Spacer(),
             if (_store.hasSession) ...[
               Text(
                 'Accuracy: ${_store.formattedAccuracy}',
@@ -586,33 +610,34 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
               ),
               const SizedBox(width: 16),
             ],
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.settings),
-                ),
-              ],
+            IconButton(
+              onPressed: () {},
+              icon: const Icon(Icons.settings),
             ),
-            const SizedBox(height: 16),
+          ],
+        ),
+        const SizedBox(height: 16),
         if (!_store.hasSession) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 60,
-              child: ElevatedButton.icon(
+          SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: ElevatedButton.icon(
               onPressed: _store.canStartReading ? _store.startReading : null,
-                icon: Icon(
-                  _store.canStartReading ? Icons.mic : Icons.mic_off, 
-                  size: 28
-                ),
-                label: Text(
-                  _store.canStartReading ? 'Start Reading' : 'Microphone Not Ready',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              icon: Icon(_store.canStartReading ? Icons.mic : Icons.mic_off,
+                  size: 28),
+              label: Text(
+                _store.canStartReading
+                    ? 'Start Reading'
+                    : 'Microphone Not Ready',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
           ),
         ] else ...[
-            Row(
-              children: [
-                Expanded(
+          Row(
+            children: [
+              Expanded(
                 child: SizedBox(
                   height: 60,
                   child: ElevatedButton.icon(
@@ -620,16 +645,17 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                     icon: const Icon(Icons.stop, size: 28),
                     label: const Text(
                       'Stop Reading',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                     ),
                   ),
-                  ),
                 ),
-                const SizedBox(width: 12),
+              ),
+              const SizedBox(width: 12),
               if (_store.currentSession?.status == ReadingSessionStatus.paused)
                 Expanded(
                   child: SizedBox(
@@ -645,15 +671,16 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                 Expanded(
                   child: SizedBox(
                     height: 60,
-                  child: OutlinedButton.icon(
-                      onPressed: _store.isListening ? _store.pauseReading : null,
-                    icon: const Icon(Icons.pause),
-                    label: const Text('Pause'),
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          _store.isListening ? _store.pauseReading : null,
+                      icon: const Icon(Icons.pause),
+                      label: const Text('Pause'),
                     ),
                   ),
                 ),
-              ],
-            ),
+            ],
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -673,8 +700,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             ],
           ),
           // Add restart listening button if there are mic issues during a session
-          if (_store.hasSession && 
-              _store.currentSession?.status == ReadingSessionStatus.reading && 
+          if (_store.hasSession &&
+              _store.currentSession?.status == ReadingSessionStatus.reading &&
               !_store.isListening) ...[
             const SizedBox(height: 12),
             SizedBox(
@@ -695,46 +722,9 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     );
   }
 
-  Widget _buildLiveFeedback() {
-    if (_store.liveFeedback.isEmpty) return const SizedBox.shrink();
-
-    return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Live Feedback',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 12),
-            ..._store.liveFeedback.map((feedback) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                      children: [
-                  Icon(
-                    feedback.contains('Great') || feedback.contains('Good')
-                        ? Icons.check_circle
-                        : Icons.cancel,
-                    color: feedback.contains('Great') || feedback.contains('Good')
-                        ? Colors.green
-                        : Colors.red,
-                    size: 20,
-                  ),
-                        const SizedBox(width: 8),
-                  Expanded(child: Text(feedback)),
-                      ],
-                    ),
-            )),
-                  ],
-                ),
-              ),
-    );
-  }
-
   Widget _buildSessionResults() {
-    if (!_store.hasSession || _store.currentSession?.status != ReadingSessionStatus.completed) {
+    if (!_store.hasSession ||
+        _store.currentSession?.status != ReadingSessionStatus.completed) {
       return const SizedBox.shrink();
     }
 
@@ -742,27 +732,27 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
     final accuracy = session.calculateAccuracy();
 
     return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: const BoxDecoration(
-                            color: Colors.orange,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.star, color: Colors.white, size: 20),
-                        ),
-                        const SizedBox(width: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: Colors.orange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.star, color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
                         accuracy > 0.8
                             ? 'Excellent work!'
@@ -773,11 +763,12 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
                       ),
                       Text(
                         'Reading accuracy: ${(accuracy * 100).round()}%',
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
-                    ),
-                  ],
+                        style:
+                            const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               ],
             ),
             const SizedBox(height: 16),
@@ -800,7 +791,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
             LinearProgressIndicator(
               value: accuracy,
               backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
             ),
           ],
         ),
@@ -822,7 +814,8 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
         Wrap(
           spacing: 12,
           runSpacing: 8,
-          children: _store.practiceWords.map((word) => _buildWordChip(word)).toList(),
+          children:
+              _store.practiceWords.map((word) => _buildWordChip(word)).toList(),
         ),
       ],
     );
@@ -833,21 +826,22 @@ class _ReadingCoachScreenState extends State<ReadingCoachScreen> {
       onTap: () => _store.speakWord(word),
       borderRadius: BorderRadius.circular(20),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(word, style: const TextStyle(fontWeight: FontWeight.w500)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(word, style: const TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(width: 8),
-            Icon(Icons.volume_up, size: 16, color: Theme.of(context).primaryColor),
+            Icon(Icons.volume_up,
+                size: 16, color: Theme.of(context).primaryColor),
           ],
         ),
       ),
     );
   }
-} 
+}

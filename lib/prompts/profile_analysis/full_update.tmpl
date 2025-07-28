@@ -6,8 +6,16 @@ RECENT SESSIONS:
 {{session_data}}
 
 RULES:
-- Accuracy 85%+ → upgrade confidence and accuracy levels
-- Accuracy <70% → focus on foundation skills
+- ACCURACY CLASSIFICATION (strict thresholds):
+  * 90%+ accuracy → "excellent"
+  * 75-89% accuracy → "good" 
+  * 60-74% accuracy → "developing"
+  * <60% accuracy → "needs work"
+- CONFIDENCE CLASSIFICATION:
+  * 85%+ recent accuracy → "high"
+  * 70-84% recent accuracy → "medium"
+  * 55-69% recent accuracy → "building" 
+  * <55% recent accuracy → "low"
 - 3+ same phoneme errors → add to confusions
 - Tool variety: avoid repeating current recommended tool
 - Suggested tools: {{suggested_tools}}

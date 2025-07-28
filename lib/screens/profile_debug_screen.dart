@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/learner_profile_store.dart';
-import '../services/gemma_profile_update_service.dart';
+import '../services/profile_update_service.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
 import 'dart:developer' as developer;
@@ -15,7 +15,7 @@ class ProfileDebugScreen extends StatefulWidget {
 
 class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
   late LearnerProfileStore _profileStore;
-  late GemmaProfileUpdateService _profileUpdateService;
+  late ProfileUpdateService _profileUpdateService;
   bool _isUpdating = false;
   String? _lastUpdateResult;
   DateTime? _lastUpdateTime;
@@ -25,7 +25,7 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
   void initState() {
     super.initState();
     _profileStore = getIt<LearnerProfileStore>();
-    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _profileUpdateService = getIt<ProfileUpdateService>();
     _loadProfileLogs();
   }
 
@@ -47,18 +47,23 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
     });
 
     try {
-      developer.log('🧠 Manual profile update triggered', name: 'dyslexic_ai.profile_debug');
-      
-      final success = await _profileUpdateService.updateProfileFromRecentSessions();
-      
+      developer.log('🧠 Manual profile update triggered',
+          name: 'dyslexic_ai.profile_debug');
+
+      final success =
+          await _profileUpdateService.updateProfileFromRecentSessions();
+
       setState(() {
         _isUpdating = false;
-        _lastUpdateResult = success ? 'Profile updated successfully' : 'Profile update failed';
+        _lastUpdateResult =
+            success ? 'Profile updated successfully' : 'Profile update failed';
         _lastUpdateTime = DateTime.now();
-        _profileLogs.add('${DateTime.now().toIso8601String()}: $_lastUpdateResult');
+        _profileLogs
+            .add('${DateTime.now().toIso8601String()}: $_lastUpdateResult');
       });
 
-      developer.log('🧠 Manual profile update completed: $success', name: 'dyslexic_ai.profile_debug');
+      developer.log('🧠 Manual profile update completed: $success',
+          name: 'dyslexic_ai.profile_debug');
     } catch (e) {
       setState(() {
         _isUpdating = false;
@@ -67,7 +72,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
         _profileLogs.add('${DateTime.now().toIso8601String()}: Error - $e');
       });
 
-      developer.log('🧠 Manual profile update failed: $e', name: 'dyslexic_ai.profile_debug');
+      developer.log('🧠 Manual profile update failed: $e',
+          name: 'dyslexic_ai.profile_debug');
     }
   }
 
@@ -82,7 +88,7 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
       body: Observer(
         builder: (context) {
           final profile = _profileStore.currentProfile;
-          
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -90,19 +96,19 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
               children: [
                 // Current Profile Status
                 _buildProfileStatusCard(profile),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Profile Update Controls
                 _buildUpdateControlsCard(),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Profile Update Logs
                 _buildProfileLogsCard(),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Profile Details
                 if (profile != null) _buildProfileDetailsCard(profile),
               ],
@@ -127,8 +133,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
                 Text(
                   'Profile Status',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -141,8 +147,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
               Text(
                 'Last Update: ${_formatDateTime(_lastUpdateTime!)}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+                      color: Colors.grey.shade600,
+                    ),
               ),
             ],
           ],
@@ -165,8 +171,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
                 Text(
                   'Profile Update Controls',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -175,22 +181,22 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _lastUpdateResult!.contains('successfully') 
-                    ? Colors.green.shade50 
-                    : Colors.red.shade50,
+                  color: _lastUpdateResult!.contains('successfully')
+                      ? Colors.green.shade50
+                      : Colors.red.shade50,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: _lastUpdateResult!.contains('successfully') 
-                      ? Colors.green 
-                      : Colors.red,
+                    color: _lastUpdateResult!.contains('successfully')
+                        ? Colors.green
+                        : Colors.red,
                   ),
                 ),
                 child: Text(
                   _lastUpdateResult!,
                   style: TextStyle(
-                    color: _lastUpdateResult!.contains('successfully') 
-                      ? Colors.green.shade700 
-                      : Colors.red.shade700,
+                    color: _lastUpdateResult!.contains('successfully')
+                        ? Colors.green.shade700
+                        : Colors.red.shade700,
                   ),
                 ),
               ),
@@ -205,22 +211,23 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
                   foregroundColor: Colors.white,
                 ),
                 child: _isUpdating
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
                           ),
-                        ),
-                        SizedBox(width: 8),
-                        Text('Updating Profile...'),
-                      ],
-                    )
-                  : const Text('Trigger Profile Update'),
+                          SizedBox(width: 8),
+                          Text('Updating Profile...'),
+                        ],
+                      )
+                    : const Text('Trigger Profile Update'),
               ),
             ),
           ],
@@ -243,8 +250,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
                 Text(
                   'Profile Update Logs',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -292,8 +299,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
                 Text(
                   'Current Profile Details',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -316,8 +323,8 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
             Text(
               'Advice: ${profile.advice}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontStyle: FontStyle.italic,
-              ),
+                    fontStyle: FontStyle.italic,
+                  ),
             ),
           ],
         ),
@@ -345,4 +352,4 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
-} 
+}

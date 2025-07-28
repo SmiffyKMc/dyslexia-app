@@ -3,20 +3,20 @@ import 'dart:developer' as developer;
 import '../models/session_log.dart';
 import '../controllers/session_log_store.dart';
 import '../controllers/learner_profile_store.dart';
-import '../services/gemma_profile_update_service.dart';
+import '../services/profile_update_service.dart';
 import '../utils/service_locator.dart';
 
 class SessionLoggingService {
   late final SessionLogStore _sessionLogStore;
   late final LearnerProfileStore _profileStore;
-  late final GemmaProfileUpdateService _profileUpdateService;
+  late final ProfileUpdateService _profileUpdateService;
   Timer? _sessionTimer;
   DateTime? _sessionStartTime;
 
   SessionLoggingService() {
     _sessionLogStore = getIt<SessionLogStore>();
     _profileStore = getIt<LearnerProfileStore>();
-    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _profileUpdateService = getIt<ProfileUpdateService>();
   }
 
   Future<void> startSession({

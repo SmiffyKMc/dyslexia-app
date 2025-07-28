@@ -267,32 +267,13 @@ class BackgroundDownloadManager {
           lastUpdate: DateTime.now(),
         ));
       } else {
-        // Check if this is a network error that should be retried
-        final shouldRetry = _shouldRetryError(e);
-        
-        if (shouldRetry) {
-          developer.log('🔄 Network error detected, will retry: $e', name: 'dyslexic_ai.background_download');
-          await _updateState(_currentState.copyWith(
-            status: DownloadStatus.paused, // Paused state allows resume
-            error: 'Connection interrupted, will retry...',
-            lastUpdate: DateTime.now(),
-          ));
-          
-          // Trigger retry after a short delay
-          Future.delayed(const Duration(seconds: 3), () async {
-            if (_currentState.status == DownloadStatus.paused) {
-              developer.log('🔄 Retrying download after connection failure', name: 'dyslexic_ai.background_download');
-              await startDownload();
-            }
-          });
-        } else {
-          developer.log('❌ Background download failed permanently: $e', name: 'dyslexic_ai.background_download');
-          await _updateState(_currentState.copyWith(
-            status: DownloadStatus.failed,
-            error: 'Download failed: $e',
-            lastUpdate: DateTime.now(),
-          ));
-        }
+        // Google's approach: Simple binary failure, let WorkManager handle retries
+        developer.log('❌ Download failed: $e', name: 'dyslexic_ai.background_download');
+        await _updateState(_currentState.copyWith(
+          status: DownloadStatus.failed,
+          error: 'Download failed: $e',
+          lastUpdate: DateTime.now(),
+        ));
       }
     }
   }
@@ -491,76 +472,7 @@ class BackgroundDownloadManager {
     }
   }
 
-  /// Start periodic refresh to check for background worker progress updates
-  void _startPeriodicRefresh() {
-    _progressTimer?.cancel();
-    ResourceDiagnostics().unregisterTimer('BackgroundDownloadManager', 'progressTimer');
-    
-    _progressTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      try {
-        // CRITICAL: Force SharedPreferences reload to sync across isolates
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.reload(); // Force reload from disk to get worker updates
-        final stateString = prefs.getString(_downloadStateKey);
-        
-        developer.log('🔍 Periodic refresh - SharedPrefs: ${stateString?.length ?? 0} chars (after reload)', 
-                     name: 'dyslexic_ai.background_download');
-        
-        if (stateString != null) {
-          final stateJson = jsonDecode(stateString) as Map<String, dynamic>;
-          final latestState = DownloadState.fromJson(stateJson);
-          
-          final currentProgress = _currentState.progress * 100;
-          final latestProgress = (latestState.progress) * 100;
-          final progressDiff = (latestState.progress - _currentState.progress).abs();
-          final hasStatusChange = latestState.status != _currentState.status;
-          
-          developer.log('🔍 RAW JSON: ${stateString.substring(0, stateString.length > 100 ? 100 : stateString.length)}...', 
-                       name: 'dyslexic_ai.background_download');
-          developer.log('🔍 Progress check - Current: ${currentProgress.toInt()}%, Latest: ${latestProgress.toInt()}%, Diff: ${(progressDiff * 100).toInt()}%, Status change: $hasStatusChange', 
-                       name: 'dyslexic_ai.background_download');
-          
-          // Update every 1% progress change or on any forward progress
-          if (hasStatusChange || progressDiff >= 0.01 || latestProgress > currentProgress) {
-            developer.log('🚀 Emitting UI update - Progress: ${latestProgress.toInt()}%, Downloaded: ${((latestState.downloadedBytes ?? 0) / (1024 * 1024)).toStringAsFixed(1)}MB', 
-                         name: 'dyslexic_ai.background_download');
-            
-            _currentState = latestState;
-            _stateController.add(latestState); // Emit to stream
-            
-            developer.log('✅ UI progress updated: ${latestProgress.toInt()}%', 
-                         name: 'dyslexic_ai.background_download');
-            
-            // Stop periodic refresh if download is completed or failed
-            if (latestState.status == DownloadStatus.completed || 
-                latestState.status == DownloadStatus.failed) {
-              timer.cancel();
-              ResourceDiagnostics().unregisterTimer('BackgroundDownloadManager', 'progressTimer');
-              developer.log('🔄 Periodic refresh stopped - download ${latestState.status}', 
-                           name: 'dyslexic_ai.background_download');
-            }
-          } else {
-            developer.log('⏸️ No significant change detected - skipping UI update', 
-                         name: 'dyslexic_ai.background_download');
-          }
-        } else {
-          developer.log('❌ No state found in SharedPreferences', name: 'dyslexic_ai.background_download');
-          // DIAGNOSTIC: Track potential waste scenario
-          ResourceDiagnostics().logMemoryPressureEvent('Null SharedPreferences state', 'BackgroundDownloadManager periodic refresh');
-        }
-      } catch (e) {
-        developer.log('❌ Error during periodic refresh: $e', name: 'dyslexic_ai.background_download');
-        // DIAGNOSTIC: Track error scenario
-        ResourceDiagnostics().logMemoryPressureEvent('Periodic refresh error: $e', 'BackgroundDownloadManager');
-      }
-    });
-    
-    // DIAGNOSTIC: Register the timer
-    ResourceDiagnostics().registerTimer('BackgroundDownloadManager', 'progressTimer', _progressTimer!);
-    
-    developer.log('🔄 Started periodic refresh every 1 second for UI updates', 
-                 name: 'dyslexic_ai.background_download');
-  }
+
 
   Future<void> _checkResumeDownload() async {
     try {
@@ -704,26 +616,9 @@ class BackgroundDownloadManager {
       progress: 0.0,
     ));
     
-    // Start periodic refresh to check for background worker progress
-    _startPeriodicRefresh();
-    
-    // FALLBACK: If WorkManager doesn't start within 10 seconds, check and potentially start manually
-    Timer(const Duration(seconds: 10), () async {
-      if (_currentState.status == DownloadStatus.downloading && 
-          _currentState.progress == 0.0 && 
-          _currentState.downloadedBytes == 0) {
-        developer.log('⚠️ FALLBACK: WorkManager task not started after 10s, checking manually', 
-                     name: 'dyslexic_ai.background_download');
-        
-        // Check if the actual WorkManager task has started by checking if state has been updated
-        if (_currentState.startTime?.isBefore(DateTime.now().subtract(Duration(seconds: 8))) ?? false) {
-          developer.log('🚀 FALLBACK: Starting download directly since WorkManager is delayed', 
-                       name: 'dyslexic_ai.background_download');
-          // Start the download directly as a fallback
-          await performActualDownload();
-        }
-      }
-    });
+    // Google's approach: Trust WorkManager to handle progress updates
+    developer.log('✅ Background worker registered, trusting WorkManager (Google AI Edge approach)', 
+                 name: 'dyslexic_ai.background_download');
   }
 
   /// Pure download method for WorkManager - ONLY downloads, no task registration
@@ -864,34 +759,14 @@ class BackgroundDownloadManager {
           lastUpdate: DateTime.now(),
         ));
       } else {
-        // Check if this is a network error that should be retried
-        final shouldRetry = _shouldRetryError(e);
-        
-        if (shouldRetry) {
-          developer.log('🔄 Worker network error, will retry: $e', name: 'dyslexic_ai.background_download');
-          // DON'T reset _sessionStartBytes here - we want to resume from same point
-          await _updateState(_currentState.copyWith(
-            status: DownloadStatus.paused,
-            error: 'Connection interrupted, will retry...',
-            lastUpdate: DateTime.now(),
-          ));
-          
-          // Trigger retry after a short delay
-          Future.delayed(const Duration(seconds: 3), () async {
-            if (_currentState.status == DownloadStatus.paused) {
-              developer.log('🔄 Worker retrying download after connection failure', name: 'dyslexic_ai.background_download');
-              await performActualDownload();
-            }
-          });
-        } else {
-          developer.log('❌ Worker download failed permanently: $e', name: 'dyslexic_ai.background_download');
-          _sessionStartBytes = null; // Reset session tracking
-          await _updateState(_currentState.copyWith(
-            status: DownloadStatus.failed,
-            error: 'Download failed: $e',
-            lastUpdate: DateTime.now(),
-          ));
-        }
+        // Google's approach: Simple binary failure, let WorkManager handle retries
+        developer.log('❌ Worker download failed: $e', name: 'dyslexic_ai.background_download');
+        _sessionStartBytes = null; // Reset session tracking
+        await _updateState(_currentState.copyWith(
+          status: DownloadStatus.failed,
+          error: 'Download failed: $e',
+          lastUpdate: DateTime.now(),
+        ));
       }
     }
   }
@@ -928,27 +803,7 @@ class BackgroundDownloadManager {
     }
   }
 
-  bool _shouldRetryError(dynamic error) {
-    if (error is DioException) {
-      switch (error.type) {
-        case DioExceptionType.connectionTimeout:
-        case DioExceptionType.sendTimeout:
-        case DioExceptionType.receiveTimeout:
-        case DioExceptionType.connectionError:
-          return true;
-        case DioExceptionType.unknown:
-          // Check if it's a connection closed error
-          if (error.message?.contains('Connection closed') == true ||
-              error.message?.contains('HttpException') == true) {
-            return true;
-          }
-          return false;
-        default:
-          return false;
-      }
-    }
-    return false;
-  }
+
 
   void dispose() {
     _cancelToken?.cancel();

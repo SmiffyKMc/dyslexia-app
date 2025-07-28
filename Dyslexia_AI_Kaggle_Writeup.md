@@ -192,9 +192,9 @@ This isn't a prototype - it's a **fully functional app** with 6 working features
 
 ## 🎬 Demo Materials
 
-**📱 Live APK Demo**: [Download Ready for Testing]  
+**📱 Live APK Demo**: [https://github.com/SmiffyKMc/dyslexia-app/releases]  
 **🎥 Feature Walkthrough**: [Comprehensive Video Demo]  
-**💻 Source Code**: [GitHub Repository - Fully Open Source]  
+**💻 Source Code**: [https://github.com/SmiffyKMc/dyslexia-app]  
 **📊 Technical Deep Dive**: [DyslexAI_Technical_Deep_Dive.md]
 
 ---

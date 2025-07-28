@@ -37,6 +37,11 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
       return;
     }
     
+    // Clear existing analysis if present (user wants fresh state each time)
+    if (_store.hasCurrentAnalysis) {
+      _store.clearCurrentAnalysis();
+    }
+    
     _store.setInputWord(wordToAnalyze);
     _store.analyzeCurrentWord();
   }
@@ -93,8 +98,6 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                 _buildMnemonicCard(),
                 const SizedBox(height: 16),
                 _buildExampleSentenceCard(),
-                const SizedBox(height: 16),
-                _buildActionButtons(),
               ],
             ],
           ),
@@ -170,8 +173,8 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
             const SizedBox(height: 8),
             Observer(
               builder: (_) => ElevatedButton.icon(
-                onPressed: _store.isScanning ? null : () => _store.scanWordFromGallery(),
-                icon: _store.isScanning 
+                onPressed: (_store.isScanning || _store.isProcessingOCR) ? null : () => _store.scanWordFromGallery(),
+                icon: (_store.isScanning || _store.isProcessingOCR)
                     ? const SizedBox(
                         width: 16,
                         height: 16,
@@ -181,7 +184,11 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                         ),
                       )
                     : const Icon(Icons.photo_library),
-                label: Text(_store.isScanning ? 'Scanning...' : 'Select Image'),
+                label: Text(_store.isScanning 
+                    ? 'Scanning...' 
+                    : _store.isProcessingOCR 
+                        ? 'Reading text...' 
+                        : 'Select Image'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
@@ -456,51 +463,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
-    return Observer(
-      builder: (_) => Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: _store.isCurrentWordSaved 
-                  ? () => _store.removeSavedWord(_store.currentAnalysis!.word)
-                  : _store.saveCurrentWord,
-              icon: Icon(_store.isCurrentWordSaved ? Icons.bookmark : Icons.bookmark_border),
-              label: Text(
-                _store.isCurrentWordSaved ? 'Remove from Dictionary' : 'Save to Dictionary',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _store.isCurrentWordSaved 
-                    ? Colors.red 
-                    : DyslexiaTheme.primaryAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: _store.clearCurrentAnalysis,
-            icon: const Icon(Icons.refresh),
-            label: const Text(
-              'New Word',
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showSavedWords(BuildContext context) {
     showModalBottomSheet(

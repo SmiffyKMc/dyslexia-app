@@ -1,0 +1,25 @@
+Generate word lists for {{phoneme_count}} phonemes at {{difficulty_level}} level.
+
+For each phoneme, provide:
+- 1 correct word starting with that phoneme
+- {{incorrect_count}} incorrect words starting with different sounds
+
+Phonemes to generate: {{phonemes_list}}
+
+Example for "b" phoneme:
+{
+  "phoneme": "b",
+  "correct_words": ["ball"],
+  "incorrect_words": ["cat", "dog", "fish"],
+  "pronunciation_hint": "Make the 'buh' sound like in 'ball'"
+}
+
+Generate JSON array with one object per phoneme:
+[
+  {
+    "phoneme": "{{first_phoneme}}",
+    "correct_words": ["word_starting_with_{{first_phoneme}}"],
+    "incorrect_words": ["word1", "word2", "word3"],
+    "pronunciation_hint": "how to pronounce {{first_phoneme}}"
+  }
+] 

@@ -692,15 +692,6 @@ abstract class _ReadingCoachStore with Store {
     }
   }
 
-  Future<void> _generateFeedback(List<WordResult> results) async {
-    liveFeedback.clear();
-
-    for (final result in results.take(5)) {
-      final message = await _analysisService.generateFeedbackMessage(result);
-      liveFeedback.add(message);
-    }
-  }
-
   void _completeSession() {
     if (currentSession == null) return;
 
@@ -726,54 +717,6 @@ abstract class _ReadingCoachStore with Store {
         'feedback_messages_count': liveFeedback.length,
       },
     );
-  }
-
-  double _calculateWordsPerMinute() {
-    if (currentSession == null) return 0.0;
-
-    final duration = DateTime.now().difference(currentSession!.startTime);
-    final minutes = duration.inMilliseconds / 60000.0;
-
-    if (minutes <= 0) return 0.0;
-
-    final wordsRead = currentSession!.wordResults.length;
-    return wordsRead / minutes;
-  }
-
-  List<String> _extractPhonemeErrors(List<WordResult> results) {
-    final phonemeErrors = <String>[];
-
-    for (final result in results) {
-      if (!result.isCorrect && result.expectedWord.isNotEmpty) {
-        // Simple phoneme extraction - in a real app this would be more sophisticated
-        final word = result.expectedWord.toLowerCase();
-
-        // Common phoneme patterns that cause difficulty
-        if (word.contains('th')) phonemeErrors.add('th');
-        if (word.contains('ch')) phonemeErrors.add('ch');
-        if (word.contains('sh')) phonemeErrors.add('sh');
-        if (word.contains('ph')) phonemeErrors.add('ph');
-        if (word.contains('ough')) phonemeErrors.add('ough');
-        if (word.contains('augh')) phonemeErrors.add('augh');
-        if (word.contains('tion')) phonemeErrors.add('tion');
-        if (word.contains('sion')) phonemeErrors.add('sion');
-
-        // Vowel sounds
-        if (word.contains('ea')) phonemeErrors.add('ea');
-        if (word.contains('oo')) phonemeErrors.add('oo');
-        if (word.contains('ou')) phonemeErrors.add('ou');
-        if (word.contains('ow')) phonemeErrors.add('ow');
-
-        // Common single letter confusions
-        if (word.contains('b')) phonemeErrors.add('b');
-        if (word.contains('d')) phonemeErrors.add('d');
-        if (word.contains('p')) phonemeErrors.add('p');
-        if (word.contains('q')) phonemeErrors.add('q');
-      }
-    }
-
-    // Remove duplicates and return
-    return phonemeErrors.toSet().toList();
   }
 
   void dispose() {
@@ -822,7 +765,6 @@ abstract class _ReadingCoachStore with Store {
     } catch (e) {
       developer.log('Reading coach dispose error: $e',
           name: 'dyslexic_ai.reading_coach');
-      // Continue with disposal even if errors occur
     }
   }
 }

@@ -12,7 +12,6 @@ import 'screens/word_doctor_screen.dart';
 import 'screens/adaptive_story_screen.dart';
 import 'screens/phonics_game_screen.dart';
 
-
 import 'screens/text_simplifier_screen.dart';
 import 'screens/sentence_fixer_screen.dart';
 
@@ -21,33 +20,40 @@ import 'screens/model_loading_screen.dart';
 import 'utils/theme.dart';
 import 'utils/service_locator.dart';
 import 'services/font_preference_service.dart';
-import 'services/gemma_profile_update_service.dart';
+import 'services/profile_update_service.dart';
 import 'services/background_download_manager.dart';
 import 'dart:developer' as developer;
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
-  developer.log('🎯 WorkManager callback dispatcher initialized', name: 'dyslexic_ai.workmanager');
-  
+  developer.log('🎯 WorkManager callback dispatcher initialized',
+      name: 'dyslexic_ai.workmanager');
+
   Workmanager().executeTask((task, inputData) async {
     try {
-      developer.log('🔧 Background task started: $task with data: $inputData', name: 'dyslexic_ai.workmanager');
-      
+      developer.log('🔧 Background task started: $task with data: $inputData',
+          name: 'dyslexic_ai.workmanager');
+
       switch (task) {
         case 'model_download_task':
-          developer.log('📥 Starting model download task execution', name: 'dyslexic_ai.workmanager');
+          developer.log('📥 Starting model download task execution',
+              name: 'dyslexic_ai.workmanager');
           await _handleModelDownloadTask(inputData);
-          developer.log('✅ Model download task completed successfully', name: 'dyslexic_ai.workmanager');
+          developer.log('✅ Model download task completed successfully',
+              name: 'dyslexic_ai.workmanager');
           break;
         default:
-          developer.log('❓ Unknown background task: $task', name: 'dyslexic_ai.workmanager');
+          developer.log('❓ Unknown background task: $task',
+              name: 'dyslexic_ai.workmanager');
           return Future.value(false);
       }
-      
-      developer.log('✅ Background task completed: $task', name: 'dyslexic_ai.workmanager');
+
+      developer.log('✅ Background task completed: $task',
+          name: 'dyslexic_ai.workmanager');
       return Future.value(true);
     } catch (e, stackTrace) {
-      developer.log('❌ Background task failed: $task - $e\n$stackTrace', name: 'dyslexic_ai.workmanager');
+      developer.log('❌ Background task failed: $task - $e\n$stackTrace',
+          name: 'dyslexic_ai.workmanager');
       return Future.value(false);
     }
   });
@@ -58,39 +64,45 @@ Future<void> _handleModelDownloadTask(Map<String, dynamic>? inputData) async {
     // Initialize minimal services needed for download
     final downloadManager = BackgroundDownloadManager.instance;
     await downloadManager.initialize();
-    
+
     // Check if model is already available before starting download
     if (await downloadManager.isModelAvailable()) {
-      developer.log('✅ Model already available in background task, skipping download', name: 'dyslexic_ai.workmanager');
+      developer.log(
+          '✅ Model already available in background task, skipping download',
+          name: 'dyslexic_ai.workmanager');
       return;
     }
-    
+
     // Perform pure download (no task registration - worker only)
-    developer.log('📥 Worker starting actual model download', name: 'dyslexic_ai.workmanager');
+    developer.log('📥 Worker starting actual model download',
+        name: 'dyslexic_ai.workmanager');
     await downloadManager.performActualDownload();
-    
-    developer.log('✅ Worker download task completed', name: 'dyslexic_ai.workmanager');
+
+    developer.log('✅ Worker download task completed',
+        name: 'dyslexic_ai.workmanager');
   } catch (e, stackTrace) {
-    developer.log('❌ Background download failed: $e\n$stackTrace', name: 'dyslexic_ai.workmanager');
+    developer.log('❌ Background download failed: $e\n$stackTrace',
+        name: 'dyslexic_ai.workmanager');
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize WorkManager for background model downloads
   await Workmanager().initialize(
     callbackDispatcher,
     isInDebugMode: kDebugMode, // Only enable debug in debug builds
   );
-  developer.log('🎯 WorkManager initialized with debug mode: $kDebugMode', name: 'dyslexic_ai.workmanager');
-  
+  developer.log('🎯 WorkManager initialized with debug mode: $kDebugMode',
+      name: 'dyslexic_ai.workmanager');
+
   await setupLocator();
-  
+
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
-  
+
   // Always show loading screen - it will handle both download and initialization
   runApp(const DyslexiaAIApp());
 }
@@ -102,14 +114,15 @@ class DyslexiaAIApp extends StatefulWidget {
   State<DyslexiaAIApp> createState() => _DyslexiaAIAppState();
 }
 
-class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserver {
-  late final GemmaProfileUpdateService _profileUpdateService;
+class _DyslexiaAIAppState extends State<DyslexiaAIApp>
+    with WidgetsBindingObserver {
+  late final ProfileUpdateService _profileUpdateService;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _profileUpdateService = getIt<ProfileUpdateService>();
   }
 
   @override
@@ -125,9 +138,10 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    developer.log('App lifecycle state changed: $state', name: 'dyslexic_ai.main');
+    developer.log('App lifecycle state changed: $state',
+        name: 'dyslexic_ai.main');
     _profileUpdateService.handleAppLifecycleChange(state);
-    
+
     // Note: Removed session warmup on app resume as it creates unnecessary sessions
     // Sessions are created on-demand when needed for better resource management
   }
@@ -135,7 +149,7 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
   @override
   Widget build(BuildContext context) {
     final fontPreferenceService = getIt<FontPreferenceService>();
-    
+
     return ValueListenableBuilder<String>(
       valueListenable: fontPreferenceService.fontNotifier,
       builder: (context, currentFont, child) {
@@ -147,19 +161,13 @@ class _DyslexiaAIAppState extends State<DyslexiaAIApp> with WidgetsBindingObserv
             '/home': (context) => const HomeScreen(),
             '/learn': (context) => const LearnScreen(),
             '/tools': (context) => const ToolsScreen(),
-      
             '/settings': (context) => const SettingsScreen(),
             '/reading_coach': (context) => const ReadingCoachScreen(),
             '/word_doctor': (context) => const WordDoctorScreen(),
             '/adaptive_story': (context) => const AdaptiveStoryScreen(),
             '/phonics_game': (context) => const PhonicsGameScreen(),
-
-
             '/text_simplifier': (context) => const TextSimplifierScreen(),
             '/sentence_fixer': (context) => const SentenceFixerScreen(),
-      
-      
-    
           },
         );
       },

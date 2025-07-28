@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
-import 'package:flutter_gemma/core/message.dart';
 import 'package:image/image.dart' as img;
 import '../utils/service_locator.dart';
 

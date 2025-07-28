@@ -174,7 +174,7 @@ class AIPhonicsGenerationService {
 
     try {
       // Build prompt for all phonemes at once
-      final prompt = _buildBatchPrompt(phonemes, difficulty, profile);
+      final prompt = await _buildBatchPrompt(phonemes, difficulty, profile);
       
       developer.log('📝 Batch AI generation for phonemes: $phonemes', name: 'dyslexic_ai.phonics_ai');
 
@@ -199,37 +199,20 @@ class AIPhonicsGenerationService {
     }
   }
 
-  /// Build prompt for batch generation of all phonemes
-  String _buildBatchPrompt(List<String> phonemes, int difficulty, LearnerProfile? profile) {
+  Future<String> _buildBatchPrompt(List<String> phonemes, int difficulty, LearnerProfile? profile) async {
     final difficultyLevel = _getDifficultyName(difficulty);
     final wordCount = _getWordCountForDifficulty(difficulty);
     
-    return '''Generate word lists for ${phonemes.length} phonemes at $difficultyLevel level.
-
-For each phoneme, provide:
-- 1 correct word starting with that phoneme
-- ${wordCount - 1} incorrect words starting with different sounds
-
-Phonemes to generate: ${phonemes.join(', ')}
-
-Example for "b" phoneme:
-{
-  "phoneme": "b",
-  "correct_words": ["ball"],
-  "incorrect_words": ["cat", "dog", "fish"],
-  "pronunciation_hint": "Make the 'buh' sound like in 'ball'"
-}
-
-Generate JSON array with one object per phoneme:
-[
-  {
-    "phoneme": "${phonemes[0]}",
-    "correct_words": ["word_starting_with_${phonemes[0]}"],
-    "incorrect_words": ["word1", "word2", "word3"],
-    "pronunciation_hint": "how to pronounce ${phonemes[0]}"
-  },
-  ... (continue for all phonemes)
-]''';
+    final variables = <String, String>{
+      'phoneme_count': phonemes.length.toString(),
+      'difficulty_level': difficultyLevel,
+      'incorrect_count': (wordCount - 1).toString(),
+      'phonemes_list': phonemes.join(', '),
+      'first_phoneme': phonemes.isNotEmpty ? phonemes[0] : 'b',
+    };
+    
+    final template = await PromptLoader.load('phonics_generation', 'batch_generation.tmpl');
+    return PromptLoader.fill(template, variables);
   }
 
   /// Parse batch response into sound sets
@@ -376,253 +359,13 @@ Generate JSON array with one object per phoneme:
     }
   }
 
-  /// Build AI prompt for phonics word generation
-  Future<String> _buildPhonicsPrompt(String phoneme, int difficulty, LearnerProfile? profile) async {
-    try {
-      // Determine template based on phoneme type
-      final templateName = _getTemplateForPhoneme(phoneme);
-      final tmpl = await PromptLoader.load('phonics_generation', templateName);
-      
-      // Build context from profile
-      final difficultyLevel = _getDifficultyName(difficulty);
-      final wordCount = _getWordCountForDifficulty(difficulty);
-      final confidenceLevel = profile?.confidence ?? 'medium';
-      
-      final variables = {
-        'phoneme': phoneme,
-        'difficulty_level': difficultyLevel,
-        'word_count': wordCount.toString(),
-        'confidence_level': confidenceLevel,
-        'pronunciation_guide': _getPhonemeGuide(phoneme),
-      };
-      
-      return PromptLoader.fill(tmpl, variables);
-      
-    } catch (e) {
-      developer.log('❌ Failed to build phonics prompt: $e', name: 'dyslexic_ai.phonics_ai');
-      return _buildFallbackPrompt(phoneme, difficulty);
-    }
-  }
 
-  /// Get template name based on phoneme type
-  String _getTemplateForPhoneme(String phoneme) {
-    if (phoneme.length == 1 && 'aeiou'.contains(phoneme)) {
-      return 'vowel_generation.tmpl';
-    } else if (phoneme.length > 1) {
-      // Consonant digraphs
-      if (['ch', 'sh', 'th', 'ph', 'wh', 'ng', 'ck'].contains(phoneme)) {
-        return 'digraph_generation.tmpl';
-      }
-      // Vowel digraphs (two letters making one vowel sound)
-      else if (['ai', 'ay', 'ea', 'ee', 'ie', 'oa', 'ow', 'oo', 'ou', 'ue', 'ui'].contains(phoneme)) {
-        return 'digraph_generation.tmpl';
-      }
-      // Consonant blends (two consonants pronounced separately)
-      else {
-        return 'blend_generation.tmpl';
-      }
-    } else {
-      return 'consonant_generation.tmpl';
-    }
-  }
 
-  /// Fallback prompt when template loading fails
-  String _buildFallbackPrompt(String phoneme, int difficulty) {
-    final wordCount = _getWordCountForDifficulty(difficulty);
-    final incorrectCount = wordCount - 1;
-    
-    return '''Generate $wordCount simple words for "$phoneme" sound:
 
-Requirements:
-- 1 word starting with "$phoneme" sound (correct answer)
-- $incorrectCount words starting with different sounds (incorrect options)
 
-Example for "b" sound:
-{
-  "correct_words": ["ball"],
-  "incorrect_words": ["cat", "dog", "fish"],
-  "pronunciation_hint": "Make the 'buh' sound like in 'ball'"
-}
 
-Generate actual words for "$phoneme" sound in JSON format:
-{
-  "correct_words": ["actual_word_starting_with_$phoneme"],
-  "incorrect_words": ["word_with_different_sound1", "word_with_different_sound2", "word_with_different_sound3"],
-  "pronunciation_hint": "clear guidance for $phoneme sound"
-}''';
-  }
 
-  /// Parse AI response for phonics content
-  Map<String, dynamic>? _parseAIPhonicsResponse(String response, String phoneme) {
-    try {
-      developer.log('🔍 Parsing AI response for $phoneme: ${response.substring(0, min(200, response.length))}...', name: 'dyslexic_ai.phonics_ai');
-      
-      // Clean response to extract JSON
-      String jsonStr = response.trim();
-      
-      // Remove markdown code blocks
-      if (jsonStr.contains('```')) {
-        final codeBlockMatch = RegExp(r'```(?:json)?\s*\n(.*?)\n\s*```', dotAll: true).firstMatch(jsonStr);
-        if (codeBlockMatch != null) {
-          jsonStr = codeBlockMatch.group(1)?.trim() ?? jsonStr;
-          developer.log('📦 Extracted from code block: $jsonStr', name: 'dyslexic_ai.phonics_ai');
-        }
-      }
-      
-      // Try to find JSON object
-      final jsonMatch = RegExp(r'\{.*\}', dotAll: true).firstMatch(jsonStr);
-      if (jsonMatch != null) {
-        jsonStr = jsonMatch.group(0)!;
-        developer.log('📋 Extracted JSON: $jsonStr', name: 'dyslexic_ai.phonics_ai');
-      }
-      
-      final jsonData = json.decode(jsonStr);
-      
-      if (jsonData is Map<String, dynamic>) {
-        developer.log('✅ Successfully parsed AI phonics response for $phoneme: $jsonData', name: 'dyslexic_ai.phonics_ai');
-        return jsonData;
-      }
-      
-      developer.log('❌ JSON data is not a Map for $phoneme: ${jsonData.runtimeType}', name: 'dyslexic_ai.phonics_ai');
-      return null;
-      
-    } catch (e) {
-      developer.log('❌ Failed to parse AI phonics response for $phoneme: $e', name: 'dyslexic_ai.phonics_ai');
-      developer.log('Raw response: $response', name: 'dyslexic_ai.phonics_ai');
-      return null;
-    }
-  }
 
-  /// Create SoundSet from AI-generated data
-  SoundSet? _createSoundSetFromAI({
-    required String phoneme,
-    required Map<String, dynamic> wordData,
-    required int difficulty,
-    required int index,
-  }) {
-    try {
-      final correctWords = (wordData['correct_words'] as List?)?.cast<String>() ?? [];
-      final incorrectWords = (wordData['incorrect_words'] as List?)?.cast<String>() ?? [];
-      final pronunciationHint = wordData['pronunciation_hint'] as String? ?? _getStaticPronunciationHint(phoneme);
-      
-      // Validate we have exactly 1 correct word
-      if (correctWords.length != 1) {
-        developer.log('❌ Need exactly 1 correct word, got ${correctWords.length} for $phoneme. Correct words: $correctWords', name: 'dyslexic_ai.phonics_ai');
-        return null;
-      }
-      
-      // Validate we have enough incorrect words
-      if (incorrectWords.length < 3) {
-        developer.log('❌ Need at least 3 incorrect words, got ${incorrectWords.length} for $phoneme. Incorrect words: $incorrectWords', name: 'dyslexic_ai.phonics_ai');
-        return null;
-      }
-      
-      // Create word options
-      final wordOptions = <WordOption>[];
-      
-      // Add correct words
-      for (final word in correctWords) {
-        if (_isValidWord(word, phoneme)) {
-          wordOptions.add(WordOption(
-            word: word,
-            imageUrl: '',
-            isCorrect: true,
-            phoneme: phoneme,
-          ));
-        }
-      }
-      
-      // Add incorrect words
-      for (final word in incorrectWords) {
-        if (_isValidWord(word, phoneme, shouldMatch: false)) {
-          wordOptions.add(WordOption(
-            word: word,
-            imageUrl: '',
-            isCorrect: false,
-            phoneme: word.isNotEmpty ? word[0] : 'x',
-          ));
-        }
-      }
-      
-      // Ensure we have at least 1 correct + 3 incorrect words (minimum game size)
-      final correctCount = wordOptions.where((w) => w.isCorrect).length;
-      final incorrectCount = wordOptions.where((w) => !w.isCorrect).length;
-      
-      if (correctCount != 1 || incorrectCount < 3) {
-        developer.log('❌ Invalid word distribution for $phoneme: $correctCount correct, $incorrectCount incorrect', name: 'dyslexic_ai.phonics_ai');
-        return null;
-      }
-      
-      // Shuffle word options to randomize answer position
-      wordOptions.shuffle(_random);
-      developer.log('🔀 Shuffled ${wordOptions.length} word options for $phoneme', name: 'dyslexic_ai.phonics_ai');
-      
-      return SoundSet(
-        id: 'ai_${phoneme}_$index',
-        name: '${phoneme.toUpperCase()} Sounds',
-        sound: _getPhonemeSound(phoneme),
-        phoneme: phoneme,
-        type: _getPhonemeType(phoneme),
-        difficulty: difficulty,
-        words: wordOptions,
-        description: pronunciationHint,
-      );
-      
-    } catch (e) {
-      developer.log('❌ Failed to create SoundSet from AI data for $phoneme: $e', name: 'dyslexic_ai.phonics_ai');
-      return null;
-    }
-  }
-
-  /// Validate if word is appropriate for phoneme
-  bool _isValidWord(String word, String phoneme, {bool shouldMatch = true}) {
-    if (word.trim().isEmpty || word.length > 12) return false;
-    
-    final cleanWord = word.toLowerCase().trim();
-    final cleanPhoneme = phoneme.toLowerCase();
-    final startsWithPhoneme = cleanWord.startsWith(cleanPhoneme);
-    
-    if (shouldMatch) {
-      // For correct words: must start with phoneme
-      return startsWithPhoneme;
-    } else {
-      // For incorrect words: more strict validation
-      
-      // Must not start with phoneme
-      if (startsWithPhoneme) return false;
-      
-      // Must not contain phoneme anywhere (to avoid confusion)
-      if (cleanWord.contains(cleanPhoneme)) return false;
-      
-      // Check for similar-sounding phonemes that could confuse learners
-      if (_hasPhoneticConflict(cleanWord, cleanPhoneme)) return false;
-      
-      return true;
-    }
-  }
-  
-  /// Check if word has phonetic conflicts that could confuse learners
-  bool _hasPhoneticConflict(String word, String targetPhoneme) {
-    // Map of phonemes that sound similar and could confuse learners
-    final phoneticSimilarities = {
-      'b': ['p', 'd'], 'p': ['b'], 'd': ['b', 't'], 't': ['d'],
-      'f': ['v', 'th'], 'v': ['f'], 's': ['z', 'sh', 'th'], 'z': ['s'],
-      'ch': ['sh', 'j'], 'sh': ['ch', 's'], 'th': ['f', 's'],
-      'ie': ['ee', 'ea', 'ai', 'ay'], 'ee': ['ie', 'ea'], 'ea': ['ee', 'ie'],
-      'ai': ['ay', 'ie'], 'ay': ['ai', 'ie'], 'oa': ['ow', 'oo'], 'ow': ['oa'],
-      'pl': ['bl', 'pr', 'br'], 'bl': ['pl', 'br'], 'br': ['pr', 'bl'],
-      'fl': ['fr', 'bl'], 'fr': ['fl', 'pr'], 'cr': ['gr', 'br'], 'gr': ['cr'],
-    };
-    
-    final similarPhonemes = phoneticSimilarities[targetPhoneme] ?? [];
-    
-    // Check if word starts with any similar-sounding phoneme
-    for (final similar in similarPhonemes) {
-      if (word.startsWith(similar)) return true;
-    }
-    
-    return false;
-  }
 
   /// Generate static fallback sound set
   SoundSet _generateStaticSoundSet(String phoneme, int difficulty, int index) {
@@ -784,9 +527,7 @@ Generate actual words for "$phoneme" sound in JSON format:
     }
   }
 
-  String _getPhonemeGuide(String phoneme) {
-    return 'The $phoneme sound';
-  }
+
 
   /// Generate fallback sound sets for emergency situations
   List<SoundSet> _generateFallbackSoundSets(int rounds, int difficulty) {
@@ -800,28 +541,7 @@ Generate actual words for "$phoneme" sound in JSON format:
     return soundSets;
   }
 
-  /// Track generated words to avoid immediate repetition
-  void _trackGeneratedWords(String phoneme, List<String> words) {
-    _phonemeWordHistory[phoneme] ??= <String>{};
-    _phonemeWordHistory[phoneme]!.addAll(words.map((w) => w.toLowerCase()));
-    
-    // Keep history manageable - limit to last 20 words per phoneme
-    if (_phonemeWordHistory[phoneme]!.length > 20) {
-      final wordsList = _phonemeWordHistory[phoneme]!.toList();
-      wordsList.shuffle(_random);
-      _phonemeWordHistory[phoneme] = wordsList.take(15).toSet();
-    }
-  }
 
-  /// Check if words are too similar to recently generated ones
-  bool _areWordsRepeated(String phoneme, List<String> words) {
-    final history = _phonemeWordHistory[phoneme] ?? <String>{};
-    final newWords = words.map((w) => w.toLowerCase()).toSet();
-    final overlap = newWords.intersection(history);
-    
-    // Allow if less than 50% overlap with recent words
-    return overlap.length > (newWords.length * 0.5);
-  }
 
   /// Clear word history for a phoneme (useful for testing or reset)
   void clearWordHistory([String? phoneme]) {

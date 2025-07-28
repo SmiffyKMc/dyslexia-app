@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import '../controllers/learner_profile_store.dart';
 import '../controllers/session_log_store.dart';
-import '../services/gemma_profile_update_service.dart';
+import '../services/profile_update_service.dart';
 import '../services/daily_streak_service.dart';
 import '../models/session_log.dart';
 import '../utils/service_locator.dart';
@@ -21,7 +21,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final LearnerProfileStore _profileStore;
   late final SessionLogStore _sessionLogStore;
-  late final GemmaProfileUpdateService _profileUpdateService;
+  late final ProfileUpdateService _profileUpdateService;
   late final DailyStreakService _dailyStreakService;
   bool _isRecommendationExpanded = false;
 
@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _profileStore = getIt<LearnerProfileStore>();
     _sessionLogStore = getIt<SessionLogStore>();
-    _profileUpdateService = getIt<GemmaProfileUpdateService>();
+    _profileUpdateService = getIt<ProfileUpdateService>();
     _dailyStreakService = getIt<DailyStreakService>();
     
     // Record that the app was opened today for daily streak tracking
@@ -1128,9 +1128,5 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.of(context).pushNamed('/learn');
         break;
     }
-  }
-
-  Future<void> _updateProfile() async {
-    await _profileUpdateService.updateProfileFromRecentSessions();
   }
 } 
