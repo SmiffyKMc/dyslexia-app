@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get_it/get_it.dart';
 
 import '../services/model_download_service.dart';
 import '../utils/service_locator.dart';
@@ -18,10 +19,11 @@ class ModelLoadingScreen extends StatefulWidget {
 class _ModelLoadingScreenState extends State<ModelLoadingScreen>
     with TickerProviderStateMixin {
   
-  late final ModelDownloadService _modelDownloadService;
+  final ModelDownloadService _modelDownloadService = GetIt.instance<ModelDownloadService>();
 
   double _loadingProgress = 0.0;
   String? _loadingError;
+  String? _debugErrorDetails; // Add debug error details
   bool _isModelReady = false;
   bool _isInitializing = false;
   
@@ -44,8 +46,6 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
   @override
   void initState() {
     super.initState();
-    
-    _modelDownloadService = getIt<ModelDownloadService>();
     
     _setupAnimations();
     _initModel();
@@ -155,14 +155,31 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
           });
         }
       },
-      onError: (error) {
+      onError: (error) async {
         if (!mounted) return;
         developer.log('Error from downloadModelIfNeeded: $error', name: 'dyslexic_ai.init.error');
         
-        // Provide more specific error messages based on the current status
+        // Capture detailed debug information
         final status = _modelDownloadService.currentStatus;
-        String errorMessage;
+        final downloadError = _modelDownloadService.downloadError;
         
+        // Create debug details string
+        final debugLog = await _modelDownloadService.getDebugLog();
+        final debugDetails = '''
+DEBUG INFO:
+Status: $status
+Raw Error: $error
+Download Error: $downloadError
+Progress: $_loadingProgress
+Is Initializing: $_isInitializing
+Model Ready: ${_modelDownloadService.isModelReady}
+
+DEBUG LOG:
+$debugLog
+        '''.trim();
+        
+        // Provide user-friendly error message
+        String errorMessage;
         switch (status) {
           case ModelStatus.notDownloaded:
           case ModelStatus.downloading:
@@ -182,6 +199,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
         
         setState(() {
           _loadingError = errorMessage;
+          _debugErrorDetails = debugDetails;
           _loadingProgress = 0.0;
           _isInitializing = false;
         });
@@ -243,6 +261,7 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
   void _retryLoad() async {
     setState(() {
       _loadingError = null;
+      _debugErrorDetails = null;
       _loadingProgress = 0.0;
       _isModelReady = false;
       _isInitializing = false;
@@ -462,6 +481,41 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
                           textAlign: TextAlign.center,
                         ),
                       ),
+                      // Debug details section
+                      if (_debugErrorDetails != null) ...[
+                        const SizedBox(height: 24),
+                        ExpansionTile(
+                          title: Text('Debug Details', 
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            )
+                          ),
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              height: 200, // Fixed height to enable scrolling
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey[300]!),
+                              ),
+                              child: SingleChildScrollView(
+                                child: SelectableText(
+                                  _debugErrorDetails!,
+                                  style: const TextStyle(
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 32),
                       ElevatedButton(
                         onPressed: _retryLoad,

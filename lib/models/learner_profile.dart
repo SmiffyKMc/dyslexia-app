@@ -12,7 +12,7 @@ class LearnerProfile {
   final DateTime lastUpdated;
   final int sessionCount;
   final int version;
-  
+
   // Questionnaire fields
   final String? userName;
   final bool hasCompletedQuestionnaire;
@@ -84,7 +84,8 @@ class LearnerProfile {
     DateTime? questionnaireCompletedAt,
   }) {
     return LearnerProfile(
-      phonologicalAwareness: phonologicalAwareness ?? this.phonologicalAwareness,
+      phonologicalAwareness:
+          phonologicalAwareness ?? this.phonologicalAwareness,
       phonemeConfusions: phonemeConfusions ?? this.phonemeConfusions,
       decodingAccuracy: decodingAccuracy ?? this.decodingAccuracy,
       workingMemory: workingMemory ?? this.workingMemory,
@@ -99,9 +100,11 @@ class LearnerProfile {
       version: version ?? this.version,
       // Questionnaire fields
       userName: userName ?? this.userName,
-      hasCompletedQuestionnaire: hasCompletedQuestionnaire ?? this.hasCompletedQuestionnaire,
+      hasCompletedQuestionnaire:
+          hasCompletedQuestionnaire ?? this.hasCompletedQuestionnaire,
       selectedChallenges: selectedChallenges ?? this.selectedChallenges,
-      questionnaireCompletedAt: questionnaireCompletedAt ?? this.questionnaireCompletedAt,
+      questionnaireCompletedAt:
+          questionnaireCompletedAt ?? this.questionnaireCompletedAt,
     );
   }
 
@@ -145,20 +148,21 @@ class LearnerProfile {
       version: json['version'] as int? ?? 1,
       // Questionnaire fields
       userName: json['userName'] as String?,
-      hasCompletedQuestionnaire: json['hasCompletedQuestionnaire'] as bool? ?? false,
-      selectedChallenges: json['selectedChallenges'] != null 
+      hasCompletedQuestionnaire:
+          json['hasCompletedQuestionnaire'] as bool? ?? false,
+      selectedChallenges: json['selectedChallenges'] != null
           ? List<String>.from(json['selectedChallenges'] as List)
           : const [],
-      questionnaireCompletedAt: json['questionnaireCompletedAt'] != null 
+      questionnaireCompletedAt: json['questionnaireCompletedAt'] != null
           ? DateTime.parse(json['questionnaireCompletedAt'] as String)
           : null,
     );
   }
 
   bool get isInitial => sessionCount == 0;
-  
-  bool get needsUpdate => sessionCount > 0 && 
-    DateTime.now().difference(lastUpdated).inDays > 7;
+
+  bool get needsUpdate =>
+      sessionCount > 0 && DateTime.now().difference(lastUpdated).inDays > 7;
 
   String get confidenceLevel {
     switch (confidence.toLowerCase()) {
@@ -202,7 +206,8 @@ class LearnerProfile {
     if (workingMemory == 'above average' || workingMemory == 'excellent') {
       strengths.add('Strong Memory');
     }
-    if (phonologicalAwareness == 'excellent' || phonologicalAwareness == 'good') {
+    if (phonologicalAwareness == 'excellent' ||
+        phonologicalAwareness == 'good') {
       strengths.add('Phonics Skills');
     }
     return strengths;
@@ -228,7 +233,7 @@ class LearnerProfile {
   @override
   String toString() {
     return 'LearnerProfile(confidence: $confidence, accuracy: $decodingAccuracy, '
-           'focus: $focus, tool: $recommendedTool, sessions: $sessionCount)';
+        'focus: $focus, tool: $recommendedTool, sessions: $sessionCount)';
   }
 
   @override
@@ -241,5 +246,6 @@ class LearnerProfile {
   }
 
   @override
-  int get hashCode => version.hashCode ^ sessionCount.hashCode ^ lastUpdated.hashCode;
-} 
+  int get hashCode =>
+      version.hashCode ^ sessionCount.hashCode ^ lastUpdated.hashCode;
+}

@@ -20,6 +20,11 @@ android {
         jvmTarget = '17'  // Match Java 17
     }
 
+    dexOptions {
+        javaMaxHeapSize "4g"
+        maxProcessCount 8
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.dyslexic_ai"
@@ -30,6 +35,16 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
+        
+        // Memory optimization for AI model loading
+        javaCompileOptions {
+            annotationProcessorOptions {
+                arguments += [
+                    "room.schemaLocation": "$projectDir/schemas".toString(),
+                    "room.incremental": "true"
+                ]
+            }
+        }
     }
 
     buildTypes {

@@ -133,6 +133,9 @@ class DownloadNotificationService {
         }
         await _showProgressNotification(state);
         break;
+      case DownloadStatus.partiallyDownloaded:
+        await _showPausedNotification(state);
+        break;
       case DownloadStatus.completed:
         await _showCompletedNotification();
         break;
@@ -288,7 +291,8 @@ class DownloadNotificationService {
     
     switch (currentState.status) {
       case DownloadStatus.paused:
-        // Resume download when paused notification is tapped
+      case DownloadStatus.partiallyDownloaded:
+        // Resume download when paused/partially downloaded notification is tapped
         BackgroundDownloadManager.instance.resumeDownload();
         break;
       case DownloadStatus.failed:

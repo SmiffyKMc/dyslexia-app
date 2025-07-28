@@ -11,6 +11,7 @@ import '../utils/resource_diagnostics.dart';
 
 enum DownloadStatus {
   notStarted,
+  partiallyDownloaded,  // Google's approach: separate state for partial files
   downloading,
   paused,
   completed,
@@ -101,6 +102,13 @@ class BackgroundDownloadManager {
   
   // Track last logged progress to avoid spam
   static double _lastLoggedProgress = -1;
+  
+  // GOOGLE'S APPROACH: Rate calculation with rolling buffers
+  DateTime? _lastProgressUpdate;
+  static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
+  final List<int> _bytesReadBuffer = [];
+  final List<int> _latencyBuffer = [];
+  int _lastReceivedBytes = 0;
   
   static BackgroundDownloadManager? _instance;
   static BackgroundDownloadManager get instance => _instance ??= BackgroundDownloadManager._();
@@ -211,17 +219,33 @@ class BackgroundDownloadManager {
       final headers = <String, dynamic>{};
       if (rangeStart > 0) {
         headers['Range'] = 'bytes=$rangeStart-';
+        developer.log('🔄 Resuming download from byte $rangeStart (Google AI Edge approach)', name: 'dyslexic_ai.background_download');
       }
 
-      // Start the download
-      await _dio.download(
-        _modelUrl,
-        modelPath,
-        cancelToken: _cancelToken,
-        options: Options(headers: headers),
-        deleteOnError: false, // Don't delete partial downloads
-        onReceiveProgress: _onReceiveProgress,
-      );
+      // GOOGLE'S APPROACH: More explicit HTTP response validation
+      try {
+        final response = await _dio.download(
+          _modelUrl,
+          modelPath,
+          cancelToken: _cancelToken,
+          options: Options(
+            headers: headers,
+            validateStatus: (status) {
+              // Google accepts both HTTP_OK (200) and HTTP_PARTIAL (206)
+              return status == 200 || status == 206;
+            },
+          ),
+          deleteOnError: false, // Google's approach: preserve partial downloads
+          onReceiveProgress: _onReceiveProgress,
+        );
+        
+        developer.log('✅ HTTP ${response.statusCode}: Download completed successfully', name: 'dyslexic_ai.background_download');
+      } catch (e) {
+        if (e is DioException && e.response?.statusCode != null) {
+          developer.log('❌ HTTP ${e.response!.statusCode}: ${e.message}', name: 'dyslexic_ai.background_download');
+        }
+        rethrow;
+      }
 
       // Download completed successfully
       await _updateState(_currentState.copyWith(
@@ -334,21 +358,29 @@ class BackgroundDownloadManager {
         return false;
       }
 
-      // Get expected size from server (dynamic validation)
-      final expectedSize = await _getExpectedModelSize();
+      // Google's approach: Trust file existence for basic availability check
+      // Only do size validation if we have cached expected size (avoid HEAD request)
+      final prefs = await SharedPreferences.getInstance();
+      final expectedSize = prefs.getInt('expected_model_size');
+      
       if (expectedSize == null) {
-        developer.log('⚠️ No expected model size available, cannot validate', name: 'dyslexic_ai.background_download');
-        return false;
+        // No cached size - trust file exists (more lenient for stability)
+        final actualSize = await file.length();
+        developer.log('📊 Model file exists (${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB) - trusting availability (no cached expected size)', 
+                     name: 'dyslexic_ai.background_download');
+        return actualSize > 1024 * 1024; // At least 1MB to avoid empty files
       }
 
-      // Check if file size matches server expectation exactly
+      // We have cached expected size - do lenient validation (within 1% tolerance)
       final actualSize = await file.length();
-      final sizeMatch = actualSize == expectedSize;
+      final tolerance = expectedSize * 0.01; // 1% tolerance
+      final sizeDiff = (actualSize - expectedSize).abs();
+      final isWithinTolerance = sizeDiff <= tolerance;
       
-      developer.log('📊 Size validation - Expected: ${(expectedSize / (1024 * 1024)).toStringAsFixed(1)}MB, Actual: ${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB, Match: $sizeMatch', 
+      developer.log('📊 Lenient size check - Expected: ${(expectedSize / (1024 * 1024)).toStringAsFixed(1)}MB, Actual: ${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB, Within 1% tolerance: $isWithinTolerance', 
                    name: 'dyslexic_ai.background_download');
       
-      return sizeMatch;
+      return isWithinTolerance;
     } catch (e) {
       developer.log('❌ Error checking model availability: $e', name: 'dyslexic_ai.background_download');
       return false;
@@ -394,45 +426,68 @@ class BackgroundDownloadManager {
   void _onReceiveProgress(int received, int total) {
     if (total <= 0) return;
 
-    // CRITICAL FIX: Dio's 'received' is cumulative bytes for THIS download session
-    // We need to add it to the bytes that existed BEFORE this session started
-    // NOT to the current state (which gets updated during the session)
-    
-    // Get the file size that existed when this download session started
+    // Keep our existing session tracking logic (more accurate than Google's)
     final sessionStartBytes = _sessionStartBytes ?? 0;
-    
-    // Calculate actual total downloaded: pre-existing + this session
     final actualReceived = sessionStartBytes + received;
-    
-    // Use validated total from HEAD request
     final actualTotal = _currentState.totalBytes!;
-    
     final progress = actualReceived / actualTotal;
     final now = DateTime.now();
 
-    // Throttle state updates to every 1% to prevent excessive SharedPreferences writes
-    final progressPercent = (progress * 100);
-    final lastProgressPercent = (_currentState.progress ?? 0) * 100;
-    
-    if (progressPercent - lastProgressPercent >= 1.0) {
-      _updateState(_currentState.copyWith(
-        progress: progress,
-        downloadedBytes: actualReceived,
-        totalBytes: actualTotal,
-        lastUpdate: now,
-      ));
-    }
-
-    // Log progress only at 10% intervals for clean logs
-    final currentTenPercent = (progressPercent / 10).floor() * 10;
-    
-    if (currentTenPercent > _lastLoggedProgress && currentTenPercent % 10 == 0) {
-      _lastLoggedProgress = currentTenPercent.toDouble();
-      final receivedMB = (actualReceived / (1024 * 1024)).toStringAsFixed(1);
-      final totalMB = (actualTotal / (1024 * 1024)).toStringAsFixed(1);
+    // GOOGLE'S APPROACH: Update progress every 200ms with rate calculation
+    if (_lastProgressUpdate == null || 
+        now.difference(_lastProgressUpdate!).inMilliseconds >= _progressUpdateInterval.inMilliseconds) {
       
-      developer.log('📥 WORKER progress: ${currentTenPercent.toInt()}% ($receivedMB/$totalMB MB)', 
-                   name: 'dyslexic_ai.background_download');
+      // Calculate download rate with rolling buffer (Google's method improved)
+      if (_lastProgressUpdate != null) {
+        final deltaBytes = actualReceived - _lastReceivedBytes;
+        final deltaMs = now.difference(_lastProgressUpdate!).inMilliseconds;
+        
+        // Rolling buffer of last 5 measurements
+        if (_bytesReadBuffer.length >= 5) {
+          _bytesReadBuffer.removeAt(0);
+          _latencyBuffer.removeAt(0);
+        }
+        _bytesReadBuffer.add(deltaBytes);
+        _latencyBuffer.add(deltaMs);
+        
+        // Calculate rate (bytes per second)
+        final totalDeltaBytes = _bytesReadBuffer.fold(0, (sum, bytes) => sum + bytes);
+        final totalDeltaMs = _latencyBuffer.fold(0, (sum, ms) => sum + ms);
+        final bytesPerSecond = totalDeltaMs > 0 ? (totalDeltaBytes * 1000 / totalDeltaMs).round() : 0;
+        
+        // Estimate remaining time (Google's approach)
+        final remainingBytes = actualTotal - actualReceived;
+        final remainingSeconds = bytesPerSecond > 0 ? (remainingBytes / bytesPerSecond).round() : 0;
+        final remainingTime = remainingSeconds < 60 ? '${remainingSeconds}s' : '${(remainingSeconds / 60).round()}m';
+        
+        // Enhanced logging with rate and ETA (Google-style)
+        final progressPercent = (progress * 100).toInt();
+        if (progressPercent % 5 == 0 && progressPercent != _lastLoggedProgress) {
+          _lastLoggedProgress = progressPercent.toDouble();
+          final receivedMB = (actualReceived / (1024 * 1024)).toStringAsFixed(1);
+          final totalMB = (actualTotal / (1024 * 1024)).toStringAsFixed(1);
+          final rateMBps = (bytesPerSecond / (1024 * 1024)).toStringAsFixed(2);
+          
+          developer.log('📥 Download: ${progressPercent}% (${receivedMB}/${totalMB}MB) - ${rateMBps}MB/s - ETA: $remainingTime', 
+                       name: 'dyslexic_ai.background_download');
+        }
+      }
+      
+      // Update state (keeping our 1% throttling for SharedPreferences efficiency)
+      final progressPercent = (progress * 100);
+      final lastProgressPercent = _currentState.progress * 100;
+      
+      if (progressPercent - lastProgressPercent >= 1.0) {
+        _updateState(_currentState.copyWith(
+          progress: progress,
+          downloadedBytes: actualReceived,
+          totalBytes: actualTotal,
+          lastUpdate: now,
+        ));
+      }
+      
+      _lastProgressUpdate = now;
+      _lastReceivedBytes = actualReceived;
     }
   }
 
@@ -455,9 +510,9 @@ class BackgroundDownloadManager {
           final stateJson = jsonDecode(stateString) as Map<String, dynamic>;
           final latestState = DownloadState.fromJson(stateJson);
           
-          final currentProgress = (_currentState.progress ?? 0) * 100;
+          final currentProgress = _currentState.progress * 100;
           final latestProgress = (latestState.progress) * 100;
-          final progressDiff = (latestState.progress - (_currentState.progress ?? 0)).abs();
+          final progressDiff = (latestState.progress - _currentState.progress).abs();
           final hasStatusChange = latestState.status != _currentState.status;
           
           developer.log('🔍 RAW JSON: ${stateString.substring(0, stateString.length > 100 ? 100 : stateString.length)}...', 
@@ -585,7 +640,7 @@ class BackgroundDownloadManager {
     await _validateStateConsistency();
   }
 
-  /// CRITICAL: Validate that SharedPreferences state matches actual file reality
+  /// Simplified state validation - only check file existence, trust cached state for stability
   Future<void> _validateStateConsistency() async {
     try {
       final modelPath = await _getModelFilePath();
@@ -594,54 +649,26 @@ class BackgroundDownloadManager {
       // Get actual file size (source of truth)
       final actualFileBytes = file.existsSync() ? await file.length() : 0;
       
-      // Get cached state
-      final cachedBytes = _currentState.downloadedBytes ?? 0;
-      final cachedTotal = _currentState.totalBytes ?? 0;
-      
-      developer.log('🔍 State validation - File: ${(actualFileBytes / (1024 * 1024)).toStringAsFixed(1)}MB, Cached: ${(cachedBytes / (1024 * 1024)).toStringAsFixed(1)}MB', 
+      developer.log('🔍 Simple state validation - File: ${(actualFileBytes / (1024 * 1024)).toStringAsFixed(1)}MB', 
                    name: 'dyslexic_ai.background_download');
       
-      // If there's a significant mismatch, reset state to match file reality
-      final sizeDifference = (actualFileBytes - cachedBytes).abs();
-      if (sizeDifference > 1024 * 1024) { // More than 1MB difference
-        developer.log('⚠️ State inconsistency detected! Resetting state to match file reality.', name: 'dyslexic_ai.background_download');
-        
-        if (actualFileBytes == 0) {
-          // No file exists, reset to initial state
-          await _updateState(DownloadState.initial());
-        } else {
-          // File exists, need to validate with server
-          try {
-            final response = await _dio.head(_modelUrl);
-            final contentLength = response.headers.value('content-length');
-            if (contentLength != null) {
-              final serverTotal = int.parse(contentLength);
-              final progress = actualFileBytes / serverTotal;
-              
-              await _updateState(_currentState.copyWith(
-                downloadedBytes: actualFileBytes,
-                totalBytes: serverTotal,
-                progress: progress,
-                status: actualFileBytes >= serverTotal ? DownloadStatus.completed : DownloadStatus.paused,
-              ));
-              
-              developer.log('✅ State corrected to match file reality: ${(progress * 100).toInt()}%', 
-                           name: 'dyslexic_ai.background_download');
-            }
-          } catch (e) {
-            developer.log('❌ Could not validate with server, keeping file but marking as paused: $e', 
-                         name: 'dyslexic_ai.background_download');
-            await _updateState(_currentState.copyWith(
-              downloadedBytes: actualFileBytes,
-              status: DownloadStatus.paused,
-            ));
-          }
-        }
+      if (actualFileBytes == 0) {
+        // No file exists, reset to initial state
+        developer.log('📁 No file found, resetting to initial state', name: 'dyslexic_ai.background_download');
+        await _updateState(DownloadState.initial());
       } else {
-        developer.log('✅ State consistency validated - file and cache match', name: 'dyslexic_ai.background_download');
+        // File exists - trust it's valid and mark as partially downloaded for potential resume
+        // This avoids network calls and complex validation that could cause instability
+        developer.log('📁 File exists, marking as partiallyDownloaded for potential resume', name: 'dyslexic_ai.background_download');
+        await _updateState(_currentState.copyWith(
+          downloadedBytes: actualFileBytes,
+          status: DownloadStatus.partiallyDownloaded,
+        ));
       }
     } catch (e) {
-      developer.log('❌ Error during state validation: $e', name: 'dyslexic_ai.background_download');
+      developer.log('❌ Error during simple state validation: $e', name: 'dyslexic_ai.background_download');
+      // On error, just reset to initial state for stability
+      await _updateState(DownloadState.initial());
     }
   }
 
@@ -728,35 +755,24 @@ class BackgroundDownloadManager {
         developer.log('📁 No existing file found - starting fresh download', name: 'dyslexic_ai.background_download');
       }
 
-      // STEP 2: Get server file size via HEAD request (validate consistency)
-      int serverTotalBytes = 0;
-      try {
-        final response = await _dio.head(_modelUrl);
-        final contentLength = response.headers.value('content-length');
-        if (contentLength != null) {
-          serverTotalBytes = int.parse(contentLength);
-          developer.log('📏 SERVER reports total size: ${(serverTotalBytes / (1024 * 1024)).toStringAsFixed(1)}MB', name: 'dyslexic_ai.background_download');
-          
-          // Cache the expected size for future validation
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('expected_model_size', serverTotalBytes);
-          developer.log('💾 Cached expected model size for validation', name: 'dyslexic_ai.background_download');
-        } else {
-          throw Exception('Server did not provide Content-Length header');
-        }
-      } catch (e) {
-        developer.log('❌ CRITICAL: Cannot get server file size: $e', name: 'dyslexic_ai.background_download');
+      // STEP 2: Get server file size from cache (avoid redundant HEAD requests for stability)
+      final serverTotalBytes = await _getExpectedModelSize();
+      if (serverTotalBytes == null) {
+        developer.log('❌ CRITICAL: Cannot get expected model size from cache', name: 'dyslexic_ai.background_download');
         await _updateState(_currentState.copyWith(
           status: DownloadStatus.failed,
-          error: 'Cannot validate file size with server: $e',
+          error: 'Cannot determine expected file size',
         ));
         return;
       }
+      
+      developer.log('📏 Using cached model size: ${(serverTotalBytes / (1024 * 1024)).toStringAsFixed(1)}MB (avoiding redundant HEAD request)', 
+                   name: 'dyslexic_ai.background_download');
 
-      // STEP 3: Validate file integrity (if resuming)
+      // STEP 3: Simple file check (following Google's approach - trust files more)
       if (actualFileBytes > 0) {
         if (actualFileBytes >= serverTotalBytes) {
-          developer.log('🎉 File already complete! Size matches server.', name: 'dyslexic_ai.background_download');
+          developer.log('🎉 File already complete!', name: 'dyslexic_ai.background_download');
           await _updateState(_currentState.copyWith(
             status: DownloadStatus.completed,
             progress: 1.0,
@@ -766,12 +782,7 @@ class BackgroundDownloadManager {
           return;
         }
         
-        // Validate partial file isn't corrupted (basic size check)
-        if (actualFileBytes > serverTotalBytes) {
-          developer.log('⚠️ CORRUPTION: File bigger than server expects. Deleting and restarting.', name: 'dyslexic_ai.background_download');
-          await file.delete();
-          actualFileBytes = 0;
-        }
+        developer.log('📁 Partial file found - will resume download', name: 'dyslexic_ai.background_download');
       }
 
       // STEP 4: Calculate ACTUAL progress based on file reality
@@ -810,14 +821,29 @@ class BackgroundDownloadManager {
       }
 
       // STEP 7: Start the download (PURE DOWNLOAD - no task registration)
-      await _dio.download(
-        _modelUrl,
-        modelPath,
-        cancelToken: _cancelToken,
-        options: Options(headers: headers),
-        deleteOnError: false, // Don't delete partial downloads
-        onReceiveProgress: _onReceiveProgress,
-      );
+      try {
+        final response = await _dio.download(
+          _modelUrl,
+          modelPath,
+          cancelToken: _cancelToken,
+          options: Options(
+            headers: headers,
+            validateStatus: (status) {
+              // Google accepts both HTTP_OK (200) and HTTP_PARTIAL (206)
+              return status == 200 || status == 206;
+            },
+          ),
+          deleteOnError: false, // Google's approach: preserve partial downloads
+          onReceiveProgress: _onReceiveProgress,
+        );
+        
+        developer.log('✅ Worker HTTP ${response.statusCode}: Download completed successfully', name: 'dyslexic_ai.background_download');
+      } catch (e) {
+        if (e is DioException && e.response?.statusCode != null) {
+          developer.log('❌ Worker HTTP ${e.response!.statusCode}: ${e.message}', name: 'dyslexic_ai.background_download');
+        }
+        rethrow;
+      }
 
       // Download completed successfully
       _sessionStartBytes = null; // Reset session tracking

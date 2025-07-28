@@ -21,7 +21,9 @@
         android:label="dyslexic_ai"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
-        android:requestLegacyExternalStorage="true">
+        android:requestLegacyExternalStorage="true"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

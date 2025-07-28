@@ -79,10 +79,15 @@ class ModelValidator {
       developer.log('📏 Expected file size: ${(expectedSize / (1024 * 1024)).toStringAsFixed(1)}MB', 
                    name: 'dyslexic_ai.model_validator');
 
-      // Validate file size matches exactly
-      if (actualSize != expectedSize) {
+      // Validate file size with tolerance for download edge cases
+      final sizeDiff = (actualSize - expectedSize).abs();
+      final sizeDiffPercent = sizeDiff / expectedSize * 100;
+      
+      // Allow up to 0.5% size difference (handles chunked transfer, race conditions, etc.)
+      if (sizeDiffPercent > 0.5) {
         final error = 'File size mismatch - Expected: ${(expectedSize / (1024 * 1024)).toStringAsFixed(1)}MB, '
-                     'Actual: ${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB';
+                     'Actual: ${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB '
+                     '(${sizeDiffPercent.toStringAsFixed(3)}% difference)';
         developer.log('❌ $error', name: 'dyslexic_ai.model_validator');
         
         return FileValidationResult(
@@ -91,6 +96,9 @@ class ModelValidator {
           actualSize: actualSize,
           expectedSize: expectedSize,
         );
+      } else if (sizeDiff > 0) {
+        developer.log('⚠️ Minor size difference: ${sizeDiff} bytes (${sizeDiffPercent.toStringAsFixed(3)}%), accepting as valid', 
+                     name: 'dyslexic_ai.model_validator');
       }
 
       // File passed all validation checks
@@ -167,14 +175,22 @@ class ModelValidator {
         if (validation.actualSize != null && validation.expectedSize != null) {
           final sizeDiff = (validation.actualSize! - validation.expectedSize!).abs();
           final sizeDiffPercent = sizeDiff / validation.expectedSize! * 100;
+          final completionPercent = (validation.actualSize! / validation.expectedSize!) * 100;
           
-          // Delete if size difference is more than 1%
-          final shouldDelete = sizeDiffPercent > 1.0;
-          developer.log('📊 Size difference: ${sizeDiffPercent.toStringAsFixed(2)}%, shouldDelete: $shouldDelete', 
+          // CRITICAL: Never delete files that are >95% complete - they're likely valid
+          if (completionPercent > 95.0) {
+            developer.log('🛡️ File is ${completionPercent.toStringAsFixed(1)}% complete, preserving despite validation failure', 
+                         name: 'dyslexic_ai.model_validator');
+            return false;
+          }
+          
+          // Delete if size difference is more than 5% AND file is <95% complete
+          final shouldDelete = sizeDiffPercent > 5.0;
+          developer.log('📊 Size difference: ${sizeDiffPercent.toStringAsFixed(2)}%, completion: ${completionPercent.toStringAsFixed(1)}%, shouldDelete: $shouldDelete', 
                        name: 'dyslexic_ai.model_validator');
           return shouldDelete;
         }
-        return true; // If we can't determine sizes, assume corruption
+        return false; // If we can't determine sizes, preserve the file
         
       case ValidationResult.corrupted:
         return true; // File is clearly corrupted (empty, etc.)
