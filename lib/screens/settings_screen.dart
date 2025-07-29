@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import '../controllers/session_log_store.dart';
+import '../controllers/learner_profile_store.dart';
 import '../services/font_preference_service.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
 import 'dart:developer' as developer;
-import '../screens/profile_debug_screen.dart';
+import '../screens/profile_debug_screen.dart'; // Added import for ProfileDebugScreen
 import 'package:package_info_plus/package_info_plus.dart';
+import 'dart:math' as math;
+import '../services/global_session_manager.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -67,54 +71,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _showClearDataDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Clear Session Data'),
+          content: const Text(
+            'This will remove all session history but keep your profile settings. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _clearSessionData();
+              },
+              child: const Text('Clear Data'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showResetDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Reset to New User'),
+          content: const Text(
+            'This will clear ALL data including profile, sessions, and preferences. This cannot be undone. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await _resetToNewUser();
+              },
+              child: const Text('Reset All'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _clearSessionData() async {
-    await SessionDebugHelper.clearAllSessionData();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('All session data cleared - restart app to see changes'),
-          duration: Duration(seconds: 3),
-        ),
-      );
+    try {
+      final sessionStore = getIt<SessionLogStore>();
+      await sessionStore.clearAllLogs();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Session data cleared successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Failed to clear session data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _resetToNewUser() async {
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset to New User'),
-        content: const Text(
-          'This will completely reset the app to its initial state:\n\n'
-          '• Remove your learning profile\n'
-          '• Clear all session history\n'
-          '• Reset daily streak to 0\n'
-          '• Return to "get started" experience\n\n'
-          'This action cannot be undone. Continue?'
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Reset', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await SessionDebugHelper.completeResetToNewUser();
+    try {
+      final sessionStore = getIt<SessionLogStore>();
+      final profileStore = getIt<LearnerProfileStore>();
+      
+      await sessionStore.clearAllLogs();
+      await profileStore.completeResetToNewUser();
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Reset complete! Restart app to see new user experience'),
-            duration: Duration(seconds: 4),
+            content: Text('✅ Reset complete - restart app to see changes'),
             backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Failed to reset: $e'),
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -181,37 +238,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Debug & Development',
+              'Debug Tools',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             _buildSettingsTile(
+              'Profile Debug',
+              'View learner profile details',
+              Icons.person_outline,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileDebugScreen()),
+              ),
+            ),
+            _buildSettingsTile(
+              'Session Debug',
+              'View session logs',
+              Icons.bug_report,
+              () => SessionDebugHelper.debugAllRecentSessions(),
+            ),
+            _buildSettingsTile(
               'Clear Session Data',
-              'Reset all session history and progress',
-              Icons.delete_forever,
-              _clearSessionData,
+              'Remove all session history',
+              Icons.delete_sweep,
+              () => _showClearDataDialog(),
             ),
             _buildSettingsTile(
               'Reset to New User',
-              'Complete reset - return to first-time user experience',
+              'Clear all data and start fresh',
               Icons.refresh,
-              _resetToNewUser,
+              () => _showResetDialog(),
             ),
             _buildSettingsTile(
-              'Profile Debug',
-              'View AI profile generation status and logs',
-              Icons.psychology,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfileDebugScreen(),
-                ),
-              ),
+              'Test AI Service',
+              'Check if AI model is working',
+              Icons.smart_toy,
+              () => _testAIService(),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _testAIService() async {
+    try {
+      final aiService = getAIInferenceService();
+      
+      if (aiService == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ AI Service is NULL - Model not initialized!'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        developer.log('🚨 AI TEST FAILED: Service is null', name: 'dyslexic_ai.settings');
+        return;
+      }
+
+      developer.log('🧪 Testing AI service with simple prompt...', name: 'dyslexic_ai.settings');
+      
+      final response = await aiService.generateResponse(
+        'Generate a simple sentence with the word "test": ',
+        activity: AIActivity.sentenceGeneration,
+      );
+      
+      developer.log('✅ AI TEST SUCCESS: "${response.substring(0, math.min(50, response.length))}..."', 
+          name: 'dyslexic_ai.settings');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ AI Service Working! Response: "${response.substring(0, math.min(30, response.length))}..."'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      
+    } catch (e) {
+      developer.log('🚨 AI TEST FAILED with error: $e', name: 'dyslexic_ai.settings');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ AI Test Failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildAboutSection() {

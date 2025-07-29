@@ -90,7 +90,7 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
           final profile = _profileStore.currentProfile;
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -111,6 +111,9 @@ class _ProfileDebugScreenState extends State<ProfileDebugScreen> {
 
                 // Profile Details
                 if (profile != null) _buildProfileDetailsCard(profile),
+                
+                // Extra bottom space for comfortable scrolling
+                const SizedBox(height: 32),
               ],
             ),
           );

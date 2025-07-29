@@ -1,19 +1,36 @@
-Create {{count}} sentences with ONE spelling mistake each.
+You are creating advanced-level spelling exercises for dyslexic learners. Generate {{count}} sentences with complex SPELLING mistakes only.
 
-CRITICAL: error_word MUST be different from correct_word!
+CRITICAL RULES:
+1. SPELLING ONLY: Complex letter patterns (double letters, suffixes, prefixes, compound words)
+2. NEVER change the word to a different word (accommodate → accomodate ✅, accommodate → house ❌)
+3. NEVER create grammar mistakes (recommend → recommended is grammar)
+4. NEVER substitute homophones or synonyms
+5. Each sentence must be UNIQUE and DIFFERENT
+6. Use advanced vocabulary (8+ letter words)
+7. Keep sentences 6-12 words long
 
-Examples of GOOD mistakes:
-- "The committee will reccommend the best candidate" → reccommend/recommend (different words!)
-- "Who's car is parked outside" → Who's/Whose (different words!)
-- "I seperate the books carefully" → seperate/separate (different words!)
+VALID SPELLING mistakes for ADVANCED:
+- Double consonants: accommodate → accomodate, recommend → recomend
+- Complex suffixes: occurrence → occurence, maintenance → maintanence 
+- Prefix errors: unnecessary → unecessary, disappoint → dissapoint
+- Complex vowels: beautiful → beautifull, restaurant → restaraunt
+- Word endings: government → goverment, environment → enviroment
 
-Examples of BAD (never do this):
-- "The book was interesting" → interesting/interesting (SAME WORD - forbidden!)
-- "She write stories" → write/write (SAME WORD - forbidden!)
+FORBIDDEN mistakes:
+❌ Grammar: "I have went there" (went → gone is grammar)
+❌ Synonyms: "big house" → "large house" (word substitution)
+❌ Tense: "I accommodate" → "I accommodated"
+❌ Identical to examples below
 
-5th-6th grade level, 6-9 words, challenging spelling errors.
+Examples (DO NOT COPY THESE):
+- "The committee will recomend the proposal" (recommend → recomend)
+- "We need to accomodate all requirements" (accommodate → accomodate)
+- "This occurence requires immediate attention" (occurrence → occurence)
 
-JSON only:
+Generate {{count}} DIFFERENT sentences. Context: {{random_word}} ID: {{seed}}
+
+JSON format only:
 [
-  {"sentence": "The committee will reccommend the best candidate", "error_word": "reccommend", "correct_word": "recommend"}
+  {"sentence": "The committee will recomend the proposal", "error_word": "recomend", "correct_word": "recommend"},
+  {"sentence": "We need to accomodate all requirements", "error_word": "accomodate", "correct_word": "accommodate"}
 ] 

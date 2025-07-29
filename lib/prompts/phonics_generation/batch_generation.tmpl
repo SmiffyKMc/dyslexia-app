@@ -1,25 +1,27 @@
 Generate word lists for {{phoneme_count}} phonemes at {{difficulty_level}} level.
 
-For each phoneme, provide:
-- 1 correct word starting with that phoneme
-- {{incorrect_count}} incorrect words starting with different sounds
+CRITICAL RULES:
+- CONSONANTS (b,c,d,f,g,h,j,k,l,m,n,p,r,s,t,v,w,y,z): Use words that START with the consonant sound
+- VOWELS (a,e,i,o,u): Use words that CONTAIN the vowel sound (anywhere in the word)
+- DIGRAPHS (ch,sh,th,ph): Use words that START with the digraph sound
+- Use DIFFERENT words for each phoneme - NO duplicates across phonemes
+- Each phoneme needs 1 correct word + {{incorrect_count}} different incorrect words
 
-Phonemes to generate: {{phonemes_list}}
+PHONEMES TO GENERATE: {{phonemes_list}}
 
-Example for "b" phoneme:
-{
-  "phoneme": "b",
-  "correct_words": ["ball"],
-  "incorrect_words": ["cat", "dog", "fish"],
-  "pronunciation_hint": "Make the 'buh' sound like in 'ball'"
-}
+EXAMPLES:
+Consonant "p": correct="pig" (starts with p), incorrect=["cat","fish","tree"] (start with different sounds)
+Vowel "e": correct="bed" (contains short e), incorrect=["cat","pig","sun"] (different vowel sounds)
+Consonant "s": correct="sun" (starts with s), incorrect=["ball","dog","hat"] (start with different sounds)
 
-Generate JSON array with one object per phoneme:
+AVOID DUPLICATES: If you use "cat" for phoneme "p", don't use "cat" again for any other phoneme.
+
+Return JSON array:
 [
   {
-    "phoneme": "{{first_phoneme}}",
-    "correct_words": ["word_starting_with_{{first_phoneme}}"],
-    "incorrect_words": ["word1", "word2", "word3"],
-    "pronunciation_hint": "how to pronounce {{first_phoneme}}"
+    "phoneme": "p",
+    "correct_words": ["pig"],
+    "incorrect_words": ["cat", "fish", "tree"],
+    "pronunciation_hint": "Make the 'puh' sound like in 'pig'"
   }
 ] 

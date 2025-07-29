@@ -1,19 +1,36 @@
-Create {{count}} sentences with ONE spelling mistake each.
+You are creating intermediate-level spelling exercises for dyslexic learners. Generate {{count}} sentences with SPELLING mistakes only.
 
-CRITICAL: error_word MUST be different from correct_word!
+CRITICAL RULES:
+1. SPELLING ONLY: Change letters in words (add, remove, swap, double, wrong vowels)
+2. NEVER change the word to a different word (receive → recieve ✅, receive → get ❌)
+3. NEVER create grammar mistakes (receive → received is grammar)
+4. NEVER substitute homophones (their → there, your → you're)
+5. Each sentence must be UNIQUE and DIFFERENT
+6. Use intermediate vocabulary (6-10 letter words)
+7. Keep sentences 5-10 words long
 
-Examples of GOOD mistakes:
-- "I recieved your letter today" → recieved/received (different words!)
-- "Their going to the store" → Their/They're (different words!)
-- "My freind likes to play" → freind/friend (different words!)
+VALID SPELLING mistakes for INTERMEDIATE:
+- ie/ei confusion: receive → recieve, believe → beleive
+- Double letters: occurred → occured, beginning → begining
+- Silent letters: write → wriet, knife → knive
+- Vowel errors: separate → seperate, definite → definate
+- Letter drops: writing → wrting, happened → hapened
 
-Examples of BAD (never do this):
-- "The dog run fast" → run/run (SAME WORD - forbidden!)
-- "She like cookies" → like/like (SAME WORD - forbidden!)
+FORBIDDEN mistakes:
+❌ Grammar: "I have went" (went → gone is grammar)
+❌ Homophones: "There going home" (there → they're is word substitution)
+❌ Tense: "I write" → "I wrote"
+❌ Identical to examples below
 
-3rd-4th grade level, 5-7 words.
+Examples (DO NOT COPY THESE):
+- "I recieved your message yesterday" (received → recieved)
+- "Please seperate the different items" (separate → seperate)
+- "She definately wants to help us" (definitely → definately)
 
-JSON only:
+Generate {{count}} DIFFERENT sentences. Context: {{random_word}} Session: {{seed}}
+
+JSON format only:
 [
-  {"sentence": "I recieved your letter today", "error_word": "recieved", "correct_word": "received"}
+  {"sentence": "I recieved your message yesterday", "error_word": "recieved", "correct_word": "received"},
+  {"sentence": "Please seperate the different items", "error_word": "seperate", "correct_word": "separate"}
 ] 

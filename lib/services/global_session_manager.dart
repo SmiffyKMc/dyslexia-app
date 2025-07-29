@@ -127,8 +127,11 @@ class GlobalSessionManager {
       throw Exception('AI model not available - please ensure model is loaded');
     }
     
+    // Use higher temperature for creative generation activities
+    final sessionTemperature = _getTemperatureForActivity(targetActivity);
+    
     _session = await model.createSession(
-      temperature: temperature,
+      temperature: sessionTemperature,
       topK: topK,
     );
     
@@ -136,11 +139,29 @@ class GlobalSessionManager {
     _sessionCreatedAt = DateTime.now();
     _estimatedTokensUsed = 0;
     
-    developer.log('✅ Session created successfully for activity: ${targetActivity.name}', 
+    developer.log('✅ Session created successfully for activity: ${targetActivity.name} (temp: $sessionTemperature)', 
         name: 'dyslexic_ai.session');
     return _session!;
   }
   
+  /// Get appropriate temperature for different activities
+  double _getTemperatureForActivity(AIActivity activity) {
+    switch (activity) {
+      case AIActivity.sentenceGeneration:
+      case AIActivity.storyGeneration:
+      case AIActivity.phonicsGeneration:
+        return 0.7; // Higher temperature for creative generation
+      case AIActivity.textSimplification:
+      case AIActivity.wordAnalysis:
+        return 0.5; // Medium temperature for text processing
+      case AIActivity.ocrProcessing:
+      case AIActivity.profileAnalysis:
+        return 0.3; // Lower temperature for analytical tasks
+      case AIActivity.general:
+        return temperature; // Default temperature
+    }
+  }
+
   /// Check if a new session should be created based on activity and policy
   bool _shouldCreateNewSession(AIActivity activity, SessionPolicy policy) {
     // Different activity than current session - ALWAYS invalidate for power users

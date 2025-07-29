@@ -852,8 +852,17 @@ class SentenceFixerService {
 
       // Generate extra sentences to ensure we get enough valid ones
       final generateCount = count + 2;
-      final prompt =
-          PromptLoader.fill(tmpl, {'count': generateCount.toString()});
+      
+      // Add randomization to prevent repetitive AI responses
+      final randomWords = ['creative', 'unique', 'varied', 'diverse', 'original', 'fresh', 'different', 'novel'];
+      final randomWord = randomWords[_random.nextInt(randomWords.length)];
+      final seed = DateTime.now().millisecondsSinceEpoch.toString();
+      
+      final prompt = PromptLoader.fill(tmpl, {
+        'count': generateCount.toString(),
+        'random_word': randomWord,
+        'seed': seed,
+      });
 
       final response = await aiService.generateResponse(
         prompt,

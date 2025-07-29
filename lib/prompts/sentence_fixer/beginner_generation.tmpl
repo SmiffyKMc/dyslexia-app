@@ -1,19 +1,35 @@
-Create {{count}} sentences with ONE spelling mistake each.
+You are creating spelling exercises for dyslexic learners. Generate {{count}} sentences with SPELLING mistakes only.
 
-CRITICAL: error_word MUST be different from correct_word!
+CRITICAL RULES:
+1. SPELLING ONLY: Change letters in words (add, remove, swap, double)
+2. NEVER change the word to a different word (running → runing ✅, running → walking ❌)
+3. NEVER create grammar mistakes (run → ran ❌, help → helped ❌)
+4. NEVER substitute words (see → sea ❌, hear → here ❌)
+5. Each sentence must be UNIQUE and DIFFERENT
+6. Use simple vocabulary appropriate for beginners
+7. Keep sentences 4-8 words long
 
-Examples of GOOD mistakes:
-- "I can se you" → se/see (different words!)
-- "My cat ran hom" → hom/home (different words!)
-- "The dog is bigg" → bigg/big (different words!)
+VALID SPELLING mistakes:
+- Missing letters: running → runing, sleeping → sleping
+- Extra letters: running → runnning, happy → happpy
+- Wrong letters: friend → freind, because → becuase
+- Swapped letters: form → fomr, help → hlep
 
-Examples of BAD (never do this):
-- "The cat lick milk" → lick/lick (SAME WORD - forbidden!)
-- "Dog run fast" → run/run (SAME WORD - forbidden!)
+FORBIDDEN mistakes:
+❌ Grammar: "I goed to store" (goed → went is grammar)
+❌ Word substitution: "I sea the ocean" (sea → see is word change)
+❌ Tense changes: "I walk" → "I walked"
+❌ Identical to examples below
 
-Very short sentences, 1st grade words only.
+Examples (DO NOT COPY THESE):
+- "I like runing fast" (running → runing)
+- "She is sleping now" (sleeping → sleping)
+- "We are writting stories" (writing → writting)
 
-JSON only:
+Generate {{count}} DIFFERENT sentences. Use context: {{random_word}} Time: {{seed}}
+
+JSON format only:
 [
-  {"sentence": "I can se you", "error_word": "se", "correct_word": "see"}
+  {"sentence": "I like runing fast", "error_word": "runing", "correct_word": "running"},
+  {"sentence": "He is sleping now", "error_word": "sleping", "correct_word": "sleeping"}
 ] 

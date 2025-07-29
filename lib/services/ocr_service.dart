@@ -1,24 +1,27 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
-import '../utils/service_locator.dart';
 
-/// OCR result data class
+import '../utils/service_locator.dart';
+import '../utils/prompt_loader.dart';
+
+enum OCRStatus { success, error, noText }
+
 class OCRResult {
   final String text;
-  final double? confidence;
+  final OCRStatus status;
   final String? error;
 
   OCRResult({
     required this.text,
-    this.confidence,
+    required this.status,
     this.error,
   });
 
   // Compatibility getters
-  bool get isSuccess => error == null;
+  bool get isSuccess => status == OCRStatus.success;
   bool get hasText => text.isNotEmpty;
 }
 
@@ -27,12 +30,6 @@ class OcrService {
   // Simple image constraints for mobile OCR
   static const int _maxImageSize = 400;
   static const int _maxImageBytes = 256 * 1024; // 256KB max
-  
-  // Simple OCR prompt
-  static const String _ocrPrompt = '''
-Extract all text from this image. Return only the text content, no additional formatting or explanations.
-If no text is found, return an empty response.
-''';
 
   OcrService();
   
@@ -55,6 +52,7 @@ If no text is found, return an empty response.
       developer.log('OCR scan failed: $e', name: 'dyslexic_ai.ocr');
       return OCRResult(
         text: '',
+        status: OCRStatus.error,
         error: 'OCR processing failed: ${e.toString()}',
       );
     }
@@ -63,7 +61,7 @@ If no text is found, return an empty response.
   /// Legacy compatibility method
   Future<String> processImageForReading(File imageFile) async {
     final result = await scanImage(imageFile);
-    if (result.isSuccess) {
+    if (result.status == OCRStatus.success) {
       return cleanAndFormatText(result.text);
     } else {
       throw Exception(result.error ?? 'OCR processing failed');
@@ -73,7 +71,7 @@ If no text is found, return an empty response.
   /// Legacy compatibility method
   Future<String> extractTextFromImage(File imageFile) async {
     final result = await scanImage(imageFile);
-    return result.isSuccess ? result.text : '';
+    return result.status == OCRStatus.success ? result.text : '';
   }
 
   /// Clean and format text for reading applications
@@ -139,15 +137,18 @@ If no text is found, return an empty response.
       if (aiService == null) {
         return OCRResult(
           text: '',
-          confidence: 0.0,
+          status: OCRStatus.error,
           error: 'AI service not available. Please ensure the model is loaded.',
         );
       }
       
       developer.log('OCR session: ${aiService.getSessionDebugInfo()}', name: 'dyslexic_ai.ocr');
       
-      // Use the new multimodal response method which handles OCR sessions properly
-      final response = await aiService.generateMultimodalResponse(_ocrPrompt, imageBytes);
+              // Load OCR prompt from template
+        final prompt = await PromptLoader.load('ocr', 'simple_extraction.tmpl');
+
+        // Use the new multimodal response method which handles OCR sessions properly
+        final response = await aiService.generateMultimodalResponse(prompt, imageBytes);
       developer.log('OCR response received: ${response.length} chars', name: 'dyslexic_ai.ocr');
       
       final extractedText = response.trim();
@@ -156,7 +157,7 @@ If no text is found, return an empty response.
       if (extractedText.isEmpty) {
         return OCRResult(
           text: '',
-          confidence: 0.0,
+          status: OCRStatus.noText,
           error: 'No text could be extracted from the image.',
         );
       }
@@ -166,7 +167,7 @@ If no text is found, return an empty response.
       
       return OCRResult(
         text: extractedText,
-        confidence: confidence,
+        status: OCRStatus.success,
       );
       
     } catch (e) {
@@ -182,7 +183,7 @@ If no text is found, return an empty response.
       
       return OCRResult(
         text: '',
-        confidence: 0.0,
+        status: OCRStatus.error,
         error: userError,
       );
     }
