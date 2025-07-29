@@ -10,6 +10,7 @@ import '../utils/service_locator.dart';
 import '../utils/prompt_loader.dart';
 import '../utils/resource_diagnostics.dart';
 import 'global_session_manager.dart';
+import 'dart:math' as math;
 
 class ProfileUpdateService {
   late final SessionLogStore _sessionLogStore;
@@ -230,7 +231,23 @@ class ProfileUpdateService {
     // Reduce to 3 sessions for ultra-compact analysis
     final recentLogs = allLogs.take(3).toList();
 
-    developer.log('Found ${recentLogs.length} recent completed sessions',
+    developer.log('Found ${recentLogs.length} recent completed sessions (out of ${allLogs.length} total)',
+        name: 'dyslexic_ai.profile_update');
+    
+    // Debug: Log session details to understand what's being analyzed
+    for (int i = 0; i < recentLogs.length; i++) {
+      final session = recentLogs[i];
+      final accuracy = ((session.accuracy ?? 0.0) * 100).round();
+      final timeDiff = DateTime.now().difference(session.timestamp);
+      developer.log('Session ${i + 1}: ${session.feature} - ${accuracy}% accuracy (${timeDiff.inHours}h ago)',
+          name: 'dyslexic_ai.profile_update');
+    }
+    
+    // Calculate and log the average accuracy being used
+    final avgAccuracy = recentLogs.isNotEmpty
+        ? recentLogs.map((s) => s.accuracy ?? 0.0).reduce((a, b) => a + b) / recentLogs.length
+        : 0.0;
+    developer.log('Average accuracy of analyzed sessions: ${(avgAccuracy * 100).round()}%',
         name: 'dyslexic_ai.profile_update');
 
     return recentLogs;
@@ -248,6 +265,21 @@ class ProfileUpdateService {
             recentSessions.length
         : 0.0;
 
+    // Debug: Log what data is being sent to AI
+    developer.log('=== PROFILE UPDATE PROMPT DATA ===', name: 'dyslexic_ai.profile_update');
+    developer.log('Current Profile: ${currentProfile.decodingAccuracy} accuracy, ${currentProfile.confidence} confidence', 
+        name: 'dyslexic_ai.profile_update');
+    developer.log('Raw session data: $sessionData', name: 'dyslexic_ai.profile_update');
+    developer.log('Sessions being analyzed:', name: 'dyslexic_ai.profile_update');
+    for (int i = 0; i < recentSessions.length; i++) {
+      final session = recentSessions[i];
+      final accuracy = ((session.accuracy ?? 0.0) * 100).round();
+      developer.log('  Session ${i + 1}: ${session.feature} - ${accuracy}% accuracy', 
+          name: 'dyslexic_ai.profile_update');
+    }
+    developer.log('Calculated average accuracy: ${(avgAccuracy * 100).round()}%', name: 'dyslexic_ai.profile_update');
+    developer.log('==================================', name: 'dyslexic_ai.profile_update');
+
     final variables = <String, String>{
       'current_profile':
           'Confidence: ${currentProfile.confidence}, Accuracy: ${currentProfile.decodingAccuracy}, Confusions: ${currentProfile.phonemeConfusions.take(2).join(', ')}',
@@ -258,7 +290,38 @@ class ProfileUpdateService {
 
     final template =
         await PromptLoader.load('profile_analysis', 'full_update.tmpl');
-    return PromptLoader.fill(template, variables);
+    
+    // Debug: Verify template content was loaded correctly
+    developer.log('🔍 Template loaded, first 100 chars: ${template.substring(0, math.min(100, template.length))}', 
+        name: 'dyslexic_ai.profile_update');
+    developer.log('🔍 Template contains explicit rules: ${template.contains("CLASSIFICATION RULES")}', 
+        name: 'dyslexic_ai.profile_update');
+    developer.log('🔍 Template contains examples: ${template.contains("85% average =")}', 
+        name: 'dyslexic_ai.profile_update');
+    
+    final finalPrompt = PromptLoader.fill(template, variables);
+    
+    // Debug: Log the final prompt length and key sections
+    developer.log('📏 Final prompt length: ${finalPrompt.length} characters', name: 'dyslexic_ai.profile_update');
+    developer.log('🔍 Prompt contains our thresholds: ${finalPrompt.contains("75% to 89% → \"good\"")}', name: 'dyslexic_ai.profile_update');
+    developer.log('🔍 Prompt contains 81% example: ${finalPrompt.contains("78% average = \"good\"")}', name: 'dyslexic_ai.profile_update');
+    
+    // Debug: Log crucial sections of the prompt
+    final lines = finalPrompt.split('\n');
+    developer.log('=== KEY PROMPT SECTIONS ===', name: 'dyslexic_ai.profile_update');
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.contains('CLASSIFICATION RULES') || 
+          line.contains('ACCURACY CLASSIFICATION') ||
+          line.contains('75% to 89%') ||
+          line.contains('85% average') ||
+          line.contains('78% average')) {
+        developer.log('Line ${i+1}: $line', name: 'dyslexic_ai.profile_update');
+      }
+    }
+    developer.log('=== END KEY SECTIONS ===', name: 'dyslexic_ai.profile_update');
+    
+    return finalPrompt;
   }
 
   String _getToolRecommendation(double avgAccuracy, String confidence) {

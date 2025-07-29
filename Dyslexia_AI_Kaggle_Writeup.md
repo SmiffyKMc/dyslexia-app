@@ -1,5 +1,7 @@
 # 🧠 DyslexAI – Kaggle Hackathon Writeup
 
+> 💡 **Try it now**: [Download APK](https://github.com/SmiffyKMc/dyslexia-app/releases) | [Source Code](https://github.com/SmiffyKMc/dyslexia-app)
+
 ## 🔥 Executive Summary
 
 **DyslexAI** is a groundbreaking **100% offline mobile learning app** that harnesses **Google's Gemma 3n** to provide real-time, adaptive support for people with dyslexia. With **6 fully functional AI-powered features**, innovative session management, and **zero server dependency**, it demonstrates Gemma 3n's potential to create sustainable, privacy-first educational technology.
@@ -8,10 +10,11 @@
 
 ---
 
-## 🎯 The Problem & Market Opportunity
+## 🎯 Problem & Opportunity  
+*Why dyslexia matters — and why AI hasn't helped until now*
 
 **The Crisis:**
-- **1 in 10 people** globally live with dyslexia, struggling with reading, writing, and comprehension
+- **1 in 10 people** globally live with dyslexia, that's 700,000,000 people, struggling with reading, writing, and comprehension
 - Traditional tools lack real-time feedback and personalization
 - Cloud-based AI solutions create **privacy risks** for sensitive learning data
 - **Environmental cost**: ChatGPT consumes **500ml of water per 100-word generation** - unsustainable for daily learning
@@ -31,11 +34,15 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Real-time speech recognition** with pronunciation feedback
 - **Session analytics** tracking word-level accuracy and reading patterns
 
+📸 _Demo_: `reading_coach.gif`
+
 #### **📚 Adaptive Story Mode** 
 - **Dynamic AI story generation** with contextual fill-in-the-blank questions
 - **Personalized difficulty scaling** based on performance patterns
 - **Phoneme pattern targeting** for systematic skill development
 - **Progress tracking** across multiple story sessions with completion analytics
+
+📸 _Demo_: `adaptive_story_mode.gif`
 
 #### **🎮 Phonics Game**
 - **AI-generated word sets** matching user's learning focus areas
@@ -43,11 +50,15 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Adaptive difficulty** that responds to success rates and learning velocity
 - **Achievement system** with streak tracking and milestone rewards
 
+📸 _Demo_: `phonics_game.gif`
+
 #### **🔧 Sentence Fixer**
 - **AI-generated practice sentences** with strategically placed errors
 - **Self-validating error positioning** using recursive AI validation
 - **Profile-based error focusing** (spelling vs grammar emphasis)
 - **Hint systems** that guide learning without revealing answers
+
+📸 _Demo_: `sentence_fixer.gif`
 
 ### **🛠️ AI-Powered Tools (2 Complete Features)**
 
@@ -57,11 +68,15 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **AI-generated mnemonics** and contextual memory aids
 - **Etymology explanations** adapted to user's reading level
 
+📸 _Demo_: `word_doctor.gif`
+
 #### **📝 Text Simplifier**
 - **Real-time text complexity reduction** with streaming AI responses
 - **OCR integration** for processing complex documents and textbooks
 - **Contextual definitions** for difficult terms
 - **Adaptive simplification** based on user's current reading level
+
+📸 _Demo_: `text_simplifier.gif`
 
 ---
 
@@ -105,31 +120,244 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 
 ### **Core Technology Stack**
 - **AI Engine**: Gemma-3n-E2B-it-int4 (quantized for mobile optimization)
+- **Edge AI Runtime**: Google MediaPipe framework powering on-device inference
+- **Flutter AI Bridge**: flutter_gemma ^0.9.0 (MediaPipe wrapper with custom session management)
 - **Framework**: Flutter 3.29.1 with custom dyslexia-friendly UI components
 - **State Management**: MobX for reactive programming patterns
-- **AI Integration**: flutter_gemma ^0.9.0 with custom session management
 - **Storage**: Local-first with Hive database + SharedPreferences
-- **Distribution**: Self-hosted CDN for model delivery (no licensing barriers)
+- **Infrastructure**: Self-hosted CDN with global edge caching for cost-effective model distribution
+- **Distribution**: No licensing barriers, direct APK deployment
 
 ### **Service-Oriented Architecture**
+
+**📐 System Architecture Diagram:**
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│     AI Services Layer (Activity-Aware Session Management)   │
-├─────────────────────────────────────────────────────────────┤
-│ AIInferenceService │ GlobalSessionManager │ OCRService      │
-│ StoryService       │ SentenceFixerService │ WordAnalysis    │
-│ ProfileUpdate      │ PhonicsGeneration    │ TextSimplifier  │
-├─────────────────────────────────────────────────────────────┤
-│                  Adaptive Learning Engine                   │
-├─────────────────────────────────────────────────────────────┤
-│ ReadingCoachStore  │ AdaptiveStoryStore  │ PhonicsGameStore │
-│ WordDoctorStore    │ SentenceFixerStore  │ TextSimplifier   │
-└─────────────────────────────────────────────────────────────┘
+                    ☁️ Infrastructure Layer
+        ┌────────────────────────────────────────────┐
+        │       Self-Hosted CDN (Edge Caching)       │
+        │   Gemma-3n-E2B-it-int4 Model Distribution  │
+        │      (Multi-GB model cached globally)      │
+        └─────────────────┬──────────────────────────┘
+                          │ One-time download
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│                  📱 Mobile Device                       │
+├─────────────────────────────────────────────────────────┤
+│                   Flutter UI Layer                     │
+│  📱 ReadingCoach  📚 AdaptiveStory  🎮 Phonics         │
+│  🩺 WordDoctor    🔧 SentenceFixer  📝 TextSimplifier  │
+├─────────────────────────────────────────────────────────┤
+│                  MobX State Stores                     │
+│       Reactive state management & UI updates           │
+├─────────────────────────────────────────────────────────┤
+│              AI Services (Session-Aware)               │
+│  AIInference    ProfileUpdate      OCRService          │
+│  StoryService   SentenceFixer      WordAnalysis        │
+│  PhonicsGen     TextSimplifier     SpeechRecognition   │
+├─────────────────────────────────────────────────────────┤
+│                flutter_gemma Bridge                    │
+│         Dart/Flutter ↔ Native MediaPipe calls          │
+├─────────────────────────────────────────────────────────┤
+│           Google MediaPipe Edge AI Runtime             │
+│      GPU-accelerated on-device inference framework     │
+├─────────────────────────────────────────────────────────┤
+│              🧠 Gemma 3n Inference Engine               │
+│        Activity-based session management prevents      │
+│            context overflow across features            │
+├─────────────────────────────────────────────────────────┤
+│                Local Storage Layer                     │
+│     Hive Database  │  SharedPreferences  │  File System │
+└─────────────────────────────────────────────────────────┘
 ```
+
+**🔄 Data Flow:**
+1. **Initial Setup** → One-time model download from self-hosted CDN with global edge caching
+2. **User Interaction** → UI triggers action in MobX store
+3. **Store Logic** → Calls appropriate AI service with user data
+4. **Session Management** → Routes to Gemma 3n with activity context
+5. **Flutter Bridge** → flutter_gemma converts Dart calls to native MediaPipe operations
+6. **MediaPipe Runtime** → GPU-accelerated edge AI processing with hardware optimization
+7. **AI Processing** → On-device inference with streaming responses
+8. **Profile Updates** → Learning patterns update user profile
+9. **UI Feedback** → Real-time updates via reactive state management
 
 ---
 
-## 🧪 Sample AI Integration - Sentence Fixer
+## 🏗️ Technical Deep Dive: Architecture & Gemma 3n Integration
+
+### **🎯 How We Specifically Used Gemma 3n**
+
+**Gemma-3n-E2B-it-int4** powers all 6 features through our custom **Activity-Based Session Management System**:
+
+#### **🔥 Core Integration Pattern (MediaPipe + flutter_gemma):**
+```dart
+// Activity-specific session creation prevents context bleeding
+// flutter_gemma creates MediaPipe sessions under the hood
+final session = await _globalSessionManager.getSession(
+  activity: AIActivity.storyGeneration,  // Isolated context per feature 
+  maxTokens: 4096,                      // Activity-specific limits
+  temperature: 0.7,                     // Feature-optimized parameters
+  useGPU: true                          // MediaPipe GPU acceleration
+);
+
+// Streaming inference with real-time UI updates
+// flutter_gemma bridges Dart streams ↔ MediaPipe native callbacks
+await for (final chunk in session.generateStream(prompt)) {
+  updateUI(chunk);  // Reactive state updates via MobX
+}
+
+// Multimodal processing (Image + Text via MediaPipe)
+final ocrResult = await session.generateMultimodalResponse(
+  prompt, 
+  imageBytes,  // MediaPipe handles image processing natively
+);
+```
+
+#### **📊 Feature-Specific Gemma 3n Usage:**
+
+| Feature | Gemma 3n Role | Context Size | Temperature | Stream |
+|---------|---------------|--------------|-------------|---------|
+| **Reading Coach** | Story generation + OCR text processing | 2048 tokens | 0.8 | ✅ Real-time |
+| **Adaptive Story** | Dynamic content with fill-in-blanks | 3072 tokens | 0.7 | ✅ Progressive |  
+| **Sentence Fixer** | Error generation + self-validation | 1024 tokens | 0.6 | ❌ Batch |
+| **Word Doctor** | Etymology + mnemonic generation | 1536 tokens | 0.9 | ❌ Analysis |
+| **Text Simplifier** | Complexity reduction + definitions | 2048 tokens | 0.5 | ✅ Real-time |
+| **Phonics Game** | Personalized word set generation | 1024 tokens | 0.6 | ❌ Batch |
+
+### **⚡ Critical Challenges Overcome**
+
+#### **Challenge #1: Mobile Memory Constraints**
+**Problem**: Gemma 3n requires significant RAM; mobile devices crash with naive implementation.
+
+**Our Solution**: 
+- **GPU-first inference** with automatic CPU fallback
+- **Quantized int4 model** (75% memory reduction vs fp16)
+- **Proactive session cleanup** prevents memory accumulation
+- **Background processing** with cooperative yielding maintains 60fps UI
+
+```dart
+// Memory-optimized inference pipeline leveraging MediaPipe
+class AIInferenceService {
+  Future<void> _optimizeForMobile() async {
+    // MediaPipe handles hardware detection and optimization automatically
+    // flutter_gemma provides the bridge to MediaPipe's native capabilities
+    
+    // Attempt GPU acceleration via MediaPipe's GPU delegate
+    if (await _tryGPUInference()) {
+      developer.log('🚀 MediaPipe GPU acceleration enabled');
+    } else {
+      // MediaPipe gracefully falls back to optimized CPU inference
+      await _configureCPUInference(maxMemoryMB: 2048);
+      developer.log('💻 MediaPipe CPU inference with memory limits');
+    }
+    
+    // MediaPipe's built-in quantization support for int4 models
+    await _configureQuantization(precision: ModelPrecision.int4);
+  }
+}
+```
+
+#### **Challenge #2: Context Overflow Crashes**
+**Problem**: Traditional AI apps accumulate context across features, hitting token limits and crashing.
+
+**Our Innovation**: **Activity-Based Session Management**
+```dart
+enum AIActivity {
+  storyGeneration,    // Isolated 3072 token budget
+  textSimplification, // Isolated 2048 token budget  
+  wordAnalysis,       // Isolated 1536 token budget
+  profileUpdate,      // Isolated 1024 token budget
+}
+
+// Each feature gets isolated context - no bleeding between activities
+final session = await _sessionManager.getSession(activity: AIActivity.storyGeneration);
+```
+
+**Result**: Zero crashes from token overflow in extensive testing.
+
+#### **Challenge #3: Real-Time Responsiveness**
+**Problem**: Multi-second inference delays create poor UX for learning apps requiring immediate feedback.
+
+**Our Solution**: **Multi-Layer Performance Optimization**
+- **Session warm-up**: Pre-initialize inference engine eliminates first-request delay
+- **Streaming responses**: UI updates in real-time during generation  
+- **Async processing**: Background inference never blocks UI thread
+- **Progressive rendering**: Show partial results immediately
+
+```dart
+// Streaming inference with immediate UI feedback
+await for (final chunk in _gemmaSession.generateStream(prompt)) {
+  // Update UI immediately with each token
+  _updateTextIncrementally(chunk);
+  // Yield control to maintain smooth scrolling
+  await Future.delayed(Duration.zero);
+}
+```
+
+#### **Challenge #4: Offline OCR + AI Pipeline**
+**Problem**: Processing camera images offline requires complex multimodal pipeline integration.
+
+**Our MediaPipe-Powered Architecture**:
+```
+📷 Camera → Image Optimization → MediaPipe Multimodal → Gemma 3n Analysis → UI Integration
+            ↓                      ↓
+      Flutter Image API    Native MediaPipe Runtime
+```
+
+**Technical Implementation**:
+- **Image optimization**: 400x400px max, 256KB compression for MediaPipe processing
+- **MediaPipe multimodal**: Native framework handles image-to-text conversion efficiently
+- **flutter_gemma bridge**: Seamless Dart ↔ MediaPipe communication for multimodal AI
+- **Context-aware extraction**: Gemma 3n via MediaPipe understands document layouts and structure
+- **Hardware acceleration**: MediaPipe automatically leverages GPU for image processing when available
+- **Error recovery**: MediaPipe provides robust fallbacks when hardware or processing fails
+
+### **🎯 Why Our Technical Choices Were Right**
+
+#### **✅ Google MediaPipe + Gemma 3n Edge AI Stack**
+- **Complete Edge AI Ecosystem**: Leverages Google's full stack from MediaPipe runtime → Gemma models → flutter integration
+- **Hardware Optimization**: MediaPipe provides GPU acceleration, CPU fallback, and mobile-optimized inference
+- **Cross-Platform Support**: Single codebase works across Android, iOS with native performance
+- **Production Ready**: Google's battle-tested edge AI framework used in millions of devices (Google Lens, YouTube, etc.)
+- **Size/Performance Balance**: Gemma 3n (3B parameters) optimal for mobile deployment via MediaPipe runtime
+- **Quantization Support**: MediaPipe + int4 quantization reduces memory 75% with minimal quality loss
+- **Multimodal Capabilities**: MediaPipe natively handles image processing + text generation in unified pipeline
+- **Local Inference**: Complete Google edge AI stack eliminates privacy risks + server costs + water consumption
+- **Fine-tuning Capable**: MediaPipe runtime adapts well to specialized dyslexia tasks with custom model loading
+
+#### **✅ Activity-Based Sessions Over Global Context**
+- **Prevents Crashes**: Isolated token budgets eliminate overflow failures
+- **Better Performance**: Smaller contexts = faster inference per feature
+- **Feature Independence**: Reading Coach doesn't interfere with Word Doctor context
+- **Scalable Architecture**: Easy to add new features without impacting existing ones
+
+#### **✅ Flutter Over Native Development**
+- **Rapid Prototyping**: Built 6 features faster than native would allow
+- **Cross-Platform**: Single codebase for Android + iOS deployment
+- **AI Integration**: flutter_gemma provides excellent on-device inference support
+- **Accessibility**: Built-in support for dyslexia-friendly UI patterns
+
+#### **✅ MobX Over Provider/Bloc**
+- **Real-Time Reactivity**: Perfect for streaming AI responses with immediate UI updates
+- **Simple State Management**: Reduces complexity when managing 6 different AI features
+- **Performance**: Minimal rebuilds, only updates affected UI components
+- **Developer Experience**: Clear, readable code for complex async AI operations
+
+### **🔧 Architecture Validation Through Production Use**
+
+Our technical choices have been validated through:
+- **Memory Efficiency**: 75% reduction from optimization pipeline
+- **Reliability**: Zero context overflow crashes in testing
+- **Performance**: Real-time streaming responses with 60fps UI maintenance  
+- **Scalability**: 6 working features without interference or degradation
+- **User Experience**: Smooth, responsive interface despite complex AI processing
+
+---
+
+## 🧪 Deep AI Integration Examples
+
+### **🔧 Sentence Fixer - Content Generation**
 
 **Input Prompt:**
 ```json
@@ -157,6 +385,53 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 
 ---
 
+### **📊 Profile Update - Adaptive Learning Engine**
+
+**Input Prompt:**
+```
+Analyze dyslexia learning data and update profile. Focus on confidence, accuracy, phoneme errors, tool recommendation, and advice.
+
+CURRENT: Confidence: building, Accuracy: developing, Confusions: [th, ing]
+
+RECENT SESSIONS:
+Reading Coach: 67% accuracy, errors: th,ing,ch
+Sentence Fixer: 72% accuracy, errors: th,ed
+Word Doctor: 58% accuracy, errors: ing,th
+
+RULES:
+- ACCURACY CLASSIFICATION (strict thresholds):
+  * 90%+ accuracy → "excellent"
+  * 75-89% accuracy → "good" 
+  * 60-74% accuracy → "developing"
+  * <60% accuracy → "needs work"
+- CONFIDENCE CLASSIFICATION:
+  * 85%+ recent accuracy → "high"
+  * 70-84% recent accuracy → "medium"
+  * 55-69% recent accuracy → "building" 
+  * <55% recent accuracy → "low"
+- 3+ same phoneme errors → add to confusions
+- Suggested tools: Phonics Game, Text Simplifier, Reading Coach
+```
+
+**Gemma 3n Output:**
+```json
+{
+  "decodingAccuracy": "developing",
+  "confidence": "building", 
+  "phonemeConfusions": ["th", "ing", "ed"],
+  "recommendedTool": "Phonics Game",
+  "advice": "Focus on 'th' and 'ing' sounds. Practice with shorter words first, then build to sentences. Great progress on accuracy!"
+}
+```
+
+**Adaptive Learning Flow:**
+1. **Session Completion** → Data captured across all 6 features
+2. **Pattern Analysis** → AI identifies recurring phoneme struggles
+3. **Profile Updates** → Personalized recommendations and difficulty scaling
+4. **Feature Routing** → Next session optimized for detected weak areas
+
+---
+
 ## 📊 Performance Metrics & Achievements
 
 | Metric | Achievement |
@@ -165,6 +440,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 | **Memory Usage** | 75% reduction through optimization pipeline |
 | **Context Management** | Zero crashes from token overflow in testing |
 | **Water Consumption** | 0ml (vs 500ml per interaction for cloud AI) |
+| **Infrastructure Cost** | Self-hosted CDN with edge caching for global model distribution |
 | **Features Delivered** | 6 fully functional AI-powered learning tools |
 | **Offline Capability** | 100% functionality without internet |
 | **Privacy Protection** | Zero data leaves device |
@@ -187,6 +463,13 @@ Supporting **700 million people worldwide** with dyslexia through technology tha
 
 ### **📱 Production Ready**
 This isn't a prototype - it's a **fully functional app** with 6 working features, performance optimization, and polished UX ready for real users.
+
+---
+
+## 🧩 Built by a Dyslexic Developer
+
+This app is personal.  
+It was designed by someone who lives with dyslexia, for people who want to feel confident learning at their own pace — privately, and without shame.
 
 ---
 

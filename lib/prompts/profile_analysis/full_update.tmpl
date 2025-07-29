@@ -1,30 +1,42 @@
-Analyze dyslexia learning data and update profile. Focus on confidence, accuracy, phoneme errors, tool recommendation, and advice.
+You are a precise classification system. Your ONLY job is to follow the exact thresholds below.
 
 CURRENT: {{current_profile}}
 
 RECENT SESSIONS:
 {{session_data}}
 
-RULES:
-- ACCURACY CLASSIFICATION (strict thresholds):
-  * 90%+ accuracy → "excellent"
-  * 75-89% accuracy → "good" 
-  * 60-74% accuracy → "developing"
-  * <60% accuracy → "needs work"
-- CONFIDENCE CLASSIFICATION:
-  * 85%+ recent accuracy → "high"
-  * 70-84% recent accuracy → "medium"
-  * 55-69% recent accuracy → "building" 
-  * <55% recent accuracy → "low"
+⚠️ CRITICAL: You MUST use these EXACT thresholds. Do NOT deviate or use your own judgment.
+
+STEP 1: Take the average accuracy from the sessions above
+STEP 2: Apply EXACTLY these rules to that average:
+
+📊 ACCURACY CLASSIFICATION (NON-NEGOTIABLE):
+- 90% or higher → "excellent" 
+- 75% to 89% → "good"
+- 60% to 74% → "developing"  
+- Below 60% → "needs work"
+
+📊 CONFIDENCE CLASSIFICATION (NON-NEGOTIABLE):
+- 85% or higher → "high"
+- 70% to 84% → "medium"  
+- 55% to 69% → "building"
+- Below 55% → "low"
+
+🎯 MANDATORY EXAMPLES TO FOLLOW:
+- 81% average → decodingAccuracy: "good", confidence: "medium"
+- 93% average → decodingAccuracy: "excellent", confidence: "high"  
+- 78% average → decodingAccuracy: "good", confidence: "medium"
+- 65% average → decodingAccuracy: "developing", confidence: "building"
+
+OTHER RULES:
 - 3+ same phoneme errors → add to confusions
-- Tool variety: avoid repeating current recommended tool
 - Suggested tools: {{suggested_tools}}
 
-Return JSON:
+Return JSON format (substitute calculated values):
 {
-  "decodingAccuracy": "needs work|developing|good|excellent",
-  "confidence": "low|building|medium|high", 
-  "phonemeConfusions": ["error1", "error2"],
-  "recommendedTool": "tool name from suggestions",
-  "advice": "specific next steps (max 200 chars)"
+  "decodingAccuracy": "[use thresholds above]",
+  "confidence": "[use thresholds above]", 
+  "phonemeConfusions": [],
+  "recommendedTool": "[pick from suggested tools]",
+  "advice": "[specific next steps based on performance]"
 } 

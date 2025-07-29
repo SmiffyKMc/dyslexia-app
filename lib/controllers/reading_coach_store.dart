@@ -91,6 +91,9 @@ abstract class _ReadingCoachStore with Store {
   @observable
   List<String> recognizedWords = [];
 
+  // Track incremental speech processing to prevent re-highlighting old words
+  int _lastProcessedWordCount = 0;
+
   @computed
   double get currentAccuracy {
     if (currentSession?.wordResults.isEmpty ?? true) return 0.0;
@@ -137,7 +140,17 @@ abstract class _ReadingCoachStore with Store {
       return List.filled(currentTextWords.length, false);
     }
 
-    return _calculateWordMatches(currentTextWords, recognizedWords);
+    final result = _calculateWordMatches(currentTextWords, recognizedWords);
+    developer.log('🔍 Highlighting: ${currentTextWords.length} text words, ${recognizedWords.length} spoken words', 
+        name: 'dyslexic_ai.reading_coach');
+    developer.log('📝 Text: ${currentTextWords.take(10).join(", ")}...', 
+        name: 'dyslexic_ai.reading_coach');
+    developer.log('🎤 Spoken: ${recognizedWords.take(10).join(", ")}...', 
+        name: 'dyslexic_ai.reading_coach');
+    developer.log('💡 Highlights: ${result.asMap().entries.where((e) => e.value).map((e) => "${e.key}:${currentTextWords[e.key]}").join(", ")}', 
+        name: 'dyslexic_ai.reading_coach');
+    
+    return result;
   }
 
   // Helper method to calculate which words should be highlighted
@@ -145,9 +158,13 @@ abstract class _ReadingCoachStore with Store {
       List<String> textWords, List<String> spokenWords) {
     final highlightStates = List.filled(textWords.length, false);
 
-    // Simple sequential matching with fuzzy logic
+    // Simple sequential matching with fuzzy logic and recovery
     int textIndex = 0;
     int spokenIndex = 0;
+    int matchCount = 0;
+
+    developer.log('🔄 Starting word matching: textIndex=0, spokenIndex=0', 
+        name: 'dyslexic_ai.reading_coach.matching');
 
     while (textIndex < textWords.length && spokenIndex < spokenWords.length) {
       final textWord =
@@ -159,12 +176,18 @@ abstract class _ReadingCoachStore with Store {
       // Exact match
       if (textWord == spokenWord) {
         highlightStates[textIndex] = true;
+        matchCount++;
+        developer.log('✅ Exact match: "${textWord}" at text[$textIndex] ↔ spoken[$spokenIndex]', 
+            name: 'dyslexic_ai.reading_coach.matching');
         textIndex++;
         spokenIndex++;
       }
       // Fuzzy match (80% similarity)
       else if (_calculateSimilarity(textWord, spokenWord) >= 0.8) {
         highlightStates[textIndex] = true;
+        matchCount++;
+        developer.log('🔸 Fuzzy match: "${textWord}" ↔ "${spokenWord}" at text[$textIndex] ↔ spoken[$spokenIndex]', 
+            name: 'dyslexic_ai.reading_coach.matching');
         textIndex++;
         spokenIndex++;
       }
@@ -172,16 +195,71 @@ abstract class _ReadingCoachStore with Store {
       else if (textWord.length > 3 &&
           spokenWord.startsWith(textWord.substring(0, textWord.length ~/ 2))) {
         highlightStates[textIndex] = true;
+        matchCount++;
+        developer.log('🔹 Partial match: "${textWord}" ↔ "${spokenWord}" at text[$textIndex] ↔ spoken[$spokenIndex]', 
+            name: 'dyslexic_ai.reading_coach.matching');
         textIndex++;
         spokenIndex++;
       }
-      // Skip spoken word (likely recognition error)
+      // No match - try recovery by looking ahead
       else {
-        spokenIndex++;
+        developer.log('❌ No match: "${textWord}" ↔ "${spokenWord}" at text[$textIndex] ↔ spoken[$spokenIndex]', 
+            name: 'dyslexic_ai.reading_coach.matching');
+        
+        // Try to find the next matching sequence
+        final recoveryResult = _findNextMatch(textWords, spokenWords, textIndex, spokenIndex);
+        
+        if (recoveryResult != null) {
+          // Found a recovery point - jump to it
+          developer.log('🔄 Recovery found: jumping to text[${recoveryResult.textIndex}] ↔ spoken[${recoveryResult.spokenIndex}]', 
+              name: 'dyslexic_ai.reading_coach.matching');
+          textIndex = recoveryResult.textIndex;
+          spokenIndex = recoveryResult.spokenIndex;
+        } else {
+          // No recovery possible - skip this spoken word
+          developer.log('⏭️ Skip spoken: "${spokenWord}" (no recovery possible)', 
+              name: 'dyslexic_ai.reading_coach.matching');
+          spokenIndex++;
+        }
       }
     }
 
+    developer.log('🏁 Matching complete: ${matchCount} matches, textIndex=${textIndex}, spokenIndex=${spokenIndex}', 
+        name: 'dyslexic_ai.reading_coach.matching');
+
     return highlightStates;
+  }
+
+  // Recovery mechanism: look ahead to find next matching sequence
+  ({int textIndex, int spokenIndex})? _findNextMatch(
+      List<String> textWords, List<String> spokenWords, int currentTextIndex, int currentSpokenIndex) {
+    
+    // Look ahead in spoken words (up to 3 words)
+    for (int spokenOffset = 1; spokenOffset <= 3 && currentSpokenIndex + spokenOffset < spokenWords.length; spokenOffset++) {
+      final futureSpokenWord = spokenWords[currentSpokenIndex + spokenOffset]
+          .toLowerCase()
+          .replaceAll(RegExp(r'[^\w]'), '');
+      
+      // Look ahead in text words (up to 2 words)  
+      for (int textOffset = 0; textOffset <= 2 && currentTextIndex + textOffset < textWords.length; textOffset++) {
+        final futureTextWord = textWords[currentTextIndex + textOffset]
+            .toLowerCase()
+            .replaceAll(RegExp(r'[^\w]'), '');
+        
+        // Check for exact match or high similarity
+        if (futureTextWord == futureSpokenWord || 
+            _calculateSimilarity(futureTextWord, futureSpokenWord) >= 0.8) {
+          developer.log('🎯 Recovery match found: "${futureTextWord}" ↔ "${futureSpokenWord}" at text[${currentTextIndex + textOffset}] ↔ spoken[${currentSpokenIndex + spokenOffset}]', 
+              name: 'dyslexic_ai.reading_coach.matching');
+          return (
+            textIndex: currentTextIndex + textOffset,
+            spokenIndex: currentSpokenIndex + spokenOffset
+          );
+        }
+      }
+    }
+    
+    return null; // No recovery possible
   }
 
   // Simple similarity calculation (Levenshtein-like)
@@ -256,6 +334,10 @@ abstract class _ReadingCoachStore with Store {
     // Split text into words for highlighting
     currentTextWords =
         text.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+    
+    // Reset incremental word tracking when text changes
+    recognizedWords.clear(); // Clear old speech data when text changes
+    _lastProcessedWordCount = 0;
   }
 
   @action
@@ -267,6 +349,10 @@ abstract class _ReadingCoachStore with Store {
     if (currentSession != null) {
       currentSession = null;
     }
+    
+    // Reset incremental word tracking
+    recognizedWords.clear(); // Clear old speech data
+    _lastProcessedWordCount = 0;
   }
 
   @action
@@ -385,7 +471,11 @@ abstract class _ReadingCoachStore with Store {
     liveFeedback.clear();
     practiceWords.clear();
     recognizedSpeech = '';
+    recognizedWords.clear(); // Clear old speech data
     isAnalyzing = false;
+    
+    // Reset incremental word tracking for new session
+    _lastProcessedWordCount = 0;
 
     // Start session logging
     await _sessionLogging.startSession(
@@ -515,9 +605,13 @@ abstract class _ReadingCoachStore with Store {
     currentSession = null;
     currentText = '';
     recognizedSpeech = '';
+    recognizedWords.clear(); // Clear old speech data
     liveFeedback.clear();
     practiceWords.clear();
     errorMessage = null;
+    
+    // Reset incremental word tracking
+    _lastProcessedWordCount = 0;
   }
 
   @action
@@ -531,8 +625,36 @@ abstract class _ReadingCoachStore with Store {
     recognizedSpeech = speech;
 
     // Split recognized speech into words for highlighting
-    recognizedWords =
-        speech.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+    final allWords = speech.split(RegExp(r'\s+')).where((word) => word.isNotEmpty).toList();
+    
+    // Only process if we have new words (prevents re-processing causing highlight misalignment)
+    final newWordCount = allWords.length;
+    
+    developer.log('📡 Speech received: "${speech}" (${speech.length} chars)', 
+        name: 'dyslexic_ai.reading_coach');
+    developer.log('🔢 Word count: ${newWordCount} new vs ${_lastProcessedWordCount} last processed', 
+        name: 'dyslexic_ai.reading_coach');
+    
+    if (newWordCount > _lastProcessedWordCount) {
+      final previousCount = _lastProcessedWordCount;
+      final oldWords = recognizedWords.toList(); // Copy for comparison
+      recognizedWords = allWords;
+      _lastProcessedWordCount = newWordCount;
+      
+      developer.log('🎯 New words detected: +${newWordCount - previousCount} new words', 
+          name: 'dyslexic_ai.reading_coach');
+      developer.log('🔄 Words updated: ${oldWords.length} → ${allWords.length}', 
+          name: 'dyslexic_ai.reading_coach');
+      developer.log('📋 New words: ${allWords.join(" | ")}', 
+          name: 'dyslexic_ai.reading_coach');
+    } else if (newWordCount < _lastProcessedWordCount) {
+      developer.log('⚠️ Word count decreased! ${_lastProcessedWordCount} → ${newWordCount} (possible speech reset)', 
+          name: 'dyslexic_ai.reading_coach');
+      // Don't update - this might be speech recognition restarting
+    } else {
+      developer.log('📍 Same word count (${newWordCount}), no update needed', 
+          name: 'dyslexic_ai.reading_coach');
+    }
   }
 
   @action
@@ -586,6 +708,11 @@ abstract class _ReadingCoachStore with Store {
             'Microphone access is required. Please allow microphone permissions and try again.';
         return;
       }
+
+      // Clear incremental tracking when manually restarting
+      recognizedWords.clear();
+      _lastProcessedWordCount = 0;
+      developer.log('🔄 Manual restart: cleared speech tracking', name: 'dyslexic_ai.reading_coach');
 
       // Ensure TTS is stopped before restarting
       await _ttsService.prepareForSpeechRecognition();

@@ -27,7 +27,7 @@ class SpeechRecognitionService {
   // Silence detection
   Timer? _silenceTimer;
   int _silenceSeconds = 0;
-  final int _maxSilenceSeconds = 15; // 15 seconds of silence triggers auto-stop
+  final int _maxSilenceSeconds = 30; // 30 seconds of silence triggers auto-stop (increased from 15)
   bool _hasDetectedSpeech = false;
 
   SpeechRecognitionService() {
@@ -246,14 +246,22 @@ class SpeechRecognitionService {
       _ensureSilenceController();
       _silenceController?.add(_silenceSeconds);
       
+      // Log silence progress every 5 seconds
+      if (_silenceSeconds % 5 == 0) {
+        developer.log('⏱️ Silence timer: ${_silenceSeconds}s (max: ${_maxSilenceSeconds}s, hasDetectedSpeech: $_hasDetectedSpeech)', 
+            name: 'dyslexic_ai.speech');
+      }
+      
       // Update status based on silence duration
       if (_silenceSeconds >= 8 && _hasDetectedSpeech) {
+        developer.log('🔶 Status: detectingSilence (${_silenceSeconds}s)', name: 'dyslexic_ai.speech');
         _ensureStatusController();
         _statusController?.add(RecordingStatus.detectingSilence);
       }
       
       // Auto-stop after max silence duration (only if we've detected speech)
       if (_silenceSeconds >= _maxSilenceSeconds && _hasDetectedSpeech) {
+        developer.log('🛑 Auto-stopping due to silence timeout (${_silenceSeconds}s)', name: 'dyslexic_ai.speech');
         _handleSilenceTimeout();
       }
     });
@@ -269,9 +277,12 @@ class SpeechRecognitionService {
   }
 
   void _resetSilenceTimer() {
+    final oldSeconds = _silenceSeconds;
     _silenceSeconds = 0;
     _ensureSilenceController();
     _silenceController?.add(_silenceSeconds);
+    
+    developer.log('🔄 Silence timer reset: ${oldSeconds}s → 0s', name: 'dyslexic_ai.speech');
     
     // Update status back to recording when speech detected
     if (_hasDetectedSpeech) {
@@ -293,14 +304,17 @@ class SpeechRecognitionService {
   void _onResult(result) {
     if (_isDisposed) return;
     
-    developer.log('🎤 Speech Result: "${result.recognizedWords}" (final: ${result.finalResult})', name: 'dyslexic_ai.speech');
+    developer.log('🎤 Speech Result: "${result.recognizedWords}" (final: ${result.finalResult}, confidence: ${result.confidence ?? "unknown"})', name: 'dyslexic_ai.speech');
     
     if (result.recognizedWords.isNotEmpty) {
       _hasDetectedSpeech = true;
+      developer.log('🔄 Resetting silence timer (speech detected)', name: 'dyslexic_ai.speech');
       _resetSilenceTimer();
       
       _ensureRecognizedWordsController();
       _recognizedWordsController?.add(result.recognizedWords);
+    } else {
+      developer.log('⚠️ Empty speech result - silence timer continues (${_silenceSeconds}s)', name: 'dyslexic_ai.speech');
     }
     
     // Handle final result

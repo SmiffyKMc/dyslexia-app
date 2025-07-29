@@ -3,7 +3,8 @@ import '../services/font_preference_service.dart';
 import '../utils/service_locator.dart';
 import '../utils/session_debug_helper.dart';
 import 'dart:developer' as developer;
-import '../screens/profile_debug_screen.dart'; // Added import for ProfileDebugScreen
+import '../screens/profile_debug_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,12 +16,15 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late final FontPreferenceService _fontPreferenceService;
   bool _isOpenDyslexicFont = false;
+  String _appVersion = 'Loading...';
+  String _appName = 'DyslexAI';
 
   @override
   void initState() {
     super.initState();
     _fontPreferenceService = getIt<FontPreferenceService>();
     _loadFontPreference();
+    _loadAppInfo();
   }
 
   Future<void> _loadFontPreference() async {
@@ -28,6 +32,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isOpenDyslexicFont = isOpenDyslexic;
     });
+  }
+
+  Future<void> _loadAppInfo() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
+        _appName = packageInfo.appName;
+      });
+    } catch (e) {
+      setState(() {
+        _appVersion = 'Unknown';
+      });
+    }
   }
 
   Future<void> _onFontToggle(bool value) async {
@@ -211,7 +229,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: Icon(Icons.info, color: Colors.grey[600]),
               title: const Text('Version', style: TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: const Text('1.0.0', style: TextStyle(fontSize: 12)),
+              subtitle: Text('$_appName $_appVersion', style: const TextStyle(fontSize: 12)),
               contentPadding: EdgeInsets.zero,
             ),
           ],

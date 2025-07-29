@@ -350,7 +350,7 @@ dyslexic_ai/
 ### **Core Documentation**
 - **[Technical Deep Dive](DyslexAI_Technical_Deep_Dive.md)**: Comprehensive engineering proof-of-work covering session management, prompt engineering, and production problem-solving
 - **[Kaggle Competition Writeup](Dyslexia_AI_Kaggle_Writeup.md)**: Main submission overview highlighting innovation, impact, and competitive advantages
-- **[Dyslexia Research](dyslexcia_research.md)**: Background research and educational foundation informing the app design
+- **[Dyslexia Research](dyslexia_research.md)**: Background research and educational foundation informing the app design
 
 ### **Getting Started**
 - **Installation**: Follow the setup instructions in this README
