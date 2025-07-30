@@ -141,7 +141,6 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
         } else if (progress >= 0.0 && progress <= 1.0) {
           // Regular download progress
           final progressPercent = (progress * 100).toInt();
-          developer.log('📱 UI received progress: $progressPercent%', name: 'dyslexic_ai.init');
           
           setState(() {
             _loadingProgress = progress;

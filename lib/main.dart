@@ -23,6 +23,8 @@ import 'services/font_preference_service.dart';
 import 'services/profile_update_service.dart';
 import 'services/background_download_manager.dart';
 import 'dart:developer' as developer;
+import 'services/download_notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -31,16 +33,12 @@ void callbackDispatcher() {
 
   Workmanager().executeTask((task, inputData) async {
     try {
-      developer.log('🔧 Background task started: $task with data: $inputData',
+      developer.log('🔧 Background task started: $task',
           name: 'dyslexic_ai.workmanager');
 
       switch (task) {
         case 'model_download_task':
-          developer.log('📥 Starting model download task execution',
-              name: 'dyslexic_ai.workmanager');
           await _handleModelDownloadTask(inputData);
-          developer.log('✅ Model download task completed successfully',
-              name: 'dyslexic_ai.workmanager');
           break;
         default:
           developer.log('❓ Unknown background task: $task',
@@ -64,6 +62,17 @@ Future<void> _handleModelDownloadTask(Map<String, dynamic>? inputData) async {
     // Initialize minimal services needed for download
     final downloadManager = BackgroundDownloadManager.instance;
     await downloadManager.initialize();
+
+    // Clear any task registration locks since we're actually running now
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('dyslexic_ai_workmanager_lock');
+
+    // Initialize notification service in background worker to show progress
+    final notificationService = DownloadNotificationService.instance;
+    await notificationService.initialize();
+    
+    developer.log('🔔 Notification service initialized in background worker', 
+                 name: 'dyslexic_ai.workmanager');
 
     // Check if model is already available before starting download
     if (await downloadManager.isModelAvailable()) {

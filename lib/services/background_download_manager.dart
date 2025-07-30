@@ -99,16 +99,10 @@ class BackgroundDownloadManager {
   static const String _modelFileName = 'gemma-3n-E2B-it-int4.task';
   static const String _modelUrl = 'https://kaggle-gemma3.b-cdn.net/gemma-3n-E2B-it-int4.task';
   static const String _backgroundTaskName = 'model_download_task';
+  static const String _taskLockKey = 'dyslexic_ai_workmanager_lock';
   
   // Track last logged progress to avoid spam
   static double _lastLoggedProgress = -1;
-  
-  // GOOGLE'S APPROACH: Rate calculation with rolling buffers
-  DateTime? _lastProgressUpdate;
-  static const Duration _progressUpdateInterval = Duration(milliseconds: 200);
-  final List<int> _bytesReadBuffer = [];
-  final List<int> _latencyBuffer = [];
-  int _lastReceivedBytes = 0;
   
   static BackgroundDownloadManager? _instance;
   static BackgroundDownloadManager get instance => _instance ??= BackgroundDownloadManager._();
@@ -159,10 +153,13 @@ class BackgroundDownloadManager {
           progress: 1.0,
         ));
       }
-    } else if (_currentState.status == DownloadStatus.downloading) {
+    } else if (await isDownloadInProgress()) {
       // Check if there's an incomplete download to resume
-      developer.log('🔄 Found incomplete download, checking if resumable', name: 'dyslexic_ai.background_download');
+      developer.log('🔄 Found incomplete download, resuming progress monitoring', name: 'dyslexic_ai.background_download');
       await _checkResumeDownload();
+      
+      // Start progress monitoring for UI updates since download is in progress
+      _startProgressMonitoring();
     }
 
     developer.log('✅ BackgroundDownloadManager initialized', name: 'dyslexic_ai.background_download');
@@ -330,6 +327,57 @@ class BackgroundDownloadManager {
     await _updateState(DownloadState.initial());
   }
 
+  /// Check if a download is currently in progress
+  /// Simple logic: file exists + incomplete = download in progress
+  Future<bool> isDownloadInProgress() async {
+    // First check if model is already complete
+    if (await isModelAvailable()) {
+      return false;
+    }
+    
+    // Check if there's a partial file
+    final modelPath = await _getModelFilePath();
+    final file = File(modelPath);
+    
+    if (!file.existsSync()) {
+      developer.log('🔍 No download in progress - no file exists', 
+                   name: 'dyslexic_ai.background_download');
+      return false;
+    }
+    
+    final actualSize = await file.length();
+    final expectedSize = await _getExpectedModelSize();
+    
+    if (expectedSize == null || expectedSize <= 0) {
+      developer.log('🔍 No download in progress - no expected size', 
+                   name: 'dyslexic_ai.background_download');
+      return false;
+    }
+    
+    // Simple logic: if file exists and is incomplete, download is in progress
+    final isIncomplete = actualSize > 0 && actualSize < expectedSize;
+    
+    developer.log('🔍 Download check: File ${(actualSize / (1024 * 1024)).toStringAsFixed(1)}MB/${(expectedSize / (1024 * 1024)).toStringAsFixed(1)}MB, incomplete: $isIncomplete', 
+                 name: 'dyslexic_ai.background_download');
+    
+    if (isIncomplete) {
+      // Update our state to match reality
+      await _loadState(); // Refresh from SharedPreferences
+      
+      // If state doesn't match reality, update it
+      if (_currentState.status != DownloadStatus.downloading) {
+        await _updateState(_currentState.copyWith(
+          status: DownloadStatus.downloading,
+          progress: (actualSize / expectedSize).clamp(0.0, 1.0),
+          downloadedBytes: actualSize,
+          totalBytes: expectedSize,
+        ));
+      }
+    }
+    
+    return isIncomplete;
+  }
+
   Future<bool> isModelAvailable() async {
     try {
       final modelPath = await _getModelFilePath();
@@ -407,68 +455,32 @@ class BackgroundDownloadManager {
   void _onReceiveProgress(int received, int total) {
     if (total <= 0) return;
 
-    // Keep our existing session tracking logic (more accurate than Google's)
     final sessionStartBytes = _sessionStartBytes ?? 0;
     final actualReceived = sessionStartBytes + received;
     final actualTotal = _currentState.totalBytes!;
     final progress = actualReceived / actualTotal;
     final now = DateTime.now();
 
-    // GOOGLE'S APPROACH: Update progress every 200ms with rate calculation
-    if (_lastProgressUpdate == null || 
-        now.difference(_lastProgressUpdate!).inMilliseconds >= _progressUpdateInterval.inMilliseconds) {
+    // Simplified progress updates - only update every 1% to avoid killing WorkManager
+    final progressPercent = (progress * 100).toInt();
+    if (progressPercent > _lastLoggedProgress && progressPercent % 1 == 0) {
+      _lastLoggedProgress = progressPercent.toDouble();
       
-      // Calculate download rate with rolling buffer (Google's method improved)
-      if (_lastProgressUpdate != null) {
-        final deltaBytes = actualReceived - _lastReceivedBytes;
-        final deltaMs = now.difference(_lastProgressUpdate!).inMilliseconds;
-        
-        // Rolling buffer of last 5 measurements
-        if (_bytesReadBuffer.length >= 5) {
-          _bytesReadBuffer.removeAt(0);
-          _latencyBuffer.removeAt(0);
-        }
-        _bytesReadBuffer.add(deltaBytes);
-        _latencyBuffer.add(deltaMs);
-        
-        // Calculate rate (bytes per second)
-        final totalDeltaBytes = _bytesReadBuffer.fold(0, (sum, bytes) => sum + bytes);
-        final totalDeltaMs = _latencyBuffer.fold(0, (sum, ms) => sum + ms);
-        final bytesPerSecond = totalDeltaMs > 0 ? (totalDeltaBytes * 1000 / totalDeltaMs).round() : 0;
-        
-        // Estimate remaining time (Google's approach)
-        final remainingBytes = actualTotal - actualReceived;
-        final remainingSeconds = bytesPerSecond > 0 ? (remainingBytes / bytesPerSecond).round() : 0;
-        final remainingTime = remainingSeconds < 60 ? '${remainingSeconds}s' : '${(remainingSeconds / 60).round()}m';
-        
-        // Enhanced logging with rate and ETA (Google-style)
-        final progressPercent = (progress * 100).toInt();
-        if (progressPercent % 5 == 0 && progressPercent != _lastLoggedProgress) {
-          _lastLoggedProgress = progressPercent.toDouble();
-          final receivedMB = (actualReceived / (1024 * 1024)).toStringAsFixed(1);
-          final totalMB = (actualTotal / (1024 * 1024)).toStringAsFixed(1);
-          final rateMBps = (bytesPerSecond / (1024 * 1024)).toStringAsFixed(2);
-          
-          developer.log('📥 Download: ${progressPercent}% (${receivedMB}/${totalMB}MB) - ${rateMBps}MB/s - ETA: $remainingTime', 
-                       name: 'dyslexic_ai.background_download');
-        }
+      // Update state much less frequently to keep WorkManager alive
+      _updateState(_currentState.copyWith(
+        progress: progress,
+        downloadedBytes: actualReceived,
+        totalBytes: actualTotal,
+        lastUpdate: now,
+      ));
+      
+      // Simple logging
+      if (progressPercent % 5 == 0) {
+        final receivedMB = (actualReceived / (1024 * 1024)).toStringAsFixed(1);
+        final totalMB = (actualTotal / (1024 * 1024)).toStringAsFixed(1);
+        developer.log('📥 Download: ${progressPercent}% (${receivedMB}/${totalMB}MB)', 
+                     name: 'dyslexic_ai.background_download');
       }
-      
-      // Update state (keeping our 1% throttling for SharedPreferences efficiency)
-      final progressPercent = (progress * 100);
-      final lastProgressPercent = _currentState.progress * 100;
-      
-      if (progressPercent - lastProgressPercent >= 1.0) {
-        _updateState(_currentState.copyWith(
-          progress: progress,
-          downloadedBytes: actualReceived,
-          totalBytes: actualTotal,
-          lastUpdate: now,
-        ));
-      }
-      
-      _lastProgressUpdate = now;
-      _lastReceivedBytes = actualReceived;
     }
   }
 
@@ -595,8 +607,12 @@ class BackgroundDownloadManager {
       return;
     }
 
-    if (_currentState.status == DownloadStatus.downloading) {
-      developer.log('⚠️ Background download already in progress', name: 'dyslexic_ai.background_download');
+    if (await isDownloadInProgress()) {
+      developer.log('⚠️ Background download already in progress, not starting new one', name: 'dyslexic_ai.background_download');
+      // Make sure progress monitoring is active
+      if (_progressTimer == null) {
+        _startProgressMonitoring();
+      }
       return;
     }
 
@@ -616,9 +632,77 @@ class BackgroundDownloadManager {
       progress: 0.0,
     ));
     
+    // Start monitoring SharedPreferences for progress updates from background worker
+    _startProgressMonitoring();
+    
     // Google's approach: Trust WorkManager to handle progress updates
     developer.log('✅ Background worker registered, trusting WorkManager (Google AI Edge approach)', 
                  name: 'dyslexic_ai.background_download');
+  }
+
+  /// Monitor SharedPreferences for progress updates from background worker
+  void _startProgressMonitoring() {
+    developer.log('🔄 Starting file-based progress monitoring', 
+                 name: 'dyslexic_ai.background_download');
+    
+    // Simple file-based progress monitoring every 2 seconds
+    _progressTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      try {
+        if (_currentState.status != DownloadStatus.downloading) {
+          timer.cancel();
+          _progressTimer = null;
+          return;
+        }
+
+        final modelPath = await _getModelFilePath();
+        final file = File(modelPath);
+        
+        if (file.existsSync()) {
+          final actualSize = await file.length();
+          final expectedSize = await _getExpectedModelSize();
+          
+          if (expectedSize != null && expectedSize > 0) {
+            final realProgress = (actualSize / expectedSize).clamp(0.0, 1.0);
+            
+            // Only update if progress changed meaningfully
+            if ((realProgress - _currentState.progress).abs() > 0.01) { // 1% threshold
+              _currentState = _currentState.copyWith(
+                progress: realProgress,
+                downloadedBytes: actualSize,
+                totalBytes: expectedSize,
+                lastUpdate: DateTime.now(),
+              );
+              _stateController.add(_currentState);
+            }
+            
+            // Check if download completed - require very close to 100% to ensure file is fully written
+            if (realProgress >= 0.9995) {
+              developer.log('✅ Download complete', name: 'dyslexic_ai.background_download');
+              timer.cancel();
+              _progressTimer = null;
+              
+              // Clear any task locks since download is complete
+              try {
+                final prefs = await SharedPreferences.getInstance();  
+                await prefs.remove(_taskLockKey);
+              } catch (e) {
+                // Ignore cleanup errors
+              }
+              
+              _currentState = _currentState.copyWith(
+                status: DownloadStatus.completed,
+                progress: 1.0,
+              );
+              _stateController.add(_currentState);
+            }
+          }
+        }
+      } catch (e) {
+        developer.log('❌ Error monitoring progress: $e', name: 'dyslexic_ai.background_download');
+      }
+    });
+    
+    ResourceDiagnostics().registerTimer('BackgroundDownloadManager', 'progressTimer', _progressTimer!);
   }
 
   /// Pure download method for WorkManager - ONLY downloads, no task registration
@@ -773,6 +857,29 @@ class BackgroundDownloadManager {
   
   Future<void> _registerBackgroundTask() async {
     try {
+      // Check if task registration is already in progress
+      final prefs = await SharedPreferences.getInstance();
+      final taskLockTime = prefs.getInt(_taskLockKey);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      
+      // If lock exists and is less than 60 seconds old, don't register
+      if (taskLockTime != null && (now - taskLockTime) < 60000) {
+        developer.log('🔒 WorkManager task registration locked, skipping duplicate', name: 'dyslexic_ai.workmanager');
+        return;
+      }
+      
+      // Set lock to prevent duplicate registrations
+      await prefs.setInt(_taskLockKey, now);
+      
+      // Cancel any existing task with the same name first
+      try {
+        await Workmanager().cancelByUniqueName(_backgroundTaskName);
+        developer.log('🔧 Cancelled existing background task before registering new one', name: 'dyslexic_ai.workmanager');
+      } catch (e) {
+        // Ignore if no existing task to cancel
+        developer.log('ℹ️ No existing task to cancel (this is normal): $e', name: 'dyslexic_ai.workmanager');
+      }
+      
       await Workmanager().registerOneOffTask(
         _backgroundTaskName,
         _backgroundTaskName,
@@ -781,16 +888,29 @@ class BackgroundDownloadManager {
           requiresBatteryNotLow: false,  // Allow on low battery
           requiresCharging: false,       // Don't require charging
           requiresDeviceIdle: false,     // Don't require idle
-          requiresStorageNotLow: false,  // CRITICAL: Don't check storage (too restrictive for large downloads)
+          requiresStorageNotLow: false,  // Don't check storage
         ),
         backoffPolicy: BackoffPolicy.exponential,
-        backoffPolicyDelay: Duration(seconds: 30), // Reduced from 1 minute
-        initialDelay: Duration(seconds: 2),        // Start almost immediately
+        backoffPolicyDelay: Duration(seconds: 30),
+        initialDelay: Duration(seconds: 1),
+        // Add this to try to keep task alive longer
+        inputData: <String, dynamic>{
+          'priority': 'high',
+          'keep_alive': true,
+        },
       );
       
-      developer.log('🔧 Background download task registered with relaxed constraints', name: 'dyslexic_ai.workmanager');
+      developer.log('🔧 Background download task registered with maximum flexibility', name: 'dyslexic_ai.workmanager');
+      
+      // Clear lock after successful registration
+      await prefs.remove(_taskLockKey);
+      
     } catch (e) {
       developer.log('❌ Failed to register background task: $e', name: 'dyslexic_ai.workmanager');
+      
+      // Clear lock on error
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_taskLockKey);
     }
   }
   

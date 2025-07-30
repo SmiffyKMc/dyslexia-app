@@ -61,6 +61,7 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
     try {
       return Scaffold(
         backgroundColor: DyslexiaTheme.primaryBackground,
+        resizeToAvoidBottomInset: false, // Keep buttons at bottom when keyboard appears
         appBar: AppBar(
           backgroundColor: DyslexiaTheme.primaryBackground,
           elevation: 0,
@@ -79,58 +80,61 @@ class _NameEntryScreenState extends State<NameEntryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Main content
+                // Main content - make it scrollable
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Icon and title
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: DyslexiaTheme.primaryAccent
-                              .withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Icon and title
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: DyslexiaTheme.primaryAccent
+                                .withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            size: 32,
+                            color: DyslexiaTheme.primaryAccent,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.person,
-                          size: 32,
-                          color: DyslexiaTheme.primaryAccent,
+                        const SizedBox(height: 24),
+
+                        const Text(
+                          'What should we call you?',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: DyslexiaTheme.textPrimary,
+                            height: 1.2,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
+                        const SizedBox(height: 12),
 
-                      const Text(
-                        'What should we call you?',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: DyslexiaTheme.textPrimary,
-                          height: 1.2,
+                        const Text(
+                          'This helps us personalize your learning experience and create a profile just for you.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: DyslexiaTheme.textSecondary,
+                            height: 1.4,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 32),
 
-                      const Text(
-                        'This helps us personalize your learning experience and create a profile just for you.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: DyslexiaTheme.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Name input field
-                      _buildNameField(),
-
-                      const Spacer(),
-                    ],
+                        // Name input field
+                        _buildNameField(),
+                        
+                        // Add some bottom padding to ensure content doesn't get too close to buttons
+                        const SizedBox(height: 32),
+                      ],
+                    ),
                   ),
                 ),
 
-                // Navigation buttons
+                // Navigation buttons - these will stay at the bottom
                 _buildNavigationButtons(),
               ],
             ),
