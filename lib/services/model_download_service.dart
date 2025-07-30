@@ -266,134 +266,22 @@ class ModelDownloadService {
         return;
       }
 
-      // Use BackgroundDownloadManager for new downloads
+      // If we reach here, a download is needed.
+      _currentStatus = ModelStatus.downloading;
       final getIt = GetIt.instance;
       final backgroundDownloadManager = getIt<BackgroundDownloadManager>();
 
-      // CRITICAL: Check if a download is already in progress
-      final downloadInProgress = await backgroundDownloadManager.isDownloadInProgress();
-      developer.log('🔍 Download in progress check result: $downloadInProgress', 
-                   name: 'dyslexic_ai.model_download');
-      
-      if (downloadInProgress) {
-        developer.log('🔄 Download already in progress, resuming existing download...',
-            name: 'dyslexic_ai.model_download');
-        _currentStatus = ModelStatus.downloading;
-        
-        // Set initial progress from current state and immediately update UI
-        final currentProgress = backgroundDownloadManager.currentState.progress;
-        downloadProgress = currentProgress;
-        onProgress?.call(currentProgress);
-        
-        developer.log('📱 UI resumed at ${(currentProgress * 100).toStringAsFixed(1)}%', 
-                     name: 'dyslexic_ai.model_download');
-        
-        // Listen to the existing download progress
-        backgroundDownloadManager.stateStream.listen((state) async {
-          switch (state.status) {
-            case DownloadStatus.downloading:
-              downloadProgress = state.progress;
-              onProgress?.call(state.progress);
-              break;
-            case DownloadStatus.completed:
-              developer.log(
-                  '🔧 Background download complete, validating and initializing model...',
-                  name: 'dyslexic_ai.model_download');
+      // This is now a fire-and-forget call.
+      // The UI will listen to the background manager's stream for progress.
+      developer.log('🚀 Triggering background download manager...', name: 'dyslexic_ai.model_download');
+      await backgroundDownloadManager.startOrResumeDownload();
 
-              // Get the downloaded model path
-              final modelPath = await _getModelFilePath();
-
-              // FOLLOW GOOGLE'S APPROACH: Trust completed downloads, no post-validation
-              // Google AI Edge Gallery (github.com/google-ai-edge/gallery) doesn't validate
-              // file size after download - they trust that successful HTTP download = valid file
-              developer.log('✅ Download completed successfully, trusting file integrity (following Google AI Edge approach)', 
-                           name: 'dyslexic_ai.model_download');
-
-              // File is valid, mark as downloaded
-              _currentStatus = ModelStatus.downloadCompleted;
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString(_prefsKeyModelPath, modelPath);
-              await prefs.setBool(_prefsKeyModelDownloaded, true);
-
-              // Now attempt model initialization (separate phase)
-              await _attemptModelInitialization(onProgress, onError, onSuccess);
-              break;
-
-            case DownloadStatus.failed:
-              final errorString =
-                  'Background download failed: ${state.error ?? 'Unknown error'}';
-              developer.log(errorString, name: 'dyslexic_ai.model_download');
-              _currentStatus = ModelStatus.notDownloaded;
-              downloadError = errorString;
-              await _logError('DOWNLOAD_FAILED: $errorString. State: ${state.toString()}');
-              onError?.call(errorString);
-              break;
-            default:
-              break;
-          }
-        });
-        return; // Don't start a new download
-      }
-
-      // Need to download the file first
-      developer.log('📥 Model file not available, starting download...',
-          name: 'dyslexic_ai.model_download');
-      _currentStatus = ModelStatus.downloading;
-
-      // Listen to background download progress
-      backgroundDownloadManager.stateStream.listen((state) async {
-        switch (state.status) {
-          case DownloadStatus.downloading:
-            downloadProgress = state.progress;
-            onProgress?.call(state.progress);
-            break;
-          case DownloadStatus.completed:
-            developer.log(
-                '🔧 Background download complete, validating and initializing model...',
-                name: 'dyslexic_ai.model_download');
-
-            // Get the downloaded model path
-            final modelPath = await _getModelFilePath();
-
-            // FOLLOW GOOGLE'S APPROACH: Trust completed downloads, no post-validation
-            // Google AI Edge Gallery (github.com/google-ai-edge/gallery) doesn't validate
-            // file size after download - they trust that successful HTTP download = valid file
-            developer.log('✅ Download completed successfully, trusting file integrity (following Google AI Edge approach)', 
-                         name: 'dyslexic_ai.model_download');
-
-            // File is valid, mark as downloaded
-            _currentStatus = ModelStatus.downloadCompleted;
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString(_prefsKeyModelPath, modelPath);
-            await prefs.setBool(_prefsKeyModelDownloaded, true);
-
-            // Now attempt model initialization (separate phase)
-            await _attemptModelInitialization(onProgress, onError, onSuccess);
-            break;
-
-          case DownloadStatus.failed:
-            final errorString =
-                'Background download failed: ${state.error ?? 'Unknown error'}';
-            developer.log(errorString, name: 'dyslexic_ai.model_download');
-            _currentStatus = ModelStatus.notDownloaded;
-            downloadError = errorString;
-            await _logError('DOWNLOAD_FAILED: $errorString. State: ${state.toString()}');
-            onError?.call(errorString);
-            break;
-          default:
-            break;
-        }
-      });
-
-      // Start the background download
-      developer.log('🚀 Starting NEW background download...', 
-                   name: 'dyslexic_ai.model_download');
-      await backgroundDownloadManager.startBackgroundDownload();
     } catch (e, stackTrace) {
       final errorString = 'Model download failed: $e';
       developer.log(errorString,
           name: 'dyslexic_ai.model_download', error: e, stackTrace: stackTrace);
       downloadError = errorString;
+      _currentStatus = ModelStatus.notDownloaded;
       onError?.call(errorString);
     }
   }

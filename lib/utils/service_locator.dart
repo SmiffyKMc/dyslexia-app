@@ -105,9 +105,6 @@ Future<void> setupLocator() async {
   await getIt<BackgroundDownloadManager>().initialize();
   await getIt<DownloadNotificationService>().initialize();
   
-  // Clean up any orphaned background tasks on app startup
-  await getIt<BackgroundDownloadManager>().validateAndCleanupBackgroundTasks();
-
   getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore());
 
   getIt.registerFactory<WordDoctorStore>(() => WordDoctorStore(

@@ -293,11 +293,11 @@ class DownloadNotificationService {
       case DownloadStatus.paused:
       case DownloadStatus.partiallyDownloaded:
         // Resume download when paused/partially downloaded notification is tapped
-        BackgroundDownloadManager.instance.resumeDownload();
+        BackgroundDownloadManager.instance.startOrResumeDownload();
         break;
       case DownloadStatus.failed:
         // Retry download when error notification is tapped
-        BackgroundDownloadManager.instance.startDownload();
+        BackgroundDownloadManager.instance.startOrResumeDownload();
         break;
       case DownloadStatus.completed:
         // Open app when completed notification is tapped

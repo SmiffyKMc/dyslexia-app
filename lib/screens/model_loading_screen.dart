@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get_it/get_it.dart';
 
 import '../services/model_download_service.dart';
+import '../services/background_download_manager.dart';
 import '../widgets/fun_loading_widget.dart';
 import '../main.dart';
 import 'questionnaire/questionnaire_flow.dart';
@@ -12,26 +14,26 @@ class ModelLoadingScreen extends StatefulWidget {
   const ModelLoadingScreen({super.key});
 
   @override
-  State<ModelLoadingScreen> createState() => _ModelLoadingScreenState();
+  State<ModelLoadingScreen> createState() => _ModelLoadingLScreenState();
 }
 
-class _ModelLoadingScreenState extends State<ModelLoadingScreen>
+class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
     with TickerProviderStateMixin {
-  
-  final ModelDownloadService _modelDownloadService = GetIt.instance<ModelDownloadService>();
+  final ModelDownloadService _modelDownloadService =
+      GetIt.instance<ModelDownloadService>();
+  final BackgroundDownloadManager _backgroundDownloadManager =
+      GetIt.instance<BackgroundDownloadManager>();
+
+  StreamSubscription<DownloadState>? _downloadStateSubscription;
 
   double _loadingProgress = 0.0;
   String? _loadingError;
-  String? _debugErrorDetails; // Add debug error details
   bool _isModelReady = false;
   bool _isInitializing = false;
-  
-  // Additional progress info for better UX
-  String _progressText = '';
-  String _downloadedInfo = '';
-  
+  String _progressText = '0%';
+  String _downloadedInfo = 'Preparing...';
+
   late final AnimationController _pulseController;
-  late final Animation<double> _scaleAnimation;
   late final AnimationController _icon1Controller;
   late final AnimationController _icon2Controller;
   late final AnimationController _icon3Controller;
@@ -45,9 +47,9 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
   @override
   void initState() {
     super.initState();
-    
     _setupAnimations();
-    _initModel();
+    _subscribeToDownloadManager();
+    _initiateModelCheck();
   }
 
   void _setupAnimations() {
@@ -55,14 +57,6 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat(reverse: true);
-    
-    _scaleAnimation = Tween<double>(
-      begin: 0.85,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
     
     _icon1Controller = AnimationController(
       duration: const Duration(seconds: 5),
@@ -116,109 +110,102 @@ class _ModelLoadingScreenState extends State<ModelLoadingScreen>
     ));
   }
 
-  Future<void> _initModel() async {
-    developer.log('Starting model initialization...', name: 'dyslexic_ai.init');
-    
+  void _subscribeToDownloadManager() {
+    _downloadStateSubscription?.cancel();
+    _downloadStateSubscription =
+        _backgroundDownloadManager.stateStream.listen((state) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingProgress = state.progress;
+        _progressText = '${(state.progress * 100).toInt()}%';
+        
+        if (state.totalBytes != null && state.downloadedBytes != null) {
+          final downloadedMB = (state.downloadedBytes! / (1024 * 1024)).toStringAsFixed(1);
+          final totalMB = (state.totalBytes! / (1024 * 1024)).toStringAsFixed(1);
+          _downloadedInfo = '$downloadedMB MB / $totalMB MB';
+        } else {
+          _downloadedInfo = 'Calculating size...';
+        }
+
+        switch (state.status) {
+          case DownloadStatus.notStarted:
+             _downloadedInfo = 'Starting download...';
+            break;
+          case DownloadStatus.downloading:
+            _loadingError = null;
+            _isInitializing = false;
+            break;
+          case DownloadStatus.completed:
+            _loadingProgress = 1.0;
+            _progressText = '100%';
+            _startModelInitialization();
+            break;
+          case DownloadStatus.failed:
+            _loadingError = state.error ?? 'An unknown download error occurred.';
+            _isInitializing = false;
+            break;
+          case DownloadStatus.paused:
+            _downloadedInfo = 'Download paused';
+            break;
+          default:
+            break;
+        }
+      });
+    });
+  }
+  
+  void _initiateModelCheck() async {
+    // Check if the model is already ready to go.
+    if (await _modelDownloadService.isModelAvailable()) {
+      setState(() {
+         _isModelReady = true;
+         _loadingProgress = 1.0;
+      });
+      _navigateToHome();
+      return;
+    }
+    // If not, trigger the download process. The stream listener will handle UI updates.
+    await _modelDownloadService.downloadModelIfNeeded();
+  }
+
+  void _startModelInitialization() {
+    if (_isInitializing || _isModelReady) return;
+
     setState(() {
-      _loadingProgress = 0.0;
+      _isInitializing = true;
+    });
+
+    _modelDownloadService.initializeExistingModel().then((success) {
+      if (!mounted) return;
+      if (success) {
+        setState(() {
+          _isModelReady = true;
+        });
+        _navigateToHome();
+      } else {
+        setState(() {
+          _loadingError = "Failed to initialize the AI model. Please try restarting the app.";
+          _isInitializing = false;
+        });
+      }
+    });
+  }
+
+  void _retry() {
+    setState(() {
       _loadingError = null;
+      _loadingProgress = 0.0;
       _isModelReady = false;
       _isInitializing = false;
     });
-
-    // Use the original pattern - call downloadModelIfNeeded with callbacks
-    await _modelDownloadService.downloadModelIfNeeded(
-      onProgress: (progress) {
-        if (!mounted) return;
-        
-        if (progress == -1.0) {
-          // Signal to switch UI to model initialization mode
-          developer.log('📱 UI switching to model initialization mode', name: 'dyslexic_ai.init');
-          setState(() {
-            _isInitializing = true;
-            _loadingProgress = 1.0; // Show completed progress bar
-          });
-        } else if (progress >= 0.0 && progress <= 1.0) {
-          // Regular download progress
-          final progressPercent = (progress * 100).toInt();
-          
-          setState(() {
-            _loadingProgress = progress;
-            _isInitializing = false;
-            _progressText = '$progressPercent%';
-            
-            // Note: We don't have detailed MB info in this callback, but that's OK
-            // The background download still happens, we just show simpler progress
-            _downloadedInfo = 'Downloading...';
-          });
-        }
-      },
-      onError: (error) async {
-        if (!mounted) return;
-        developer.log('Error from downloadModelIfNeeded: $error', name: 'dyslexic_ai.init.error');
-        
-        // Capture detailed debug information
-        final status = _modelDownloadService.currentStatus;
-        final downloadError = _modelDownloadService.downloadError;
-        
-        // Create debug details string
-        final debugLog = await _modelDownloadService.getDebugLog();
-        final debugDetails = '''
-DEBUG INFO:
-Status: $status
-Raw Error: $error
-Download Error: $downloadError
-Progress: $_loadingProgress
-Is Initializing: $_isInitializing
-Model Ready: ${_modelDownloadService.isModelReady}
-
-DEBUG LOG:
-$debugLog
-        '''.trim();
-        
-        // Provide user-friendly error message
-        String errorMessage;
-        switch (status) {
-          case ModelStatus.notDownloaded:
-          case ModelStatus.downloading:
-            errorMessage = "Failed to download AI model. Please check your internet connection and try again.";
-            break;
-          case ModelStatus.downloadCompleted:
-          case ModelStatus.initializing:
-            errorMessage = "Downloaded successfully but failed to initialize. This may be due to device limitations. Try restarting the app or freeing up memory.";
-            break;
-          case ModelStatus.initializationFailed:
-            errorMessage = "Model initialization failed. The file is ready but cannot be loaded right now. Try restarting the app or freeing up memory.";
-            break;
-          case ModelStatus.ready:
-            errorMessage = "An unexpected error occurred: $error";
-            break;
-        }
-        
-        setState(() {
-          _loadingError = errorMessage;
-          _debugErrorDetails = debugDetails;
-          _loadingProgress = 0.0;
-          _isInitializing = false;
-        });
-      },
-      onSuccess: () {
-        if (!mounted) return;
-        developer.log('Model ready, navigating to home', name: 'dyslexic_ai.init');
-        setState(() {
-          _isModelReady = true;
-          _loadingProgress = 1.0;
-          _loadingError = null;
-          _isInitializing = false;
-        });
-        _navigateToHome();
-      },
-    );
+    _backgroundDownloadManager.startOrResumeDownload();
   }
-
+  
   void _navigateToHome() {
     if (mounted && _isModelReady) {
-      developer.log("Model is ready, checking first-time user flow.", name: 'dyslexic_ai.navigation');
+      developer.log("Model is ready, checking first-time user flow.",
+          name: 'dyslexic_ai.navigation');
       _checkFirstTimeUser();
     }
   }
@@ -226,19 +213,22 @@ $debugLog
   Future<void> _checkFirstTimeUser() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final hasCompleted = prefs.getBool('has_completed_questionnaire') ?? false;
-      
+      final hasCompleted =
+          prefs.getBool('has_completed_questionnaire') ?? false;
+
       if (!mounted) return;
-      
+
       if (!hasCompleted) {
-        developer.log("First-time user, navigating to questionnaire.", name: 'dyslexic_ai.navigation');
+        developer.log("First-time user, navigating to questionnaire.",
+            name: 'dyslexic_ai.navigation');
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const QuestionnaireFlow()),
           );
         }
       } else {
-        developer.log("Returning user, navigating to MainApp.", name: 'dyslexic_ai.navigation');
+        developer.log("Returning user, navigating to MainApp.",
+            name: 'dyslexic_ai.navigation');
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (_) => const MainApp()),
@@ -246,7 +236,8 @@ $debugLog
         }
       }
     } catch (e) {
-      developer.log("Error checking first-time user: $e", name: 'dyslexic_ai.navigation.error');
+      developer.log("Error checking first-time user: $e",
+          name: 'dyslexic_ai.navigation.error');
       // Fallback to main app on error
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -254,19 +245,6 @@ $debugLog
         );
       }
     }
-  }
-
-  void _retryLoad() async {
-    setState(() {
-      _loadingError = null;
-      _debugErrorDetails = null;
-      _loadingProgress = 0.0;
-      _isModelReady = false;
-      _isInitializing = false;
-    });
-    
-    // Just restart the download process - don't cancel/delete partial files
-    _initModel();
   }
 
   Widget _buildDownloadProgress() {
@@ -283,8 +261,6 @@ $debugLog
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 40),
-        
-        // Progress bar
         Container(
           width: double.infinity,
           height: 8,
@@ -302,7 +278,7 @@ $debugLog
                   end: Alignment.centerRight,
                   colors: [
                     Theme.of(context).primaryColor,
-                    Theme.of(context).primaryColor.withValues(alpha: 0.8),
+                    Theme.of(context).primaryColor.withAlpha(200),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -310,47 +286,37 @@ $debugLog
             ),
           ),
         ),
-        
         const SizedBox(height: 20),
-        
-        // Progress percentage
         Text(
-          _progressText.isNotEmpty ? _progressText : '0%',
+          _progressText,
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
             color: Theme.of(context).primaryColor,
           ),
         ),
-        
         const SizedBox(height: 10),
-        
-        // Downloaded MB info
         Text(
-          _downloadedInfo.isNotEmpty ? _downloadedInfo : 'Preparing download...',
+          _downloadedInfo,
           style: TextStyle(
             fontSize: 16,
             color: Colors.grey[600],
           ),
           textAlign: TextAlign.center,
         ),
-        
         const SizedBox(height: 40),
-        
-        // Spinning icon for visual interest
-        Container(
+        SizedBox(
           width: 60,
           height: 60,
           child: CircularProgressIndicator(
             strokeWidth: 3,
-            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor.withValues(alpha: 0.3)),
+            valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).primaryColor.withOpacity(0.3)),
           ),
         ),
       ],
     );
   }
-
-
 
   List<String> _getInitializingMessages() {
     return [
@@ -367,6 +333,7 @@ $debugLog
   @override
   void dispose() {
     developer.log("Disposing ModelLoadingScreen", name: 'dyslexic_ai.lifecycle');
+    _downloadStateSubscription?.cancel();
     _pulseController.dispose();
     _icon1Controller.dispose();
     _icon2Controller.dispose();
@@ -378,7 +345,7 @@ $debugLog
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
-    final iconColor = theme.colorScheme.primary.withValues(alpha: 0.5);
+    final iconColor = theme.colorScheme.primary.withAlpha(128);
 
     return Scaffold(
       body: Stack(
@@ -388,7 +355,7 @@ $debugLog
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  theme.colorScheme.primary.withValues(alpha: 0.1),
+                  theme.colorScheme.primary.withOpacity(0.1),
                   theme.colorScheme.surface,
                   theme.colorScheme.surface,
                 ],
@@ -398,7 +365,6 @@ $debugLog
               ),
             ),
           ),
-          
           Positioned(
             top: size.height * 0.2,
             left: size.width * 0.15,
@@ -414,7 +380,6 @@ $debugLog
               ),
             ),
           ),
-          
           Positioned(
             top: size.height * 0.4,
             right: size.width * 0.1,
@@ -430,7 +395,6 @@ $debugLog
               ),
             ),
           ),
-          
           Positioned(
             bottom: size.height * 0.2,
             left: size.width * 0.25,
@@ -446,12 +410,10 @@ $debugLog
               ),
             ),
           ),
-          
           Padding(
             padding: const EdgeInsets.all(40.0),
             child: _loadingError != null
-                ? // Error state
-                Column(
+                ? Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
@@ -470,7 +432,8 @@ $debugLog
                       ),
                       const SizedBox(height: 16),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 32),
                         child: Text(
                           _loadingError!,
                           style: theme.textTheme.bodyLarge?.copyWith(
@@ -479,58 +442,22 @@ $debugLog
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      // Debug details section
-                      if (_debugErrorDetails != null) ...[
-                        const SizedBox(height: 24),
-                        ExpansionTile(
-                          title: Text('Debug Details', 
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            )
-                          ),
-                          children: [
-                            Container(
-                              width: double.infinity,
-                              height: 200, // Fixed height to enable scrolling
-                              padding: const EdgeInsets.all(16),
-                              margin: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey[300]!),
-                              ),
-                              child: SingleChildScrollView(
-                                child: SelectableText(
-                                  _debugErrorDetails!,
-                                  style: const TextStyle(
-                                    fontFamily: 'monospace',
-                                    fontSize: 12,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
                       const SizedBox(height: 32),
                       ElevatedButton(
-                        onPressed: _retryLoad,
+                        onPressed: _retry,
                         child: const Text('Try Again'),
                       ),
                     ],
                   )
                 : _isInitializing
-                  ? // Initialization phase: Show messages 
-                    FunLoadingWidget(
+                    ? FunLoadingWidget(
                         title: 'Configuring your reading assistant',
                         messages: _getInitializingMessages(),
                         showProgress: true,
-                        progressValue: null, // Indeterminate progress for initialization
+                        progressValue:
+                            null, // Indeterminate progress for initialization
                       )
-                  : // Download phase: Show progress + MB info
-                    _buildDownloadProgress(),
+                    : _buildDownloadProgress(),
           ),
         ],
       ),
