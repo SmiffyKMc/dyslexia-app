@@ -180,6 +180,38 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
     });
   }
 
+  late final _$isProcessingOCRAtom =
+      Atom(name: '_WordDoctorStore.isProcessingOCR', context: context);
+
+  @override
+  bool get isProcessingOCR {
+    _$isProcessingOCRAtom.reportRead();
+    return super.isProcessingOCR;
+  }
+
+  @override
+  set isProcessingOCR(bool value) {
+    _$isProcessingOCRAtom.reportWrite(value, super.isProcessingOCR, () {
+      super.isProcessingOCR = value;
+    });
+  }
+
+  late final _$ocrExtractedWordAtom =
+      Atom(name: '_WordDoctorStore.ocrExtractedWord', context: context);
+
+  @override
+  String? get ocrExtractedWord {
+    _$ocrExtractedWordAtom.reportRead();
+    return super.ocrExtractedWord;
+  }
+
+  @override
+  set ocrExtractedWord(String? value) {
+    _$ocrExtractedWordAtom.reportWrite(value, super.ocrExtractedWord, () {
+      super.ocrExtractedWord = value;
+    });
+  }
+
   late final _$analyzeCurrentWordAsyncAction =
       AsyncAction('_WordDoctorStore.analyzeCurrentWord', context: context);
 
@@ -324,6 +356,17 @@ mixin _$WordDoctorStore on _WordDoctorStore, Store {
   }
 
   @override
+  void clearOcrExtractedWord() {
+    final _$actionInfo = _$_WordDoctorStoreActionController.startAction(
+        name: '_WordDoctorStore.clearOcrExtractedWord');
+    try {
+      return super.clearOcrExtractedWord();
+    } finally {
+      _$_WordDoctorStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   String toString() {
     return '''
 currentAnalysis: ${currentAnalysis},
@@ -334,6 +377,8 @@ isLoading: ${isLoading},
 errorMessage: ${errorMessage},
 inputWord: ${inputWord},
 isScanning: ${isScanning},
+isProcessingOCR: ${isProcessingOCR},
+ocrExtractedWord: ${ocrExtractedWord},
 canAnalyze: ${canAnalyze},
 canScanImage: ${canScanImage},
 hasCurrentAnalysis: ${hasCurrentAnalysis},

@@ -525,6 +525,23 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
   Widget _buildQuestion() {
     final question = _store.currentQuestion!;
     
+    String title;
+    String questionText;
+
+    switch (question.type) {
+      case QuestionType.fillInBlank:
+        title = 'Fill in the blank:';
+        questionText = question.sentenceWithBlank;
+        break;
+      case QuestionType.multipleChoice:
+        title = 'Question:';
+        questionText = question.sentence;
+        break;
+      default:
+        title = 'Question:';
+        questionText = question.sentence;
+    }
+
     return Card(
       elevation: 2,
       child: Padding(
@@ -537,7 +554,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
                 Icon(Icons.quiz, color: DyslexiaTheme.primaryAccent),
                 const SizedBox(width: 8),
                 Text(
-                  'Fill in the blank:',
+                  title,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
                     color: DyslexiaTheme.primaryAccent,
                     fontWeight: FontWeight.bold,
@@ -553,7 +570,7 @@ class _AdaptiveStoryScreenState extends State<AdaptiveStoryScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              question.sentenceWithBlank,
+              questionText,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 height: 1.6,
                 fontSize: 16,

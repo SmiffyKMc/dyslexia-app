@@ -216,6 +216,16 @@ mixin _$LearnerProfileStore on _LearnerProfileStore, Store {
     return _$resetProfileAsyncAction.run(() => super.resetProfile());
   }
 
+  late final _$completeResetToNewUserAsyncAction = AsyncAction(
+      '_LearnerProfileStore.completeResetToNewUser',
+      context: context);
+
+  @override
+  Future<void> completeResetToNewUser() {
+    return _$completeResetToNewUserAsyncAction
+        .run(() => super.completeResetToNewUser());
+  }
+
   late final _$restorePreviousProfileAsyncAction = AsyncAction(
       '_LearnerProfileStore.restorePreviousProfile',
       context: context);

@@ -248,6 +248,22 @@ mixin _$TextSimplifierStore on _TextSimplifierStore, Store {
     });
   }
 
+  late final _$wordBeingDefinedAtom =
+      Atom(name: '_TextSimplifierStore.wordBeingDefined', context: context);
+
+  @override
+  String? get wordBeingDefined {
+    _$wordBeingDefinedAtom.reportRead();
+    return super.wordBeingDefined;
+  }
+
+  @override
+  set wordBeingDefined(String? value) {
+    _$wordBeingDefinedAtom.reportWrite(value, super.wordBeingDefined, () {
+      super.wordBeingDefined = value;
+    });
+  }
+
   late final _$pickImageFromGalleryAsyncAction = AsyncAction(
       '_TextSimplifierStore.pickImageFromGallery',
       context: context);
@@ -405,6 +421,17 @@ mixin _$TextSimplifierStore on _TextSimplifierStore, Store {
   }
 
   @override
+  void setWordBeingDefined(String? word) {
+    final _$actionInfo = _$_TextSimplifierStoreActionController.startAction(
+        name: '_TextSimplifierStore.setWordBeingDefined');
+    try {
+      return super.setWordBeingDefined(word);
+    } finally {
+      _$_TextSimplifierStoreActionController.endAction(_$actionInfo);
+    }
+  }
+
+  @override
   void clearAll() {
     final _$actionInfo = _$_TextSimplifierStoreActionController.startAction(
         name: '_TextSimplifierStore.clearAll');
@@ -486,6 +513,7 @@ isProcessingOCR: ${isProcessingOCR},
 simplificationHistory: ${simplificationHistory},
 wordDefinitions: ${wordDefinitions},
 isSpeaking: ${isSpeaking},
+wordBeingDefined: ${wordBeingDefined},
 hasOriginalText: ${hasOriginalText},
 hasSimplifiedText: ${hasSimplifiedText},
 canSimplify: ${canSimplify},

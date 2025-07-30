@@ -255,7 +255,6 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         developer.log('🔍 QUESTION $i RAW DATA: $qData', name: 'dyslexic_ai.story_ai');
         
         final sentence = qData['type'] == 'fill_in_blank' ? qData['sentence'] ?? '' : qData['question'] ?? '';
-        final blankPosition = qData['blank_position'] ?? 0;
         final correctAnswer = qData['correct_answer'] ?? '';
         final options = List<String>.from(qData['options'] ?? []);
         
@@ -266,7 +265,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         }
         
         // AUTO-FIX: Calculate correct blank position for fill-in-blank questions
-        int actualBlankPosition = blankPosition;
+        int actualBlankPosition = 0; // Default to 0
         if (qData['type'] == 'fill_in_blank' && sentence.isNotEmpty && correctAnswer.isNotEmpty) {
           final words = sentence.split(' ');
           // Find where the correct answer actually appears in the sentence
@@ -275,7 +274,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             final answer = correctAnswer.replaceAll(RegExp(r'[^\w]'), '');
             if (word.toLowerCase() == answer.toLowerCase()) {
               actualBlankPosition = i;
-              developer.log('🔧 AUTO-CORRECTED blank position from $blankPosition to $actualBlankPosition for "$correctAnswer"', name: 'dyslexic_ai.story_ai');
+              developer.log('🔧 AUTO-CORRECTED blank position from 0 to $actualBlankPosition for "$correctAnswer"', name: 'dyslexic_ai.story_ai');
               break;
             }
           }
@@ -284,7 +283,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         developer.log('🔍 QUESTION $i PARSED:', name: 'dyslexic_ai.story_ai');
         developer.log('   - Type: ${qData['type']}', name: 'dyslexic_ai.story_ai');
         developer.log('   - Sentence: "$sentence"', name: 'dyslexic_ai.story_ai');
-        developer.log('   - AI Blank Position: $blankPosition', name: 'dyslexic_ai.story_ai');
+        developer.log('   - AI Blank Position: 0', name: 'dyslexic_ai.story_ai');
         developer.log('   - Corrected Blank Position: $actualBlankPosition', name: 'dyslexic_ai.story_ai');
         developer.log('   - Correct Answer: "$correctAnswer"', name: 'dyslexic_ai.story_ai');
         developer.log('   - Options: $options', name: 'dyslexic_ai.story_ai');
@@ -292,7 +291,6 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         final question = Question(
           id: qData['id'] ?? 'ai_q$i',
           sentence: sentence,
-          blankPosition: actualBlankPosition,
           correctAnswer: correctAnswer,
           options: options,
           type: qData['type'] == 'fill_in_blank' ? QuestionType.fillInBlank : QuestionType.multipleChoice,
@@ -304,7 +302,6 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
         developer.log('🔍 QUESTION $i FINAL RESULT:', name: 'dyslexic_ai.story_ai');
         developer.log('   - Original sentence: "${question.sentence}"', name: 'dyslexic_ai.story_ai');
         developer.log('   - Sentence words: ${question.sentenceWords}', name: 'dyslexic_ai.story_ai');
-        developer.log('   - Blank position: ${question.blankPosition}', name: 'dyslexic_ai.story_ai');
         developer.log('   - Generated sentenceWithBlank: "${question.sentenceWithBlank}"', name: 'dyslexic_ai.story_ai');
         
         questions.add(question);
@@ -368,8 +365,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'fox_1_q1',
-              sentence: 'The treasure was hidden in a wooden ____.',
-              blankPosition: 7,
+              sentence: 'The treasure was hidden in a wooden box.',
               correctAnswer: 'box',
               options: ['fox', 'box', 'rock'],
               pattern: '-ox',
@@ -384,8 +380,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'fox_2_q1',
-              sentence: 'The fox heard a ____ knock at his door.',
-              blankPosition: 4,
+              sentence: 'The fox heard a quick knock at his door.',
               correctAnswer: 'quick',
               options: ['slow', 'quick', 'loud'],
               pattern: 'qu-',
@@ -393,8 +388,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'fox_2_q2',
-              sentence: 'There was a ____ at the door.',
-              blankPosition: 3,
+              sentence: 'There was a knock at the door.',
               correctAnswer: 'knock',
               options: ['knock', 'rock', 'clock'],
               pattern: '-ck',
@@ -409,8 +403,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'fox_3_q1',
-              sentence: 'Outside stood a ____ rabbit holding a thick book.',
-              blankPosition: 3,
+              sentence: 'Outside stood a quiet rabbit holding a thick book.',
               correctAnswer: 'quiet',
               options: ['quick', 'quiet', 'quite'],
               pattern: 'qu-',
@@ -418,8 +411,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'fox_3_q2',
-              sentence: 'I lost my lucky ____!',
-              blankPosition: 4,
+              sentence: 'I lost my lucky sock!',
               correctAnswer: 'sock',
               options: ['sock', 'rock', 'dock'],
               pattern: '-ck',
@@ -444,8 +436,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'dragon_1_q1',
-              sentence: 'He loved taking ____ of nature.',
-              blankPosition: 3,
+              sentence: 'He loved taking photographs of nature.',
               correctAnswer: 'photographs',
               options: ['photos', 'photographs', 'pictures'],
               pattern: 'ph',
@@ -460,8 +451,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'dragon_2_q1',
-              sentence: 'Ralph would fly through the ____ moonlight.',
-              blankPosition: 5,
+              sentence: 'Ralph would fly through the bright moonlight.',
               correctAnswer: 'bright',
               options: ['light', 'bright', 'tight'],
               pattern: '-ght',
@@ -469,8 +459,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'dragon_2_q2',
-              sentence: 'The ____ of stars always made him dream.',
-              blankPosition: 1,
+              sentence: 'The sight of stars always made him dream.',
               correctAnswer: 'sight',
               options: ['light', 'sight', 'right'],
               pattern: '-ght',
@@ -485,8 +474,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'dragon_3_q1',
-              sentence: 'Ralph decided to ____ a map of all the places.',
-              blankPosition: 3,
+              sentence: 'Ralph decided to draw a map of all the places.',
               correctAnswer: 'draw',
               options: ['draw', 'fly', 'see'],
               pattern: 'dr-',
@@ -494,8 +482,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'dragon_3_q2',
-              sentence: 'He ____ mountains, rivers, and castles.',
-              blankPosition: 1,
+              sentence: 'He drew mountains, rivers, and castles.',
               correctAnswer: 'drew',
               options: ['drew', 'flew', 'knew'],
               pattern: 'dr-',
@@ -520,8 +507,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'space_1_q1',
-              sentence: 'Looking at the stars through her ____ telescope.',
-              blankPosition: 6,
+              sentence: 'Looking at the stars through her strong telescope.',
               correctAnswer: 'strong',
               options: ['long', 'strong', 'wrong'],
               pattern: 'str-',
@@ -529,8 +515,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'space_1_q2',
-              sentence: 'Captain Luna stood on the space ____.',
-              blankPosition: 5,
+              sentence: 'Captain Luna stood on the space station.',
               correctAnswer: 'station',
               options: ['station', 'nation', 'creation'],
               pattern: '-tion',
@@ -545,8 +530,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'space_2_q1',
-              sentence: 'Luna felt excited about the ____ exploration.',
-              blankPosition: 5,
+              sentence: 'Luna felt excited about the space exploration.',
               correctAnswer: 'space',
               options: ['space', 'place', 'race'],
               pattern: 'sp-',
@@ -554,8 +538,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'space_2_q2',
-              sentence: 'The spaceship had special equipment for ____.',
-              blankPosition: 6,
+              sentence: 'The spaceship had special equipment for exploration.',
               correctAnswer: 'exploration',
               options: ['exploration', 'creation', 'education'],
               pattern: '-tion',
@@ -570,8 +553,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
           questions: [
             Question(
               id: 'space_3_q1',
-              sentence: 'She found a planet with ____, colorful creatures.',
-              blankPosition: 5,
+              sentence: 'She found a planet with strange, colorful creatures.',
               correctAnswer: 'strange',
               options: ['strange', 'orange', 'change'],
               pattern: 'str-',
@@ -579,8 +561,7 @@ Return ONLY valid JSON format with title, content, difficulty, patterns, and que
             ),
             Question(
               id: 'space_3_q2',
-              sentence: 'As the ____ traveled through space...',
-              blankPosition: 2,
+              sentence: 'As the spaceship traveled through space...',
               correctAnswer: 'spaceship',
               options: ['spaceship', 'friendship', 'ownership'],
               pattern: 'sp-',

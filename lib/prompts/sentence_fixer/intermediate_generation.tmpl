@@ -1,36 +1,27 @@
-You are creating intermediate-level spelling exercises for dyslexic learners. Generate {{count}} sentences with SPELLING mistakes only.
+You are an expert curriculum developer creating spelling exercises for intermediate-level dyslexic learners. Your task is to generate {{count}} unique sentences, each containing a single, clear spelling mistake.
 
-CRITICAL RULES:
-1. SPELLING ONLY: Change letters in words (add, remove, swap, double, wrong vowels)
-2. NEVER change the word to a different word (receive → recieve ✅, receive → get ❌)
-3. NEVER create grammar mistakes (receive → received is grammar)
-4. NEVER substitute homophones (their → there, your → you're)
-5. Each sentence must be UNIQUE and DIFFERENT
-6. Use intermediate vocabulary (6-10 letter words)
-7. Keep sentences 5-10 words long
-
-VALID SPELLING mistakes for INTERMEDIATE:
-- ie/ei confusion: receive → recieve, believe → beleive
-- Double letters: occurred → occured, beginning → begining
-- Silent letters: write → wriet, knife → knive
-- Vowel errors: separate → seperate, definite → definate
-- Letter drops: writing → wrting, happened → hapened
-
-FORBIDDEN mistakes:
-❌ Grammar: "I have went" (went → gone is grammar)
-❌ Homophones: "There going home" (there → they're is word substitution)
-❌ Tense: "I write" → "I wrote"
-❌ Identical to examples below
-
-Examples (DO NOT COPY THESE):
-- "I recieved your message yesterday" (received → recieved)
-- "Please seperate the different items" (separate → seperate)
-- "She definately wants to help us" (definitely → definately)
-
-Generate {{count}} DIFFERENT sentences. Context: {{random_word}} Session: {{seed}}
-
-JSON format only:
+Your output MUST be a valid JSON array of objects, like this:
 [
-  {"sentence": "I recieved your message yesterday", "error_word": "recieved", "correct_word": "received"},
-  {"sentence": "Please seperate the different items", "error_word": "seperate", "correct_word": "separate"}
-] 
+    {"sentence": "She recieved a letter.", "error_word": "recieved", "correct_word": "received"},
+    {"sentence": "The journey was an interesting experence.", "error_word": "experence", "correct_word": "experience"}
+]
+
+Follow these critical rules:
+1.  **JSON ONLY**: Your entire output must be a single JSON array. Do not include any text before or after the JSON.
+2.  **SPELLING ERRORS ONLY**: The `error_word` must be a misspelling of the `correct_word`. Do NOT create grammatical errors or substitute words with different meanings.
+3.  **VALID SENTENCE**: The `error_word` MUST exist inside the `sentence`.
+4.  **VALID CORRECTION**: The `correct_word` must be the grammatically correct form. Do NOT change a correct word into an incorrect one.
+5.  **INTERMEDIATE & UNIQUE**: Use vocabulary suitable for intermediate learners. Each sentence must be unique. Keep sentences between 6 and 12 words long.
+
+Good Examples of Spelling Errors:
+-   Phonetic spelling: "The machine was very noizy." (noizy -> noisy)
+-   Common misspellings: "He was truely sorry." (truely -> truly)
+-   Silent letters: "The nife is sharp." (nife -> knife)
+
+Bad Examples (DO NOT DO THIS):
+-   Grammar Error: "They has two dogs." (`has` is a grammar mistake.)
+-   Grammar Error: "She walk to the store." (`walk` is a grammar mistake.)
+-   Word Substitution: "It's a matter of principal." (`principal` is a different word from `principle`.)
+-   Invalid Correction: In "She wants a new book", flagging "wants" as an error and "want" as the correction is WRONG because "wants" is already correct.
+
+Now, generate {{count}} unique sentences. Use this information to ensure variety: Difficulty={{difficulty}}, Context={{random_word}}, Seed={{seed}}. 

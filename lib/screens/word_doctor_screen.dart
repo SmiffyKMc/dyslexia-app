@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 import '../controllers/word_doctor_store.dart';
 import '../utils/service_locator.dart';
 import '../utils/theme.dart';
@@ -16,6 +17,7 @@ class WordDoctorScreen extends StatefulWidget {
 class _WordDoctorScreenState extends State<WordDoctorScreen> {
   late WordDoctorStore _store;
   final TextEditingController _wordController = TextEditingController();
+  late ReactionDisposer _reactionDisposer;
 
   @override
   void initState() {
@@ -25,6 +27,17 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
     } catch (e) {
       rethrow;
     }
+
+    // React to changes in the OCR extracted word
+    _reactionDisposer = reaction(
+      (_) => _store.ocrExtractedWord,
+      (String? word) {
+        if (word != null && word.isNotEmpty) {
+          _wordController.text = word;
+          _store.clearOcrExtractedWord(); // Clear after consuming
+        }
+      },
+    );
   }
 
   void _onSubmit() {
@@ -49,6 +62,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
   @override
   void dispose() {
     _wordController.dispose();
+    _reactionDisposer();
     super.dispose();
   }
 
@@ -98,6 +112,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
                 _buildMnemonicCard(),
                 const SizedBox(height: 16),
                 _buildExampleSentenceCard(),
+                const SizedBox(height: 50),
               ],
             ],
           ),
@@ -424,7 +439,7 @@ class _WordDoctorScreenState extends State<WordDoctorScreen> {
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), // Add bottom padding here
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

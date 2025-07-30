@@ -124,29 +124,23 @@ class TextSimplifierService {
     try {
       final profile = _profileStore.currentProfile;
       
-      // Determine which add-on templates to include
-      final addOns = <String>[];
-      if (explainChanges) addOns.add('explain_changes.tmpl');
-      if (defineKeyTerms) addOns.add('define_terms.tmpl');
-      if (addVisuals) addOns.add('add_visuals.tmpl');
-      if (isRegenerateRequest) addOns.add('regeneration.tmpl');
-      
       // Build standardized variables
-      final variables = <String, String>{
+      final variables = <String, dynamic>{
         'reading_level': _getReadingLevelDescription(readingLevel),
         'target_text': originalText,
         'profile_adjustments': profile != null ? _addProfileAdjustments(profile) : '',
+        // Pass booleans directly to the template for conditional logic
+        'define_key_terms': defineKeyTerms,
+        'explain_changes': explainChanges,
+        'add_visuals': addVisuals,
+        'is_regenerate_request': isRegenerateRequest,
       };
       
-      // Build composite template
-      final prompt = await PromptLoader.buildComposite(
-        'text_simplifier',
-        'base.tmpl',
-        addOns,
-        variables,
-      );
+      // Load the single comprehensive template
+      final template = await PromptLoader.load('text_simplifier', 'comprehensive_simplification.tmpl');
+      final prompt = PromptLoader.fill(template, variables.map((key, value) => MapEntry(key, value.toString())));
       
-      developer.log('✅ Built simplification prompt using ${addOns.length} add-ons', 
+      developer.log('✅ Built comprehensive simplification prompt', 
           name: 'dyslexic_ai.text_simplifier');
       
       return prompt;

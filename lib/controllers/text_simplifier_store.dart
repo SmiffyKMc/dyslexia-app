@@ -57,6 +57,9 @@ abstract class _TextSimplifierStore with Store {
   @observable
   bool isSpeaking = false;
 
+  @observable
+  String? wordBeingDefined;
+
   @computed
   bool get hasOriginalText => originalText.trim().isNotEmpty;
 
@@ -161,6 +164,11 @@ abstract class _TextSimplifierStore with Store {
   }
 
   @action
+  void setWordBeingDefined(String? word) {
+    wordBeingDefined = word;
+  }
+
+  @action
   void clearAll() {
     originalText = '';
     simplifiedText = '';
@@ -170,6 +178,7 @@ abstract class _TextSimplifierStore with Store {
     isSimplifying = false;
     isProcessingOCR = false;
     isSpeaking = false;
+    wordBeingDefined = null;
   }
 
   @action

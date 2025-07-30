@@ -178,9 +178,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
         SizedBox(
           width: double.infinity,
           child: Observer(
-            builder: (context) {
-              developer.log('🔘 Button state - canSimplify: ${_store.canSimplify}, isSimplifying: ${_store.isSimplifying}, isProcessingOCR: ${_store.isProcessingOCR}, hasOriginalText: ${_store.hasOriginalText}', name: 'dyslexic_ai.text_simplifier');
-              
+            builder: (context) {              
               return ElevatedButton(
                 onPressed: _store.canSimplify ? _handleSimplify : null,
                 style: ElevatedButton.styleFrom(
@@ -202,6 +200,34 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
             },
           ),
         ),
+        const SizedBox(height: 8),
+        Observer(
+          builder: (context) {
+            if (_store.wordBeingDefined != null) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 12,
+                      height: 12,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Generating AI Definition for \"${_store.wordBeingDefined}\"...',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          },
+        ),
       ],
     );
   }
@@ -215,6 +241,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
 
     if (!_store.canSimplify) return;
 
+    _store.clearSimplifiedText();
     _partialBuffer.clear();
     _simplifySub?.cancel();
     _store.setIsSimplifying(true);
@@ -416,10 +443,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                 ),
               ],
             )
-          : Text(
-              _partialBuffer.toString(),
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+          : _buildInteractiveText(_partialBuffer.toString()),
     );
   }
 
@@ -429,6 +453,20 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
     } else {
       return _buildSimplifiedTextView();
     }
+  }
+
+  Widget _buildInstructionalText() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Text(
+        'Tap a word to see its definition.',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontStyle: FontStyle.italic,
+              color: Colors.grey,
+            ),
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 
   Widget _buildSideBySideView() {
@@ -510,6 +548,8 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildInteractiveText(_store.simplifiedText),
+                          const SizedBox(height: 8),
+                          if (_store.hasSimplifiedText) _buildInstructionalText(),
                           const SizedBox(height: 16),
                           if (_store.canSimplifyAgain) ...[
                             Center(
@@ -558,6 +598,8 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInteractiveText(_store.simplifiedText),
+            const SizedBox(height: 8),
+            if (_store.hasSimplifiedText) _buildInstructionalText(),
             const SizedBox(height: 16),
             if (_store.canSimplifyAgain) ...[
               Center(
@@ -596,7 +638,7 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
         final cleanWord = word.replaceAll(RegExp(r'[^\w]'), '');
         
         return GestureDetector(
-          onTap: () => _handleWordTap(cleanWord),
+          onTap: _store.wordBeingDefined == null ? () => _handleWordTap(cleanWord) : null,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             decoration: BoxDecoration(
@@ -623,21 +665,25 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
 
   Future<void> _handleWordTap(String word) async {
     if (word.isEmpty) return;
-    
+
     try {
+      _store.setWordBeingDefined(word);
+
       // Check if definition already exists
       if (_store.wordDefinitions.containsKey(word)) {
         _showWordDefinition(word, _store.wordDefinitions[word]!);
         return;
       }
-      
+
       // Get definition from AI service
       final definition = await _service.defineWord(word);
       _store.addWordDefinition(word, definition);
-      
+
       _showWordDefinition(word, definition);
     } catch (e) {
       _showErrorSnackBar('Failed to get definition for "$word": $e');
+    } finally {
+      _store.setWordBeingDefined(null);
     }
   }
 
@@ -652,8 +698,10 @@ class _TextSimplifierScreenState extends State<TextSimplifierScreen> {
           children: [
             Text(definition),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8.0,
+              runSpacing: 8.0,
               children: [
                 ElevatedButton.icon(
                   onPressed: () async {

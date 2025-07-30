@@ -1,51 +1,58 @@
-Create educational stories for dyslexic learners: a {{sentence_count}} sentence story for {{difficulty_level}} readers with {{phoneme_pattern1}} and {{phoneme_pattern2}} patterns, plus 4 questions.
+You are an expert curriculum developer creating educational and engaging stories for dyslexic learners.
 
-CRITICAL: Write complete sentences with NO blanks (____). Example: "The cat ran quickly" NOT "The cat ran ____".
+Your task is to generate a short story and a set of questions based on it. The story should be appropriate for a {{difficulty_level}} reading level and must include words with the following phonetic patterns: **{{phoneme_pattern1}}** and **{{phoneme_pattern2}}**.
 
-Output JSON only:
+Your entire output must be a single, valid JSON object.
+
+**CRITICAL RULES:**
+
+1.  **COMPLETE STORY FIRST**: The `content` field must contain the full story.
+2.  **QUESTIONS FROM STORY**: All `questions` must be directly related to the `content`.
+    *   For `"type": "fill_in_blank"`, the `sentence` MUST be an exact quote from the `content`.
+    *   For `"type": "comprehension"`, the `question` must be answerable from the `content`.
+3.  **UNIQUE OPTIONS**: For all questions, the `options` array must contain **three distinct and plausible** choices. The `correct_answer` must be one of these options. Do NOT repeat options.
+4.  **NO BLANKS**: The story `content` and question `sentence` fields must be complete sentences. Do NOT include any blanks (____). The system will add them automatically.
+
+Here is the required JSON format:
 {
-  "title": "Story Title",
-  "content": "Complete story text here...",
+  "title": "A Suitable Story Title",
+  "content": "The full story text goes here. It should be {{sentence_count}} sentences long and use the target phonetic patterns.",
   "difficulty": "{{difficulty_level}}",
   "patterns": ["{{phoneme_pattern1}}", "{{phoneme_pattern2}}"],
   "questions": [
     {
       "id": "q1",
-      "type": "fill_in_blank", 
-      "sentence": "The bright sun shone warmly",
-      "blank_position": 1,
-      "correct_answer": "bright",
-      "options": ["bright", "dark", "cold"],
+      "type": "fill_in_blank",
+      "sentence": "A sentence taken directly from the story content.",
+      "correct_answer": "word_from_sentence",
+      "options": ["word_from_sentence", "plausible_option_2", "plausible_option_3"],
       "pattern": "{{phoneme_pattern1}}",
-      "hint": "Describes the sun's light"
+      "hint": "A short, helpful hint about the answer."
     },
     {
       "id": "q2",
       "type": "fill_in_blank",
-      "sentence": "She quickly ran home", 
-      "blank_position": 1,
-      "correct_answer": "quickly",
-      "options": ["quickly", "slowly", "quietly"],
+      "sentence": "Another sentence taken directly from the story content.",
+      "correct_answer": "another_word",
+      "options": ["another_word", "plausible_option_B", "plausible_option_C"],
       "pattern": "{{phoneme_pattern2}}",
-      "hint": "How she moved"
+      "hint": "Another short, helpful hint."
     },
     {
       "id": "q3",
       "type": "comprehension",
-      "question": "Who is the main character?",
-      "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"],
-      "hint": "Brief hint"
+      "question": "A question about the story's main idea or a key detail.",
+      "correct_answer": "Correct Answer",
+      "options": ["Correct Answer", "Wrong Answer 1", "Wrong Answer 2"],
+      "hint": "A hint related to the comprehension question."
     },
     {
       "id": "q4",
       "type": "comprehension",
-      "question": "What happens in the story?", 
-      "correct_answer": "Answer",
-      "options": ["Answer", "Wrong1", "Wrong2"],
-      "hint": "Brief hint"
+      "question": "Another question about the story.",
+      "correct_answer": "Correct Answer B",
+      "options": ["Correct Answer B", "Wrong Answer X", "Wrong Answer Y"],
+      "hint": "Another hint."
     }
   ]
-}
-
-Write full words in sentences. System adds blanks automatically. 
+} 

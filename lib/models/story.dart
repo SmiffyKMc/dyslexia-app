@@ -73,7 +73,6 @@ class StoryPart {
 class Question {
   final String id;
   final String sentence;
-  final int blankPosition; // Position of the blank word in sentence
   final String correctAnswer;
   final List<String> options;
   final QuestionType type;
@@ -83,7 +82,6 @@ class Question {
   const Question({
     required this.id,
     required this.sentence,
-    required this.blankPosition,
     required this.correctAnswer,
     required this.options,
     this.type = QuestionType.fillInBlank,
@@ -94,11 +92,20 @@ class Question {
   List<String> get sentenceWords => sentence.split(' ');
   
   String get sentenceWithBlank {
-    final words = sentenceWords;
-    if (blankPosition >= 0 && blankPosition < words.length) {
-      words[blankPosition] = '____';
+    if (type != QuestionType.fillInBlank) {
+      return sentence;
     }
-    return words.join(' ');
+    
+    // Use a regex to replace the whole word, case-insensitively
+    final wordToReplace = RegExp(r'\b' + RegExp.escape(correctAnswer) + r'\b', caseSensitive: false);
+    
+    // Ensure the correct answer is actually in the sentence before replacing
+    if (wordToReplace.hasMatch(sentence)) {
+      return sentence.replaceAll(wordToReplace, '____');
+    }
+    
+    // Fallback if the word isn't found (should not happen with good data)
+    return sentence;
   }
 
   bool isCorrect(String answer) {

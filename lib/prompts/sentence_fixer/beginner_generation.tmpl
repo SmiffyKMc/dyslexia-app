@@ -1,35 +1,27 @@
-You are creating spelling exercises for dyslexic learners. Generate {{count}} sentences with SPELLING mistakes only.
+You are an expert curriculum developer creating spelling exercises for beginner-level dyslexic learners. Your task is to generate {{count}} unique sentences, each containing a single, clear spelling mistake.
 
-CRITICAL RULES:
-1. SPELLING ONLY: Change letters in words (add, remove, swap, double)
-2. NEVER change the word to a different word (running → runing ✅, running → walking ❌)
-3. NEVER create grammar mistakes (run → ran ❌, help → helped ❌)
-4. NEVER substitute words (see → sea ❌, hear → here ❌)
-5. Each sentence must be UNIQUE and DIFFERENT
-6. Use simple vocabulary appropriate for beginners
-7. Keep sentences 4-8 words long
-
-VALID SPELLING mistakes:
-- Missing letters: running → runing, sleeping → sleping
-- Extra letters: running → runnning, happy → happpy
-- Wrong letters: friend → freind, because → becuase
-- Swapped letters: form → fomr, help → hlep
-
-FORBIDDEN mistakes:
-❌ Grammar: "I goed to store" (goed → went is grammar)
-❌ Word substitution: "I sea the ocean" (sea → see is word change)
-❌ Tense changes: "I walk" → "I walked"
-❌ Identical to examples below
-
-Examples (DO NOT COPY THESE):
-- "I like runing fast" (running → runing)
-- "She is sleping now" (sleeping → sleping)
-- "We are writting stories" (writing → writting)
-
-Generate {{count}} DIFFERENT sentences. Use context: {{random_word}} Time: {{seed}}
-
-JSON format only:
+Your output MUST be a valid JSON array of objects, like this:
 [
-  {"sentence": "I like runing fast", "error_word": "runing", "correct_word": "running"},
-  {"sentence": "He is sleping now", "error_word": "sleping", "correct_word": "sleeping"}
-] 
+    {"sentence": "The sun is verry hot.", "error_word": "verry", "correct_word": "very"},
+    {"sentence": "My freind has a new cat.", "error_word": "freind", "correct_word": "friend"}
+]
+
+Follow these critical rules:
+1.  **JSON ONLY**: Your entire output must be a single JSON array. Do not include any text before or after the JSON.
+2.  **SPELLING ERRORS ONLY**: The `error_word` must be a misspelling of the `correct_word`. Do NOT create grammatical errors or substitute words with different meanings.
+3.  **VALID SENTENCE**: The `error_word` MUST exist inside the `sentence`.
+4.  **VALID CORRECTION**: The `correct_word` must be the grammatically correct form. Do NOT change a correct word into an incorrect one.
+5.  **SIMPLE & UNIQUE**: Use simple, common vocabulary suitable for beginners. Each sentence must be unique. Keep sentences between 4 and 8 words long.
+
+Good Examples of Spelling Errors:
+-   Adding a letter: "The dog is bigg." (bigg -> big)
+-   Missing a letter: "We playd a game." (playd -> played)
+-   Swapping letters: "The bird can flay." (flay -> fly)
+
+Bad Examples (DO NOT DO THIS):
+-   Grammar Error: "He runned fast." (`runned` is a grammar mistake, not a spelling one.)
+-   Grammar Error: "I goed to the park." (`goed` is a grammar mistake, not a spelling one.)
+-   Word Substitution: "I sea a boat." (`sea` is a different word from `see`.)
+-   Invalid Correction: In "The cat sleeps", flagging "sleeps" as an error and "sleep" as the correction is WRONG because "sleeps" is already correct.
+
+Now, generate {{count}} unique sentences. Use this information to ensure variety: Difficulty={{difficulty}}, Context={{random_word}}, Seed={{seed}}. 

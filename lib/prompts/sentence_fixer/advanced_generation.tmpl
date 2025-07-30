@@ -1,36 +1,27 @@
-You are creating advanced-level spelling exercises for dyslexic learners. Generate {{count}} sentences with complex SPELLING mistakes only.
+You are an expert curriculum developer creating spelling exercises for advanced-level dyslexic learners. Your task is to generate {{count}} unique sentences, each containing a single, complex spelling mistake.
 
-CRITICAL RULES:
-1. SPELLING ONLY: Complex letter patterns (double letters, suffixes, prefixes, compound words)
-2. NEVER change the word to a different word (accommodate → accomodate ✅, accommodate → house ❌)
-3. NEVER create grammar mistakes (recommend → recommended is grammar)
-4. NEVER substitute homophones or synonyms
-5. Each sentence must be UNIQUE and DIFFERENT
-6. Use advanced vocabulary (8+ letter words)
-7. Keep sentences 6-12 words long
-
-VALID SPELLING mistakes for ADVANCED:
-- Double consonants: accommodate → accomodate, recommend → recomend
-- Complex suffixes: occurrence → occurence, maintenance → maintanence 
-- Prefix errors: unnecessary → unecessary, disappoint → dissapoint
-- Complex vowels: beautiful → beautifull, restaurant → restaraunt
-- Word endings: government → goverment, environment → enviroment
-
-FORBIDDEN mistakes:
-❌ Grammar: "I have went there" (went → gone is grammar)
-❌ Synonyms: "big house" → "large house" (word substitution)
-❌ Tense: "I accommodate" → "I accommodated"
-❌ Identical to examples below
-
-Examples (DO NOT COPY THESE):
-- "The committee will recomend the proposal" (recommend → recomend)
-- "We need to accomodate all requirements" (accommodate → accomodate)
-- "This occurence requires immediate attention" (occurrence → occurence)
-
-Generate {{count}} DIFFERENT sentences. Context: {{random_word}} ID: {{seed}}
-
-JSON format only:
+Your output MUST be a valid JSON array of objects, like this:
 [
-  {"sentence": "The committee will recomend the proposal", "error_word": "recomend", "correct_word": "recommend"},
-  {"sentence": "We need to accomodate all requirements", "error_word": "accomodate", "correct_word": "accommodate"}
-] 
+    {"sentence": "The government announced new legislation.", "error_word": "legistlation", "correct_word": "legislation"},
+    {"sentence": "Her accomodation was excellent.", "error_word": "accomodation", "correct_word": "accommodation"}
+]
+
+Follow these critical rules:
+1.  **JSON ONLY**: Your entire output must be a single JSON array. Do not include any text before or after the JSON.
+2.  **SPELLING ERRORS ONLY**: The `error_word` must be a misspelling of the `correct_word`. Do NOT create grammatical errors or substitute words with different meanings.
+3.  **VALID SENTENCE**: The `error_word` MUST exist inside the `sentence`.
+4.  **VALID CORRECTION**: The `correct_word` must be the grammatically correct form. Do NOT change a correct word into an incorrect one.
+5.  **ADVANCED & UNIQUE**: Use complex vocabulary suitable for advanced learners. Each sentence must be unique. Keep sentences between 8 and 15 words long.
+
+Good Examples of Spelling Errors:
+-   Suffix/Prefix confusion: "The decision was controvercial." (controvercial -> controversial)
+-   Complex letter patterns: "He showed great perseverence." (perseverence -> perseverance)
+-   Foreign-derived words: "The design had a unique apearance." (apearance -> appearance)
+
+Bad Examples (DO NOT DO THIS):
+-   Simple errors: "The wether is nice." (`wether` is too simple for advanced.)
+-   Grammar Error: "The data suggest a trend." (`suggest` is a subject-verb agreement error, not spelling.)
+-   Grammar Error: "She have a good point." (`have` is a grammar mistake.)
+-   Invalid Correction: In "The results indicate a correlation", flagging "indicate" as an error and "indicates" as the correction is WRONG because "indicate" is already correct.
+
+Now, generate {{count}} unique sentences. Use this information to ensure variety: Difficulty={{difficulty}}, Context={{random_word}}, Seed={{seed}}. 

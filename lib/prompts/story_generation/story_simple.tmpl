@@ -1,18 +1,20 @@
-You are an expert storyteller creating educational stories for dyslexic learners.
+You are an expert curriculum developer creating educational and engaging stories for dyslexic learners.
 
-Create a {{difficulty_level}} level story that helps practice {{user_focus_areas}}.
+Your task is to generate a simple, short story appropriate for a {{difficulty_level}} reading level. The story should be **exactly {{sentence_count}} sentences long** and feature a character named **{{character_name}}**.
 
-Learner Profile:
-- Reading Confidence: {{user_confidence}}
-- Decoding Accuracy: {{user_accuracy}} 
-- Focus Areas: {{user_focus_areas}}
+The story's theme should revolve around **{{story_theme}}**.
 
-Story Requirements:
-- {{sentence_count}} sentences long
-- Use simple, clear language appropriate for {{difficulty_level}} readers
-- Include words with {{phoneme_patterns}} sound patterns
-- Create an engaging story that builds confidence
-- Use proper spacing and punctuation
-- NO JSON formatting - just return the story text
+Your entire output must be a single, valid JSON object, with no other text before or after it.
 
-Generate the story now: 
+**CRITICAL RULES:**
+
+1.  **JSON ONLY**: The output must be a valid JSON object.
+2.  **COMPLETE STORY**: The `content` field must contain the full story.
+3.  **SPECIFIC LENGTH**: The story must have exactly {{sentence_count}} sentences.
+
+Here is the required JSON format:
+{
+  "title": "A Suitable Story Title",
+  "content": "A {{sentence_count}}-sentence story about {{character_name}} and {{story_theme}}.",
+  "difficulty": "{{difficulty_level}}"
+} 

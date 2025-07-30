@@ -193,7 +193,7 @@ class SentenceFixerService {
         // AI succeeded - use AI sentences
         aiSentences.shuffle(_random);
         allSentences.addAll(aiSentences.take(count));
-        developer.log('✅ Using ${count} AI-generated sentences',
+        developer.log('✅ Using $count AI-generated sentences',
             name: 'dyslexic_ai.sentence_fixer');
       } else {
         // Hybrid: AI + fallback sentences
@@ -228,7 +228,7 @@ class SentenceFixerService {
         allSentences.shuffle(_random);
 
         developer.log(
-            '🔄 HYBRID FINAL: Using ${aiSentences.length} AI + ${neededFromFallback} fallback sentences (shuffled)',
+            '🔄 HYBRID FINAL: Using ${aiSentences.length} AI + $neededFromFallback fallback sentences (shuffled)',
             name: 'dyslexic_ai.sentence_fixer');
       }
     } catch (e) {
@@ -366,10 +366,11 @@ class SentenceFixerService {
       try {
         final tmpl =
             await PromptLoader.load('sentence_fixer', 'single_sentence.tmpl');
-        final prompt = PromptLoader.fill(tmpl, {
+        final promptData = {
           'count': '$count',
           'difficulty': difficulty,
-        });
+        };
+        final prompt = PromptLoader.fill(tmpl, promptData);
         developer.log(
             '📝 AI generation attempt $attempt - Prompt (${prompt.length} chars):',
             name: 'dyslexic_ai.sentence_fixer');
@@ -858,11 +859,14 @@ class SentenceFixerService {
       final randomWord = randomWords[_random.nextInt(randomWords.length)];
       final seed = DateTime.now().millisecondsSinceEpoch.toString();
       
-      final prompt = PromptLoader.fill(tmpl, {
+      final promptData = {
         'count': generateCount.toString(),
         'random_word': randomWord,
         'seed': seed,
-      });
+        'difficulty': difficulty,
+      };
+
+      final prompt = PromptLoader.fill(tmpl, promptData);
 
       final response = await aiService.generateResponse(
         prompt,
@@ -878,7 +882,7 @@ class SentenceFixerService {
         // AI succeeded - shuffle and use random AI sentences
         aiSentences.shuffle(_random);
         developer.log(
-            '✅ Using ${count} AI-generated sentences (shuffled from ${aiSentences.length})',
+            '✅ Using $count AI-generated sentences (shuffled from ${aiSentences.length})',
             name: 'dyslexic_ai.sentence_fixer');
         return aiSentences.take(count).toList();
       } else {
@@ -894,7 +898,7 @@ class SentenceFixerService {
         finalSentences.shuffle(_random);
 
         developer.log(
-            '🔄 Using hybrid: ${aiSentences.length} AI + ${neededFromFallback} fallback sentences (shuffled)',
+            '🔄 Using hybrid: ${aiSentences.length} AI + $neededFromFallback fallback sentences (shuffled)',
             name: 'dyslexic_ai.sentence_fixer');
 
         return finalSentences.take(count).toList();
@@ -1049,8 +1053,13 @@ class SentenceFixerService {
   /// Validate AI-generated sentence based on difficulty level
   bool _validateAISentence(String sentence, String errorWord,
       String correctWord, String difficulty) {
-    // Basic checks
-    if (sentence.isEmpty || errorWord.isEmpty || correctWord.isEmpty) {
+    if (errorWord.isEmpty || correctWord.isEmpty) {
+      return false;
+    }
+
+    // Vowel check to prevent nonsense words
+    if (!errorWord.contains(RegExp(r'[aeiouy]'))) {
+      developer.log('❌ Error word "$errorWord" contains no vowels', name: 'dyslexic_ai.sentence_fixer');
       return false;
     }
 
@@ -1137,112 +1146,51 @@ class SentenceFixerService {
 
   /// Check if this is a grammar change rather than spelling error
   bool _isGrammarChange(String errorWord, String correctWord) {
-    // Plural changes: cat → cats, dog → dogs, box → boxes, lady → ladies
-    if (correctWord == '${errorWord}s' || errorWord == '${correctWord}s') {
-      return true;
-    }
-    if (correctWord == '${errorWord}es' || errorWord == '${correctWord}es') {
-      return true;
-    }
+    // A large edit distance suggests a different word (grammar) vs. a misspelling
+    final distance = _levenshteinDistance(errorWord, correctWord);
+    
+    // Allow for a small number of edits, typical of spelling mistakes
+    // This threshold can be adjusted based on difficulty if needed
+    const maxAllowedDistance = 2;
 
-    // Y to IES changes: lady → ladies, baby → babies
-    if (errorWord.endsWith('y') &&
-        correctWord == '${errorWord.substring(0, errorWord.length - 1)}ies') {
+    if (distance > maxAllowedDistance) {
+      developer.log(
+        '❌ Likely grammar change: Levenshtein distance is $distance (>$maxAllowedDistance) for "$errorWord" -> "$correctWord"',
+        name: 'dyslexic_ai.sentence_fixer'
+      );
       return true;
-    }
-    if (correctWord.endsWith('y') &&
-        errorWord == '${correctWord.substring(0, correctWord.length - 1)}ies') {
-      return true;
-    }
-
-    // Irregular plurals: child → children, mouse → mice, etc.
-    final irregularPlurals = {
-      'child': 'children',
-      'mouse': 'mice',
-      'foot': 'feet',
-      'tooth': 'teeth',
-      'man': 'men',
-      'woman': 'women',
-      'goose': 'geese',
-      'person': 'people',
-      'leaf': 'leaves',
-      'wolf': 'wolves',
-      'half': 'halves',
-      'knife': 'knives'
-    };
-    if (irregularPlurals[errorWord] == correctWord ||
-        irregularPlurals[correctWord] == errorWord) {
-      return true;
-    }
-
-    // Past tense changes: run → ran, play → played, go → went, try → tried
-    if (correctWord.endsWith('ed') && !errorWord.endsWith('ed')) {
-      return true;
-    }
-    if (correctWord.endsWith('ied') && errorWord.endsWith('y')) {
-      return true; // try → tried, cry → cried
-    }
-
-    // -ing changes: run → running, play → playing, swim → swimming
-    if (correctWord.endsWith('ing') && !errorWord.endsWith('ing')) {
-      return true;
-    }
-
-    // Double consonant + ing: run → running, swim → swimming, stop → stopping
-    if (correctWord.endsWith('ing') &&
-        correctWord.length > errorWord.length + 3) {
-      final baseLength = errorWord.length;
-      if (baseLength > 0 &&
-          correctWord.substring(baseLength, baseLength + 1) ==
-              errorWord.substring(baseLength - 1)) {
-        return true; // doubled consonant
-      }
-    }
-
-    // Common tense changes: go → went, run → ran, see → saw, think → thought
-    final tenseChanges = {
-      'go': 'went',
-      'run': 'ran',
-      'see': 'saw',
-      'come': 'came',
-      'get': 'got',
-      'have': 'had',
-      'is': 'was',
-      'are': 'were',
-      'think': 'thought',
-      'buy': 'bought',
-      'bring': 'brought',
-      'catch': 'caught',
-      'teach': 'taught',
-      'make': 'made',
-      'take': 'took',
-      'give': 'gave',
-      'eat': 'ate',
-      'drink': 'drank'
-    };
-    if (tenseChanges[errorWord] == correctWord ||
-        tenseChanges[correctWord] == errorWord) {
-      return true;
-    }
-
-    // Comparative/superlative: big → bigger → biggest, good → better → best
-    final comparatives = {
-      'big': ['bigger', 'biggest'],
-      'good': ['better', 'best'],
-      'bad': ['worse', 'worst'],
-      'tall': ['taller', 'tallest'],
-      'small': ['smaller', 'smallest'],
-      'fast': ['faster', 'fastest'],
-      'slow': ['slower', 'slowest']
-    };
-    for (final entry in comparatives.entries) {
-      if ((entry.key == errorWord && entry.value.contains(correctWord)) ||
-          (entry.key == correctWord && entry.value.contains(errorWord))) {
-        return true;
-      }
     }
 
     return false;
+  }
+
+  /// Calculate the Levenshtein distance between two strings.
+  int _levenshteinDistance(String a, String b) {
+    if (a.isEmpty) return b.length;
+    if (b.isEmpty) return a.length;
+
+    final matrix = List.generate(a.length + 1, (_) => List.filled(b.length + 1, 0));
+
+    for (var i = 0; i <= a.length; i++) {
+      matrix[i][0] = i;
+    }
+
+    for (var j = 0; j <= b.length; j++) {
+      matrix[0][j] = j;
+    }
+
+    for (var i = 1; i <= a.length; i++) {
+      for (var j = 1; j <= b.length; j++) {
+        final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+        matrix[i][j] = [
+          matrix[i - 1][j] + 1, // Deletion
+          matrix[i][j - 1] + 1, // Insertion
+          matrix[i - 1][j - 1] + cost, // Substitution
+        ].reduce(min);
+      }
+    }
+
+    return matrix[a.length][b.length];
   }
 
   /// Check if sentence contains complex words unsuitable for beginners

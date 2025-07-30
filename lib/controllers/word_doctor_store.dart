@@ -60,6 +60,9 @@ abstract class _WordDoctorStore with Store {
   @observable
   bool isProcessingOCR = false;
 
+  @observable
+  String? ocrExtractedWord;
+
   // Debouncing for TTS calls
   Timer? _ttsDebounceTimer;
 
@@ -333,8 +336,8 @@ abstract class _WordDoctorStore with Store {
         if (words.isNotEmpty) {
           final extractedWord = words.first;
 
-          // Set the input word (user will manually press "Analyze Word")
-          setInputWord(extractedWord);
+          // Set the observable to trigger UI reaction
+          ocrExtractedWord = extractedWord;
 
           developer.log(
               '📷 OCR extracted word: "$extractedWord" - ready for manual analysis',
@@ -354,6 +357,11 @@ abstract class _WordDoctorStore with Store {
       developer.log('📷 OCR processing completed',
           name: 'dyslexic_ai.word_doctor');
     }
+  }
+
+  @action
+  void clearOcrExtractedWord() {
+    ocrExtractedWord = null;
   }
 
   @action
