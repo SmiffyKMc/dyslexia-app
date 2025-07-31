@@ -13,7 +13,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17  // Match CI Java version
         targetCompatibility = JavaVersion.VERSION_17
-        coreLibraryDesugaringEnabled = true  // Required for flutter_local_notifications
+        coreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {

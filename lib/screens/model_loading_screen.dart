@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:get_it/get_it.dart';
 
 import '../services/model_download_service.dart';
-import '../services/background_download_manager.dart';
+import '../services/flutter_download_service.dart';
 import '../widgets/fun_loading_widget.dart';
 import '../main.dart';
 import 'questionnaire/questionnaire_flow.dart';
@@ -21,8 +21,8 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
     with TickerProviderStateMixin {
   final ModelDownloadService _modelDownloadService =
       GetIt.instance<ModelDownloadService>();
-  final BackgroundDownloadManager _backgroundDownloadManager =
-      GetIt.instance<BackgroundDownloadManager>();
+  final FlutterDownloadService _flutterDownloadService =
+      GetIt.instance<FlutterDownloadService>();
 
   StreamSubscription<DownloadState>? _downloadStateSubscription;
 
@@ -113,7 +113,7 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
   void _subscribeToDownloadManager() {
     _downloadStateSubscription?.cancel();
     _downloadStateSubscription =
-        _backgroundDownloadManager.stateStream.listen((state) {
+        _flutterDownloadService.stateStream.listen((state) {
       if (!mounted) return;
 
       setState(() {
@@ -165,7 +165,16 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
       _navigateToHome();
       return;
     }
-    // If not, trigger the download process. The stream listener will handle UI updates.
+    
+    // Check if model is downloaded but not initialized
+    if (await _modelDownloadService.isFileDownloaded()) {
+      developer.log("Model downloaded but not initialized, starting initialization...", 
+          name: 'dyslexic_ai.navigation');
+      _startModelInitialization();
+      return;
+    }
+    
+    // If not downloaded, trigger the download process
     await _modelDownloadService.downloadModelIfNeeded();
   }
 
@@ -199,7 +208,7 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
       _isModelReady = false;
       _isInitializing = false;
     });
-    _backgroundDownloadManager.startOrResumeDownload();
+    _flutterDownloadService.startOrResumeDownload();
   }
   
   void _navigateToHome() {

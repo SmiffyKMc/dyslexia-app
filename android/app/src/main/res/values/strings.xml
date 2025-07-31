@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Flutter Downloader Custom Notifications -->
+    <string name="flutter_downloader_notification_started">🤖 AI Model Download Started</string>
+    <string name="flutter_downloader_notification_in_progress">🤖 Downloading AI Model</string>
+    <string name="flutter_downloader_notification_canceled">❌ AI Model Download Cancelled</string>
+    <string name="flutter_downloader_notification_failed">⚠️ AI Model Download Failed</string>
+    <string name="flutter_downloader_notification_complete">🎉 AI Model Ready!</string>
+    <string name="flutter_downloader_notification_paused">⏸️ AI Model Download Paused</string>
+    
+    <!-- Notification channel -->
+    <string name="flutter_downloader_notification_channel_name">AI Model Downloads</string>
+    <string name="flutter_downloader_notification_channel_description">Download progress for AI models</string>
+</resources> 

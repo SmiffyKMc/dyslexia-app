@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:workmanager/workmanager.dart';
+import 'package:flutter_downloader/flutter_downloader.dart';
+import 'dart:isolate';
+import 'dart:ui';
 import 'screens/home_screen.dart';
 import 'screens/learn_screen.dart';
 import 'screens/tools_screen.dart';
@@ -21,90 +23,72 @@ import 'utils/theme.dart';
 import 'utils/service_locator.dart';
 import 'services/font_preference_service.dart';
 import 'services/profile_update_service.dart';
-import 'services/background_download_manager.dart';
 import 'dart:developer' as developer;
-import 'services/download_notification_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
+// Flutter downloader callback - must be top level
 @pragma('vm:entry-point')
-void callbackDispatcher() {
-  developer.log('🎯 WorkManager callback dispatcher initialized',
-      name: 'dyslexic_ai.workmanager');
-
-  Workmanager().executeTask((task, inputData) async {
-    try {
-      developer.log('🔧 Background task started: $task',
-          name: 'dyslexic_ai.workmanager');
-
-      switch (task) {
-        case 'model_download_task':
-          await _handleModelDownloadTask(inputData);
-          break;
-        default:
-          developer.log('❓ Unknown background task: $task',
-              name: 'dyslexic_ai.workmanager');
-          return Future.value(false);
-      }
-
-      developer.log('✅ Background task completed: $task',
-          name: 'dyslexic_ai.workmanager');
-      return Future.value(true);
-    } catch (e, stackTrace) {
-      developer.log('❌ Background task failed: $task - $e\n$stackTrace',
-          name: 'dyslexic_ai.workmanager');
-      return Future.value(false);
-    }
-  });
+void downloadCallback(String id, int status, int progress) {
+  developer.log('📥 Download progress: $progress%', name: 'dyslexic_ai.flutter_download');
+  
+  final SendPort? send = IsolateNameServer.lookupPortByName('downloader_send_port');
+  send?.send([id, status, progress]);
 }
 
-Future<void> _handleModelDownloadTask(Map<String, dynamic>? inputData) async {
+// Request notification permission for Android 13+ (API 33+)
+Future<void> _requestNotificationPermission() async {
   try {
-    // Initialize minimal services needed for download
-    final downloadManager = BackgroundDownloadManager.instance;
-    await downloadManager.initialize();
-
-    // Clear any task registration locks since we're actually running now
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('dyslexic_ai_workmanager_lock');
-
-    // Initialize notification service in background worker to show progress
-    final notificationService = DownloadNotificationService.instance;
-    await notificationService.initialize();
+    // First check current status
+    final PermissionStatus currentStatus = await Permission.notification.status;
+    developer.log('📱 Current notification permission status: $currentStatus', 
+        name: 'dyslexic_ai.permissions');
     
-    developer.log('🔔 Notification service initialized in background worker', 
-                 name: 'dyslexic_ai.workmanager');
-
-    // Check if model is already available before starting download
-    if (await downloadManager.isModelAvailable()) {
-      developer.log(
-          '✅ Model already available in background task, skipping download',
-          name: 'dyslexic_ai.workmanager');
+    if (currentStatus.isGranted) {
+      developer.log('✅ Notification permission already granted', 
+          name: 'dyslexic_ai.permissions');
       return;
     }
-
-    // Perform pure download (no task registration - worker only)
-    developer.log('📥 Worker starting actual model download',
-        name: 'dyslexic_ai.workmanager');
-    await downloadManager.performActualDownload();
-
-    developer.log('✅ Worker download task completed',
-        name: 'dyslexic_ai.workmanager');
-  } catch (e, stackTrace) {
-    developer.log('❌ Background download failed: $e\n$stackTrace',
-        name: 'dyslexic_ai.workmanager');
+    
+    // Request permission
+    final PermissionStatus status = await Permission.notification.request();
+    
+    switch (status) {
+      case PermissionStatus.granted:
+        developer.log('✅ Notification permission granted', 
+            name: 'dyslexic_ai.permissions');
+        break;
+      case PermissionStatus.denied:
+        developer.log('❌ Notification permission denied - download progress notifications will not be shown', 
+            name: 'dyslexic_ai.permissions');
+        break;
+      case PermissionStatus.permanentlyDenied:
+        developer.log('🚫 Notification permission permanently denied - user needs to enable in settings', 
+            name: 'dyslexic_ai.permissions');
+        break;
+      default:
+        developer.log('❓ Notification permission status: $status', 
+            name: 'dyslexic_ai.permissions');
+    }
+  } catch (e) {
+    developer.log('⚠️ Error requesting notification permission: $e', 
+        name: 'dyslexic_ai.permissions');
   }
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize WorkManager for background model downloads
-  await Workmanager().initialize(
-    callbackDispatcher,
-    isInDebugMode: kDebugMode, // Only enable debug in debug builds
-  );
-  developer.log('🎯 WorkManager initialized with debug mode: $kDebugMode',
-      name: 'dyslexic_ai.workmanager');
+  // Initialize FlutterDownloader for background model downloads
+  await FlutterDownloader.initialize(debug: kDebugMode);
+  
+  // Register the callback for progress updates
+  FlutterDownloader.registerCallback(downloadCallback);
+  
+  developer.log('🎯 FlutterDownloader initialized with debug mode: $kDebugMode',
+      name: 'dyslexic_ai.flutter_download');
+
+  // Request notification permission for Android 13+ (API 33+)
+  await _requestNotificationPermission();
 
   await setupLocator();
 

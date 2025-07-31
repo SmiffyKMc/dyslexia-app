@@ -8,7 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:get_it/get_it.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 
-import 'background_download_manager.dart';
+import 'flutter_download_service.dart';
 import 'model_initializer.dart';
 import 'model_validator.dart';
 
@@ -30,8 +30,6 @@ class ModelDownloadService {
   final _modelInitializer = ModelInitializer();
   final _modelValidator = ModelValidator();
 
-  static const String _prefsKeyModelDownloaded = 'dyslexic_ai_model_downloaded';
-  static const String _prefsKeyModelPath = 'dyslexic_ai_model_path';
   static const String _prefsKeyModelInitialized =
       'dyslexic_ai_model_initialized';
   static const String _modelFileName = 'gemma-3n-E2B-it-int4.task';
@@ -97,17 +95,18 @@ class ModelDownloadService {
 
   /// Check if model file is downloaded and validated (but not necessarily initialized)
   Future<bool> isFileDownloaded() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isDownloaded = prefs.getBool(_prefsKeyModelDownloaded) ?? false;
-    final modelPath = prefs.getString(_prefsKeyModelPath);
+    final flutterDownloadService = GetIt.instance<FlutterDownloadService>();
+    final downloadState = flutterDownloadService.currentState;
 
     developer.log(
-        '🔍 File download check - Downloaded: $isDownloaded, Path: $modelPath',
+        '🔍 File download check - Status: ${downloadState.status}, Path: ${downloadState.modelPath}',
         name: 'dyslexic_ai.model_download');
 
-    if (isDownloaded && modelPath != null) {
+    if (downloadState.status == DownloadStatus.completed &&
+        downloadState.modelPath != null) {
       // Use validator for proper file checking
-      final isValid = await _modelValidator.isFileBasicallyValid(modelPath);
+      final isValid =
+          await _modelValidator.isFileBasicallyValid(downloadState.modelPath!);
       developer.log('📁 Model file valid: $isValid',
           name: 'dyslexic_ai.model_download');
       return isValid;
@@ -197,6 +196,10 @@ class ModelDownloadService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_prefsKeyModelInitialized, true);
 
+        // Update the download service with the model path
+        final flutterDownloadService = GetIt.instance<FlutterDownloadService>();
+        await flutterDownloadService.updateModelPath(modelPath);
+
         onProgress?.call(1.0);
         onSuccess?.call();
         developer.log(
@@ -213,7 +216,7 @@ class ModelDownloadService {
         developer.log('📁 File preserved - user can retry later or restart app',
             name: 'dyslexic_ai.model_download');
 
-        final errorString =
+        const errorString =
             'Model initialization failed. The file is downloaded but cannot be loaded right now. '
             'This may be due to device limitations. Try restarting the app or freeing up memory.';
         downloadError = errorString;
@@ -269,12 +272,12 @@ class ModelDownloadService {
       // If we reach here, a download is needed.
       _currentStatus = ModelStatus.downloading;
       final getIt = GetIt.instance;
-      final backgroundDownloadManager = getIt<BackgroundDownloadManager>();
+      final flutterDownloadService = getIt<FlutterDownloadService>();
 
       // This is now a fire-and-forget call.
       // The UI will listen to the background manager's stream for progress.
       developer.log('🚀 Triggering background download manager...', name: 'dyslexic_ai.model_download');
-      await backgroundDownloadManager.startOrResumeDownload();
+      await flutterDownloadService.startOrResumeDownload();
 
     } catch (e, stackTrace) {
       final errorString = 'Model download failed: $e';
@@ -300,12 +303,15 @@ class ModelDownloadService {
         return false;
       }
 
-      // Get the existing model path
-      final prefs = await SharedPreferences.getInstance();
-      final existingPath = prefs.getString(_prefsKeyModelPath);
+      // Get the existing model path from the download service
+      final flutterDownloadService = GetIt.instance<FlutterDownloadService>();
+      final existingPath = flutterDownloadService.currentState.modelPath;
+
+      developer.log('🚀 Attempting to initialize model from path: $existingPath',
+          name: 'dyslexic_ai.model_download');
 
       if (existingPath == null) {
-        developer.log('❌ No model path found in preferences',
+        developer.log('❌ No model path found in download service state',
             name: 'dyslexic_ai.model_download');
         return false;
       }
@@ -320,6 +326,7 @@ class ModelDownloadService {
             name: 'dyslexic_ai.model_download');
 
         // Mark as initialized in preferences
+        final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(_prefsKeyModelInitialized, true);
 
         _currentStatus = ModelStatus.ready;
@@ -342,8 +349,6 @@ class ModelDownloadService {
 
   Future<void> clearModelData() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefsKeyModelDownloaded);
-    await prefs.remove(_prefsKeyModelPath);
     await prefs.remove(_prefsKeyModelInitialized);
 
     // Clear validation cache

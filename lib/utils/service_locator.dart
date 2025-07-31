@@ -23,8 +23,7 @@ import '../controllers/sentence_fixer_store.dart';
 import '../services/story_service.dart';
 import '../services/phonics_sounds_service.dart';
 import '../services/model_download_service.dart';
-import '../services/background_download_manager.dart';
-import '../services/download_notification_service.dart';
+import '../services/flutter_download_service.dart';
 import '../services/session_logging_service.dart';
 import '../services/profile_update_service.dart';
 import '../services/text_simplifier_service.dart';
@@ -71,9 +70,8 @@ Future<void> setupLocator() async {
   getIt.registerLazySingleton<ModelDownloadService>(
       () => ModelDownloadService());
 
-  // Register background download services
-  getIt.registerSingleton<BackgroundDownloadManager>(BackgroundDownloadManager.instance);
-  getIt.registerSingleton<DownloadNotificationService>(DownloadNotificationService.instance);
+  // Register flutter download service
+  getIt.registerSingleton<FlutterDownloadService>(FlutterDownloadService.instance);
 
   // Register new learner profiler services
   getIt.registerLazySingleton<SessionLogStore>(() => SessionLogStore());
@@ -101,9 +99,8 @@ Future<void> setupLocator() async {
   // Initialize text simplifier service
   getIt<TextSimplifierService>().initialize();
 
-  // Initialize background download services
-  await getIt<BackgroundDownloadManager>().initialize();
-  await getIt<DownloadNotificationService>().initialize();
+  // Initialize flutter download service
+  await getIt<FlutterDownloadService>().initialize();
   
   getIt.registerFactory<ReadingCoachStore>(() => ReadingCoachStore());
 
