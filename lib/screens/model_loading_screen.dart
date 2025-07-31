@@ -31,7 +31,9 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
   bool _isModelReady = false;
   bool _isInitializing = false;
   String _progressText = '0%';
-  String _downloadedInfo = 'Preparing...';
+  String _currentDownloadMessage = 'Preparing...';
+  Timer? _messageTimer;
+  int _messageIndex = 0;
 
   late final AnimationController _pulseController;
   late final AnimationController _icon1Controller;
@@ -50,6 +52,7 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
     _setupAnimations();
     _subscribeToDownloadManager();
     _initiateModelCheck();
+    _startMessageCycling();
   }
 
   void _setupAnimations() {
@@ -112,25 +115,15 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
 
   void _subscribeToDownloadManager() {
     _downloadStateSubscription?.cancel();
-    _downloadStateSubscription =
-        _flutterDownloadService.stateStream.listen((state) {
+    _downloadStateSubscription = _flutterDownloadService.stateStream.listen((state) {
       if (!mounted) return;
 
       setState(() {
         _loadingProgress = state.progress;
         _progressText = '${(state.progress * 100).toInt()}%';
         
-        if (state.totalBytes != null && state.downloadedBytes != null) {
-          final downloadedMB = (state.downloadedBytes! / (1024 * 1024)).toStringAsFixed(1);
-          final totalMB = (state.totalBytes! / (1024 * 1024)).toStringAsFixed(1);
-          _downloadedInfo = '$downloadedMB MB / $totalMB MB';
-        } else {
-          _downloadedInfo = 'Calculating size...';
-        }
-
         switch (state.status) {
           case DownloadStatus.notStarted:
-             _downloadedInfo = 'Starting download...';
             break;
           case DownloadStatus.downloading:
             _loadingError = null;
@@ -142,11 +135,10 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
             _startModelInitialization();
             break;
           case DownloadStatus.failed:
-            _loadingError = state.error ?? 'An unknown download error occurred.';
+            _loadingError = state.error ?? 'Download failed. Please check your internet connection.';
             _isInitializing = false;
             break;
           case DownloadStatus.paused:
-            _downloadedInfo = 'Download paused';
             break;
           default:
             break;
@@ -261,7 +253,7 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'Downloading AI Reading Assistant',
+          'Setting up your AI Reading Assistant',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -306,7 +298,7 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
         ),
         const SizedBox(height: 10),
         Text(
-          _downloadedInfo,
+          _currentDownloadMessage,
           style: TextStyle(
             fontSize: 16,
             color: Colors.grey[600],
@@ -339,10 +331,38 @@ class _ModelLoadingLScreenState extends State<ModelLoadingScreen>
     ];
   }
 
+  List<String> _getDownloadMessages() {
+    return [
+      "Downloading your personal AI reading coach...",  
+      "Fetching advanced language processing model...",
+      "Preparing adaptive learning algorithms...",
+      "Getting dyslexia-friendly reading tools...",
+      "Downloading speech recognition capabilities...",
+      "Setting up personalized story generation...",
+      "Almost ready to transform your reading experience...",
+    ];
+  }
+
+  void _startMessageCycling() {
+    _messageTimer?.cancel();
+    _messageIndex = 0;
+    _messageTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _currentDownloadMessage = _getDownloadMessages()[_messageIndex];
+        _messageIndex = (_messageIndex + 1) % _getDownloadMessages().length;
+      });
+    });
+  }
+
   @override
   void dispose() {
     developer.log("Disposing ModelLoadingScreen", name: 'dyslexic_ai.lifecycle');
     _downloadStateSubscription?.cancel();
+    _messageTimer?.cancel();
     _pulseController.dispose();
     _icon1Controller.dispose();
     _icon2Controller.dispose();
