@@ -44,7 +44,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Phoneme pattern targeting** for systematic skill development
 - **Progress tracking** across multiple story sessions with completion analytics
 
-📸 _Demo_: ![Adaptive Story Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/adaptive_story.gif)
+📸 _Demo_: ![Adaptive Story Demo](https://github.com/SmiffyKMc/dyslexia-app/blob/main/assets/images/adaptive_story.gif)
 
 #### **🎮 Phonics Game**
 - **AI-generated word sets** matching user's learning focus areas
