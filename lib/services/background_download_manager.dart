@@ -133,8 +133,8 @@ class BackgroundDownloadManager {
     // Configure Dio for background downloads
     _dio.options.connectTimeout = const Duration(seconds: 30);
     _dio.options.receiveTimeout =
-        const Duration(hours: 2); // Long timeout for large files
-    _dio.options.sendTimeout = const Duration(minutes: 5);
+        const Duration(hours: 3); // Long timeout for large files
+    _dio.options.sendTimeout = const Duration(minutes: 30);
     _dio.options.headers = {
       'Accept': '*/*',
       'User-Agent': 'Flutter-App-DyslexicAI/1.0',

@@ -44,7 +44,7 @@ class ModelDownloadService {
   ModelDownloadService() {
     // Configure Dio for large file downloads
     _dio.options.connectTimeout = const Duration(seconds: 30);
-    _dio.options.receiveTimeout = const Duration(minutes: 30);
+    _dio.options.receiveTimeout = const Duration(hours: 3);
     _dio.options.sendTimeout = const Duration(minutes: 30);
     _dio.options.headers = {
       'Accept': '*/*',
