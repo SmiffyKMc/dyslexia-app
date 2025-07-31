@@ -8,6 +8,8 @@
 
 > **🌍 Impact**: Serves **10% of the global population** (dyslexic learners) while **eliminating water consumption** from cloud AI - addressing both accessibility and climate challenges.
 
+📸 _App Overview_: ![Onboarding Experience](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/onboarding.gif)
+
 ---
 
 ## 🎯 Problem & Opportunity  
@@ -34,7 +36,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Real-time speech recognition** with pronunciation feedback
 - **Session analytics** tracking word-level accuracy and reading patterns
 
-📸 _Demo_: `reading_coach.gif`
+📸 _Demo_: ![Reading Coach Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/reading_coach.gif)
 
 #### **📚 Adaptive Story Mode** 
 - **Dynamic AI story generation** with contextual fill-in-the-blank questions
@@ -42,7 +44,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Phoneme pattern targeting** for systematic skill development
 - **Progress tracking** across multiple story sessions with completion analytics
 
-📸 _Demo_: `adaptive_story_mode.gif`
+📸 _Demo_: ![Adaptive Story Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/adaptive_story.gif)
 
 #### **🎮 Phonics Game**
 - **AI-generated word sets** matching user's learning focus areas
@@ -50,7 +52,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Adaptive difficulty** that responds to success rates and learning velocity
 - **Achievement system** with streak tracking and milestone rewards
 
-📸 _Demo_: `phonics_game.gif`
+📸 _Demo_: ![Phonics Game Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/phonics.gif)
 
 #### **🔧 Sentence Fixer**
 - **AI-generated practice sentences** with strategically placed errors
@@ -58,7 +60,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Profile-based error focusing** (spelling vs grammar emphasis)
 - **Hint systems** that guide learning without revealing answers
 
-📸 _Demo_: `sentence_fixer.gif`
+📸 _Demo_: ![Sentence Fixer Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/sentence_fixer.gif)
 
 ### **🛠️ AI-Powered Tools (2 Complete Features)**
 
@@ -68,7 +70,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **AI-generated mnemonics** and contextual memory aids
 - **Etymology explanations** adapted to user's reading level
 
-📸 _Demo_: `word_doctor.gif`
+📸 _Demo_: ![Word Doctor Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/word_doctor.gif)
 
 #### **📝 Text Simplifier**
 - **Real-time text complexity reduction** with streaming AI responses
@@ -76,7 +78,7 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 - **Contextual definitions** for difficult terms
 - **Adaptive simplification** based on user's current reading level
 
-📸 _Demo_: `text_simplifier.gif`
+📸 _Demo_: ![Text Simplifier Demo](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/text_simp.gif)
 
 ---
 
@@ -103,6 +105,8 @@ Most "AI education" apps are glorified chatbots. **None** provide comprehensive,
 4.  **Content Personalization**: Other AI features then use this updated profile to generate new content that is hyper-targeted to the user's specific, current weaknesses.
 
 **Impact**: DyslexAI is more than a collection of tools; it's a cohesive, intelligent tutor that adapts in real-time, making learning more efficient and effective.
+
+📸 _Profile Update Demo_: ![Profile Analysis](https://raw.githubusercontent.com/SmiffyKMc/dyslexia-app/main/assets/images/profile_update.gif)
 
 ### **🔥 Innovation #3: Dyslexia-First Design System**
 **Problem**: Standard mobile UI components—with their default fonts, colors, and layouts—can create significant cognitive load and act as direct barriers for users with dyslexia.
