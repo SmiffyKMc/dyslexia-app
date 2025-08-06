@@ -347,7 +347,7 @@ await for (final chunk in _gemmaSession.generateStream(prompt)) {
 - **Error recovery**: MediaPipe provides robust fallbacks when hardware or processing fails
 
 
-#### **Challenge #7: Prompt Engineering for Reliable Content**
+#### **Challenge #5: Prompt Engineering for Reliable Content**
 **Problem**: Naive prompts for on-device LLMs produce unreliable or incorrect content, undermining the user's trust and learning experience.
 
 **Our Solution**: **Iterative Prompt Hardening & Multi-Layer Validation**
@@ -546,9 +546,9 @@ It was designed by someone who lives with dyslexia, for people who want to feel 
 ## 🎬 Demo Materials
 
 **📱 Live APK Demo**: [https://github.com/SmiffyKMc/dyslexia-app/releases]  
-**🎥 Feature Walkthrough**: [Comprehensive Video Demo]  
+**🎥 Feature Walkthrough**: [[Comprehensive Video Demo](https://www.youtube.com/watch?v=8Krt1CdYNd4&t=5s)]  
 **💻 Source Code**: [https://github.com/SmiffyKMc/dyslexia-app]  
-**📊 Technical Deep Dive**: [DyslexAI_Technical_Deep_Dive.md]
+**📊 Technical Deep Dive**: [[DyslexAI_Technical_Deep_Dive.md](https://github.com/SmiffyKMc/dyslexia-app/blob/main/DyslexAI_Technical_Deep_Dive.md)]
 
 ---
 
